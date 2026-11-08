@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Visor 3D: Loseta de Montaña Épica Catán (127 Losetas - CMYKWOG-B)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;800&display=swap');
+    body { font-family: 'Inter', sans-serif; user-select: none; margin: 0; overflow: hidden; background: #070b14; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+    .glass { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(14px); border: 1px solid rgba(51, 65, 85, 0.75); }
+    .glass-active { background: rgba(30, 58, 138, 0.9); border-color: rgba(96, 165, 250, 0.85); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  </style>
+</head>
+<body class="text-slate-100">
+
+  <div id="canvas-container"></div>
+
+  <!-- TOP HEADER HUD -->
+  <div class="absolute top-4 left-4 right-4 z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 pointer-events-none">
+    <div class="glass p-4 rounded-2xl shadow-2xl pointer-events-auto max-w-xl">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full text-[10px] font-bold uppercase tracking-wider mono">
+          CAD & 3MF MULTI-MATERIAL
+        </span>
+        <span class="px-2 py-0.5 bg-sky-500/20 text-sky-300 border border-sky-500/40 rounded-full text-[10px] font-bold uppercase tracking-wider mono">
+          INFIMECH MX PRO (8 CABEZALES)
+        </span>
+        <span id="badge-port" class="hidden px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full text-[10px] font-bold uppercase tracking-wider mono">
+          PUERTO 2:1 MINERAL
+        </span>
+      </div>
+      <h1 class="text-lg md:text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
+        <span>🏔️</span> Loseta de Montaña Épica: "Macizo de la Veta de Hierro"
+      </h1>
+      <p class="text-slate-400 text-xs mt-0.5">
+        Diseño paramétrico de alta resolución: Pico Matterhorn (Z=83mm), circo glaciar, cantera de mineral de hierro, zócalo de 25mm con imán N52 y cavidad para ficha de número Ø26mm.
+      </p>
+    </div>
+
+    <!-- QUICK STATS PILLS -->
+    <div class="glass p-3 rounded-2xl shadow-2xl pointer-events-auto flex items-center gap-2 text-xs">
+      <div class="text-center px-3 py-1 bg-slate-800/80 rounded-xl border border-slate-700/60">
+        <span class="text-[9px] text-slate-400 block font-bold uppercase">Cota Z Máx</span>
+        <span class="font-extrabold text-amber-400 mono">83.0 mm</span>
+      </div>
+      <div class="text-center px-3 py-1 bg-slate-800/80 rounded-xl border border-slate-700/60">
+        <span class="text-[9px] text-slate-400 block font-bold uppercase">Ancho Cara-Cara</span>
+        <span class="font-extrabold text-sky-400 mono">110.85 mm</span>
+      </div>
+      <div class="text-center px-3 py-1 bg-slate-800/80 rounded-xl border border-slate-700/60">
+        <span class="text-[9px] text-slate-400 block font-bold uppercase">Zócalo Base</span>
+        <span class="font-extrabold text-emerald-400 mono">25.0 mm</span>
+      </div>
+      <div class="text-center px-3 py-1 bg-slate-800/80 rounded-xl border border-slate-700/60">
+        <span class="text-[9px] text-slate-400 block font-bold uppercase">Ficha Número</span>
+        <span class="font-extrabold text-rose-400 mono">Ø26 × 1.8 mm</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEFT CONTROL PANEL: VIEW MODES & CMYKWOG TOOLS -->
+  <div class="absolute left-4 top-32 bottom-8 w-72 glass p-4 rounded-2xl shadow-2xl z-10 overflow-y-auto flex flex-col gap-4 pointer-events-auto">
+    
+    <!-- VARIANT SELECTOR -->
+    <div>
+      <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2 mono">Variante de Terreno</span>
+      <div class="grid grid-cols-2 gap-1.5 text-xs font-semibold">
+        <button id="btn-var-inland" onclick="setVariant(false)" class="glass-active text-white p-2 rounded-xl text-center transition">
+          🏔️ Interior
+        </button>
+        <button id="btn-var-port" onclick="setVariant(true)" class="glass hover:bg-slate-800/80 text-slate-300 p-2 rounded-xl text-center transition">
+          ⚓ Con Puerto
+        </button>
+      </div>
+    </div>
+
+    <div>
+      <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2 mono">Modo de Visualización</span>
+      <div class="grid grid-cols-1 gap-1.5 text-xs font-semibold">
+        <button id="btn-mode-pbr" onclick="setViewMode('pbr')" class="glass-active text-white p-2.5 rounded-xl text-left flex items-center gap-2 transition">
+          <span>🎨</span> Topografía Real PBR
+        </button>
+        <button id="btn-mode-tools" onclick="setViewMode('tools')" class="glass hover:bg-slate-800/80 text-slate-300 p-2.5 rounded-xl text-left flex items-center gap-2 transition">
+          <span>🌈</span> Mapa de Herramientas CMYKWOG
+        </button>
+        <button id="btn-mode-cad" onclick="setViewMode('cad')" class="glass hover:bg-slate-800/80 text-slate-300 p-2.5 rounded-xl text-left flex items-center gap-2 transition">
+          <span>📐</span> Interfaz CAD & Tolerancias
+        </button>
+        <button id="btn-mode-wire" onclick="setViewMode('wire')" class="glass hover:bg-slate-800/80 text-slate-300 p-2.5 rounded-xl text-left flex items-center gap-2 transition">
+          <span>🕸️</span> Malla de Triangulación
+        </button>
+      </div>
+    </div>
+
+    <!-- SLICING / SECTION PLANE SLIDER -->
+    <div class="pt-2 border-t border-slate-700/60">
+      <div class="flex items-center justify-between text-xs mb-1">
+        <span class="font-bold text-slate-300 flex items-center gap-1.5">
+          <span>✂️</span> Corte Z (Slicing Plane)
+        </span>
+        <span id="txt-z-cut" class="text-amber-400 font-extrabold mono">83 mm</span>
+      </div>
+      <input type="range" id="slider-z" min="0" max="83" step="1" value="83" oninput="updateZCut(this.value)" class="w-full accent-amber-500 cursor-pointer">
+      <div class="flex justify-between text-[10px] text-slate-400 mono mt-1">
+        <span>0 mm (Base)</span>
+        <span>25 mm (Zócalo)</span>
+        <span>83 mm (Pico)</span>
+      </div>
+    </div>
+
+    <!-- CMYKWOG TOOLHEAD PALETTE BREAKDOWN -->
+    <div class="pt-2 border-t border-slate-700/60 text-xs">
+      <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2 mono">Asignación 8 Cabezales</span>
+      
+      <div class="space-y-1.5 text-[11px]">
+        <div class="flex items-center justify-between p-1.5 bg-slate-900/60 rounded-lg border border-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-[#1e232a] border border-slate-500 inline-block"></span>
+            <span class="font-semibold text-slate-200">T0 / Base</span>
+          </div>
+          <span class="text-[10px] mono text-slate-400">Z: 0-25mm (0.4/0.6)</span>
+        </div>
+        <div class="flex items-center justify-between p-1.5 bg-slate-900/60 rounded-lg border border-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-[#878a8e] border border-slate-400 inline-block"></span>
+            <span class="font-semibold text-slate-200">T3 / Granito (K)</span>
+          </div>
+          <span class="text-[10px] mono text-slate-400">Paredes roca</span>
+        </div>
+        <div class="flex items-center justify-between p-1.5 bg-slate-900/60 rounded-lg border border-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-[#cd5f28] border border-amber-500 inline-block"></span>
+            <span class="font-semibold text-slate-200">T6 / Veta Hierro (O)</span>
+          </div>
+          <span class="text-[10px] mono text-slate-400">Cantera & Vetas</span>
+        </div>
+        <div class="flex items-center justify-between p-1.5 bg-slate-900/60 rounded-lg border border-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-[#f8faff] border border-white inline-block"></span>
+            <span class="font-semibold text-slate-200">T7 / Nieve (W)</span>
+          </div>
+          <span class="text-[10px] mono text-emerald-400 font-bold">Boquilla 0.2mm!</span>
+        </div>
+        <div class="flex items-center justify-between p-1.5 bg-slate-900/60 rounded-lg border border-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-[#417d37] border border-emerald-400 inline-block"></span>
+            <span class="font-semibold text-slate-200">T5 / Musgo (G)</span>
+          </div>
+          <span class="text-[10px] mono text-slate-400">Faldas bajas</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- NUMBER TOKEN TOGGLE -->
+    <div class="pt-2 border-t border-slate-700/60 flex items-center justify-between text-xs">
+      <span class="text-slate-300 font-semibold flex items-center gap-1.5">
+        <span>🎲</span> Ficha Numérica (Ø26)
+      </span>
+      <button id="btn-token" onclick="toggleToken()" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg mono transition">
+        Visible
+      </button>
+    </div>
+
+    <!-- RESET & CAMERA BUTTONS -->
+    <div class="pt-2 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
+      <button onclick="resetCamera()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold transition">
+        🔄 Perspectiva
+      </button>
+      <button onclick="topCamera()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold transition">
+        ⬆️ Cenital (CAD)
+      </button>
+    </div>
+
+  </div>
+
+  <!-- RIGHT CAD ANATOMY CARD -->
+  <div class="absolute right-4 top-32 w-80 glass p-4 rounded-2xl shadow-2xl z-10 flex flex-col gap-3 pointer-events-auto text-xs">
+    <div class="flex items-center justify-between">
+      <span class="font-bold text-white uppercase tracking-wider text-[11px] mono">Anatomía Funcional de Juego</span>
+      <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-full text-[10px] font-bold mono">100% Manifold</span>
+    </div>
+
+    <div class="space-y-2 text-slate-300">
+      <div class="bg-slate-900/70 p-2.5 rounded-xl border border-slate-800">
+        <span class="text-amber-400 font-bold block mb-0.5">1. Repisa de Ficha Numérica (Ø26 mm)</span>
+        <p class="text-[11px] text-slate-400">
+          Ubicada en una terraza a media ladera en <span class="mono text-slate-300">(X=16, Y=-14)</span> a cota Z=37mm con fondo a Z=35.2mm (1.8mm de profundidad) y muesca de extracción de uña.
+        </p>
+      </div>
+
+      <div class="bg-slate-900/70 p-2.5 rounded-xl border border-slate-800">
+        <span class="text-sky-400 font-bold block mb-0.5">2. Borde Plano Perimetral (3.5 mm)</span>
+        <p class="text-[11px] text-slate-400">
+          En las 6 aristas, el terreno desciende a ras de cota Z=25mm. Las carreteras y barcos apoyan sin rozar ninguna roca.
+        </p>
+      </div>
+
+      <div class="bg-slate-900/70 p-2.5 rounded-xl border border-slate-800">
+        <span class="text-emerald-400 font-bold block mb-0.5">3. Chaflanes de Vértice (6 × Ø20 mm)</span>
+        <p class="text-[11px] text-slate-400">
+          Mesetas circulares a cota Z=25mm en cada esquina para alojar Poblados, Ciudades, Murallas y Metrópolis sin colisión.
+        </p>
+      </div>
+
+      <div class="bg-slate-900/70 p-2.5 rounded-xl border border-slate-800">
+        <span class="text-rose-400 font-bold block mb-0.5">4. Bolsillo Inferior para Imán N52</span>
+        <p class="text-[11px] text-slate-400">
+          Cilindro ciego de <span class="mono text-slate-300">Ø10.2 × 5.2 mm</span> en el fondo inferior de la loseta para succión magnética (+2.23 kg) contra el subchasis en la pared.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- THREE.JS SCENE SCRIPT -->
+  <script>
+    let scene, camera, renderer, controls;
+    let mountainMesh, tokenMesh, cadHelpersGroup, zocaloMesh;
+    let currentMode = 'pbr';
+    let isPortMode = false;
+    let clipPlane;
+    let showToken = true;
+
+    const R = 64.0;
+    const APOTHEM = R * Math.cos(Math.PI / 6); // 55.4256 mm
+    const Z_BASE = 25.0;
+    const Z_PEAK = 83.0;
+
+    init();
+    animate();
+
+    function init() {
+      const container = document.getElementById('canvas-container');
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x070b14);
+      scene.fog = new THREE.FogExp2(0x070b14, 0.002);
+
+      camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 1, 2000);
+      camera.position.set(130, -140, 150);
+      camera.up.set(0, 0, 1);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.localClippingEnabled = true;
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.target.set(0, 0, 35);
+      controls.maxPolarAngle = Math.PI / 2 + 0.15;
+
+      // Lighting: Sun + Ambient + Fill
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
+      scene.add(ambientLight);
+
+      const sunLight = new THREE.DirectionalLight(0xfffaed, 1.35);
+      sunLight.position.set(120, -100, 180);
+      sunLight.castShadow = true;
+      sunLight.shadow.mapSize.width = 2048;
+      sunLight.shadow.mapSize.height = 2048;
+      sunLight.shadow.camera.near = 10;
+      sunLight.shadow.camera.far = 400;
+      sunLight.shadow.camera.left = -90;
+      sunLight.shadow.camera.right = 90;
+      sunLight.shadow.camera.top = 90;
+      sunLight.shadow.camera.bottom = -90;
+      sunLight.shadow.bias = -0.0005;
+      scene.add(sunLight);
+
+      const fillLight = new THREE.DirectionalLight(0x7fb5ff, 0.45);
+      fillLight.position.set(-120, 100, 60);
+      scene.add(fillLight);
+
+      // Clipping plane
+      clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), Z_PEAK);
+
+      // Generate the 3D Mountain Mesh procedurally
+      buildMountainMesh();
+
+      // Build Base Zocalo
+      buildBaseZocaloMesh();
+
+      // Build Number Token (Chit)
+      buildTokenMesh();
+
+      // Build CAD interface overlay helpers
+      buildCadHelpers();
+
+      // Grid ground plane
+      const grid = new THREE.GridHelper(300, 30, 0x1e293b, 0x0f172a);
+      grid.rotation.x = Math.PI / 2;
+      grid.position.z = -0.1;
+      scene.add(grid);
+
+      window.addEventListener('resize', onWindowResize, false);
+    }
+
+    function smoothstep(edge0, edge1, x) {
+      const t = Math.max(0.0, Math.min(1.0, (x - edge0) / (edge1 - edge0)));
+      return t * t * (3.0 - 2.0 * t);
+    }
+
+    function setVariant(isPort) {
+      isPortMode = isPort;
+      document.getElementById('btn-var-inland').className = !isPort ? 'glass-active text-white p-2 rounded-xl text-center transition' : 'glass hover:bg-slate-800/80 text-slate-300 p-2 rounded-xl text-center transition';
+      document.getElementById('btn-var-port').className = isPort ? 'glass-active text-white p-2 rounded-xl text-center transition' : 'glass hover:bg-slate-800/80 text-slate-300 p-2 rounded-xl text-center transition';
+      document.getElementById('badge-port').style.display = isPort ? 'inline-block' : 'none';
+
+      scene.remove(mountainMesh);
+      buildMountainMesh();
+      setViewMode(currentMode);
+    }
+
+    function buildMountainMesh() {
+      const res = 151;
+      const nx = res;
+      const ny = Math.round(res * (2 * R) / (2 * APOTHEM));
+
+      const geometry = new THREE.BufferGeometry();
+      const positions = [];
+      const colorsPBR = [];
+      const colorsTools = [];
+      const uvs = [];
+
+      const xs = [];
+      for (let i = 0; i < nx; i++) xs.push(-APOTHEM + (i / (nx - 1)) * 2 * APOTHEM);
+      const ys = [];
+      for (let j = 0; j < ny; j++) ys.push(-R + (j / (ny - 1)) * 2 * R);
+
+      const normalsHex = [];
+      for (let k = 0; k < 6; k++) {
+        const a = (k * 60) * Math.PI / 180;
+        normalsHex.push({ nx: Math.cos(a), ny: Math.sin(a) });
+      }
+
+      const vHex = [];
+      for (let k = 0; k < 6; k++) {
+        const a = (30 + 60 * k) * Math.PI / 180;
+        vHex.push({ x: R * Math.cos(a), y: R * Math.sin(a) });
+      }
+
+      const vertexMap = new Int32Array(nx * ny).fill(-1);
+      let vCount = 0;
+
+      for (let j = 0; j < ny; j++) {
+        const y = ys[j];
+        for (let i = 0; i < nx; i++) {
+          const x = xs[i];
+
+          let distEdge = 999.0;
+          for (let k = 0; k < 6; k++) {
+            const d = APOTHEM - (x * normalsHex[k].nx + y * normalsHex[k].ny);
+            if (d < distEdge) distEdge = d;
+          }
+
+          if (distEdge >= -0.1) {
+            let distVert = 999.0;
+            for (let k = 0; k < 6; k++) {
+              const dv = Math.hypot(x - vHex[k].x, y - vHex[k].y);
+              if (dv < distVert) distVert = dv;
+            }
+
+            const edgeFactor = smoothstep(3.5, 7.5, distEdge);
+            const vertFactor = smoothstep(10.0, 14.0, distVert);
+            const clearance = edgeFactor * vertFactor;
+
+            // Primary Peak Alpha at (-8, 8)
+            const dx1 = x - (-8.0);
+            const dy1 = y - 8.0;
+            const r1 = Math.hypot(dx1, dy1);
+            const ang1 = Math.atan2(dy1, dx1);
+            const ar1 = Math.pow(Math.max(0, Math.cos(ang1 - 2.44)), 2.5);
+            const ar2 = Math.pow(Math.max(0, Math.cos(ang1 - (-1.40))), 2.5);
+            const ar3 = Math.pow(Math.max(0, Math.cos(ang1 - 0.35)), 2.5);
+            const ridges1 = (ar1 + ar2 + ar3) * 0.45;
+            const hAlpha = 58.0 * Math.exp(-r1 / 20.0) * (1.0 + ridges1);
+
+            // Secondary Peak Beta at (12, 20)
+            const dx2 = x - 12.0;
+            const dy2 = y - 20.0;
+            const r2 = Math.hypot(dx2, dy2);
+            const ang2 = Math.atan2(dy2, dx2);
+            const arBeta = Math.pow(Math.max(0, Math.cos(ang2 - Math.PI)), 2.0) * 0.35;
+            const hBeta = 39.0 * Math.exp(-r2 / 16.0) * (1.0 + arBeta);
+
+            // Saddle
+            const pAx = -8.0, pAy = 8.0;
+            const pBx = 12.0, pBy = 20.0;
+            const ABx = pBx - pAx, ABy = pBy - pAy;
+            const lenAB2 = ABx * ABx + ABy * ABy;
+            const tProj = Math.max(0, Math.min(1, ((x - pAx) * ABx + (y - pAy) * ABy) / lenAB2));
+            const projX = pAx + tProj * ABx;
+            const projY = pAy + tProj * ABy;
+            const dRidge = Math.hypot(x - projX, y - projY);
+            const hSaddle = 32.0 * Math.exp(-dRidge / 6.0) * Math.pow(Math.sin(tProj * Math.PI), 0.5);
+
+            // Glacial cirque
+            const rCirque = Math.hypot(x - 1.0, y - 22.0);
+            const cirqueDep = -6.5 * Math.exp(-rCirque / 8.0) * smoothstep(10.0, 2.0, rCirque);
+
+            // Quarry terraces at (-12, -16)
+            const rq = Math.hypot(x - (-12.0), y - (-16.0));
+            const quarrySteps = 4.2 * Math.sin(rq * 0.75) * Math.exp(-rq / 22.0);
+
+            // Rock noise
+            const rockNoise = (
+              2.5 * Math.sin(x * 0.22 + y * 0.15) * Math.cos(y * 0.22 - x * 0.1) +
+              1.4 * Math.sin(x * 0.48 * 1.3 - y * 0.48 * 0.8 + 1.2) +
+              0.7 * Math.cos(x * 0.95 * 0.7 + y * 0.95 * 1.4 + 2.5) +
+              0.35 * Math.sin(x * 1.85 + y * 1.85)
+            );
+
+            let rawRelief = Math.max(hAlpha, Math.max(hBeta, hSaddle)) + cirqueDep + quarrySteps + rockNoise;
+            rawRelief = Math.max(0.0, rawRelief) * (58.0 / 62.0);
+            let sculpted = rawRelief * clearance;
+
+            // Chit Pocket & Terrace at (16, -14)
+            const rChit = Math.hypot(x - 16.0, y - (-14.0));
+            const zPlateau = 12.0;
+            const plateauFactor = smoothstep(18.0, 14.5, rChit);
+            sculpted = sculpted * (1.0 - plateauFactor) + zPlateau * plateauFactor;
+
+            const pocketWall = smoothstep(13.3, 13.0, rChit);
+            sculpted = sculpted * (1.0 - pocketWall) + (zPlateau - 1.8) * pocketWall;
+
+            const notchDist = Math.hypot(x - 29.0, y - (-14.0));
+            const notchFactor = smoothstep(3.0, 1.8, notchDist);
+            sculpted = sculpted * (1.0 - notchFactor) + (zPlateau - 2.5) * notchFactor;
+
+            // Coastal port pier feature if enabled
+            let isPier = false;
+            if (isPortMode) {
+              const pEdge0X = 0.5 * (vHex[0].x + vHex[1].x);
+              const pEdge0Y = 0.5 * (vHex[0].y + vHex[1].y);
+              const dPier = Math.hypot(x - pEdge0X, y - pEdge0Y);
+              if (dPier < 8.0) {
+                isPier = true;
+                sculpted = Math.max(sculpted, 3.5 * smoothstep(8.0, 2.0, dPier));
+              }
+            }
+
+            const z = Z_BASE + sculpted;
+
+            positions.push(x, y, z);
+            uvs.push((x + APOTHEM) / (2 * APOTHEM), (y + R) / (2 * R));
+
+            // PBR Color
+            let cr = 0.5, cg = 0.52, cb = 0.55;
+            if (isPier) {
+              cr = 0.55; cg = 0.32; cb = 0.18; // Wooden dock
+            } else if (z >= 66.0) {
+              cr = 0.96; cg = 0.98; cb = 1.0; // Snow
+            } else if (z >= 56.0 && y > 6.0) {
+              cr = 0.88; cg = 0.94; cb = 0.98; // Glacier ice
+            } else if (rq < 20.0 && z < 46.0 && y < -6.0) {
+              cr = 0.82; cg = 0.38; cb = 0.16; // Iron Ore / Terracotta
+            } else if (z < 27.5 && distEdge > 4.0) {
+              cr = 0.28; cg = 0.52; cb = 0.24; // Moss
+            } else if (rChit < 15.5) {
+              cr = 0.62; cg = 0.60; cb = 0.58; // Carved stone terrace
+            } else {
+              const shade = THREE.MathUtils.clamp(0.42 + (z - 25.0) * 0.008, 0.35, 0.72);
+              cr = shade; cg = shade; cb = shade * 1.05; // Granite
+            }
+            colorsPBR.push(cr, cg, cb);
+
+            // Toolhead Heatmap Color (CMYKWOG-B)
+            let tr = 0.1, tg = 0.1, tb = 0.1;
+            if (isPier) {
+              tr = 0.85; tg = 0.50; tb = 0.20; // Pier dock
+            } else if (z < 25.05) {
+              tr = 0.15; tg = 0.18; tb = 0.22; // T0 Base (dark)
+            } else if (rChit < 15.5) {
+              tr = 0.7; tg = 0.7; tb = 0.7; // T3/Neutral Plateau
+            } else if (z >= 66.0 || (z >= 56.0 && y > 6.0)) {
+              tr = 1.0; tg = 1.0; tb = 1.0; // T7 White (Snow)
+            } else if (rq < 20.0 && z < 46.0 && y < -6.0) {
+              tr = 0.95; tg = 0.45; tb = 0.10; // T6 Orange (Ore)
+            } else if (z < 27.5 && distEdge > 4.0) {
+              tr = 0.20; tg = 0.80; tb = 0.25; // T5 Green (Moss)
+            } else {
+              tr = 0.45; tg = 0.48; tb = 0.52; // T3 Granite
+            }
+            colorsTools.push(tr, tg, tb);
+
+            vertexMap[j * nx + i] = vCount++;
+          }
+        }
+      }
+
+      const indices = [];
+      for (let j = 0; j < ny - 1; j++) {
+        for (let i = 0; i < nx - 1; i++) {
+          const i00 = vertexMap[j * nx + i];
+          const i10 = vertexMap[j * nx + (i + 1)];
+          const i01 = vertexMap[(j + 1) * nx + i];
+          const i11 = vertexMap[(j + 1) * nx + (i + 1)];
+
+          if (i00 !== -1 && i10 !== -1 && i01 !== -1 && i11 !== -1) {
+            indices.push(i00, i10, i11);
+            indices.push(i00, i11, i01);
+          } else if (i00 !== -1 && i10 !== -1 && i11 !== -1) {
+            indices.push(i00, i10, i11);
+          } else if (i00 !== -1 && i11 !== -1 && i01 !== -1) {
+            indices.push(i00, i11, i01);
+          } else if (i00 !== -1 && i10 !== -1 && i01 !== -1) {
+            indices.push(i00, i10, i01);
+          } else if (i10 !== -1 && i11 !== -1 && i01 !== -1) {
+            indices.push(i10, i11, i01);
+          }
+        }
+      }
+
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colorsPBR, 3));
+      geometry.setAttribute('colorTools', new THREE.Float32BufferAttribute(colorsTools, 3));
+      geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+
+      const material = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.82,
+        metalness: 0.15,
+        clippingPlanes: [clipPlane],
+        clipShadows: true,
+        side: THREE.DoubleSide
+      });
+
+      mountainMesh = new THREE.Mesh(geometry, material);
+      mountainMesh.castShadow = true;
+      mountainMesh.receiveShadow = true;
+      scene.add(mountainMesh);
+    }
+
+    function buildBaseZocaloMesh() {
+      const hexShape = new THREE.Shape();
+      for (let k = 0; k < 6; k++) {
+        const a = (30 + 60 * k) * Math.PI / 180;
+        const x = R * Math.cos(a);
+        const y = R * Math.sin(a);
+        if (k === 0) hexShape.moveTo(x, y);
+        else hexShape.lineTo(x, y);
+      }
+      hexShape.closePath();
+
+      const magHole = new THREE.Path();
+      magHole.absarc(0, 0, 5.1, 0, Math.PI * 2, true);
+      hexShape.holes.push(magHole);
+
+      const extrudeSettings = { depth: Z_BASE, bevelEnabled: false };
+      const zocaloGeo = new THREE.ExtrudeGeometry(hexShape, extrudeSettings);
+      const zocaloMat = new THREE.MeshStandardMaterial({
+        color: 0x181c24,
+        roughness: 0.88,
+        metalness: 0.05,
+        clippingPlanes: [clipPlane],
+        side: THREE.DoubleSide
+      });
+
+      zocaloMesh = new THREE.Mesh(zocaloGeo, zocaloMat);
+      zocaloMesh.castShadow = true;
+      zocaloMesh.receiveShadow = true;
+      scene.add(zocaloMesh);
+    }
+
+    function buildTokenMesh() {
+      tokenMesh = new THREE.Group();
+
+      const chitGeo = new THREE.CylinderGeometry(13.0, 13.0, 1.8, 48);
+      chitGeo.rotateX(Math.PI / 2);
+      const chitMat = new THREE.MeshStandardMaterial({
+        color: 0xf3e8d2,
+        roughness: 0.7,
+        metalness: 0.05
+      });
+      const chit = new THREE.Mesh(chitGeo, chitMat);
+      chit.castShadow = true;
+      tokenMesh.add(chit);
+
+      const ringGeo = new THREE.RingGeometry(9.5, 11.0, 48);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x991b1b, side: THREE.DoubleSide });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.position.z = 0.92;
+      tokenMesh.add(ring);
+
+      const numGeo = new THREE.CircleGeometry(4.0, 32);
+      const numMat = new THREE.MeshBasicMaterial({ color: 0xdc2626 });
+      const numCircle = new THREE.Mesh(numGeo, numMat);
+      numCircle.position.z = 0.93;
+      tokenMesh.add(numCircle);
+
+      tokenMesh.position.set(16.0, -14.0, 36.1);
+      scene.add(tokenMesh);
+    }
+
+    function buildCadHelpers() {
+      cadHelpersGroup = new THREE.Group();
+      cadHelpersGroup.visible = false;
+
+      for (let k = 0; k < 6; k++) {
+        const a = (30 + 60 * k) * Math.PI / 180;
+        const vx = R * Math.cos(a);
+        const vy = R * Math.sin(a);
+
+        const circleGeo = new THREE.RingGeometry(9.6, 10.0, 32);
+        const circleMat = new THREE.MeshBasicMaterial({ color: 0x10b981, side: THREE.DoubleSide });
+        const pad = new THREE.Mesh(circleGeo, circleMat);
+        pad.position.set(vx, vy, Z_BASE + 0.2);
+        cadHelpersGroup.add(pad);
+      }
+
+      const edgeLineGeo = new THREE.BufferGeometry();
+      const edgePts = [];
+      for (let k = 0; k < 6; k++) {
+        const a = (30 + 60 * k) * Math.PI / 180;
+        edgePts.push(R * Math.cos(a), R * Math.sin(a), Z_BASE + 0.3);
+      }
+      edgePts.push(edgePts[0], edgePts[1], edgePts[2]);
+      edgeLineGeo.setAttribute('position', new THREE.Float32BufferAttribute(edgePts, 3));
+      const edgeLine = new THREE.Line(edgeLineGeo, new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2 }));
+      cadHelpersGroup.add(edgeLine);
+
+      const poleGeo = new THREE.CylinderGeometry(0.5, 0.5, 58.0, 16);
+      poleGeo.rotateX(Math.PI / 2);
+      poleGeo.translate(-8.0, 8.0, Z_BASE + 29.0);
+      const poleMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+      const pole = new THREE.Mesh(poleGeo, poleMat);
+      cadHelpersGroup.add(pole);
+
+      scene.add(cadHelpersGroup);
+    }
+
+    function setViewMode(mode) {
+      currentMode = mode;
+      document.getElementById('btn-mode-pbr').className = mode === 'pbr' ? 'glass-active text-white p-2.5 rounded-xl text-left flex items-center gap-2 transition' : 'glass hover:bg-slate-800/80 text-slate-300 p-2.5 rounded-xl text-left flex items-center gap-2 transition';
+      document.getElementById('btn-mode-tools').className = mode === 'tools' ? 'glass-active text-white p-2.5 rounded-xl text-left flex items-center gap-2 transition' : 'glass hover:bg-slate-800/80 text-slate-300 p-2.5 rounded-xl text-left flex items-center gap-2 transition';
+      document.getElementById('btn-mode-cad').className = mode === 'cad' ? 'glass-active text-white p-2.5 rounded-xl text-left flex items-center gap-2 transition' : 'glass hover:bg-slate-800/80 text-slate-300 p-2.5 rounded-xl text-left flex items-center gap-2 transition';
+      document.getElementById('btn-mode-wire').className = mode === 'wire' ? 'glass-active text-white p-2.5 rounded-xl text-left flex items-center gap-2 transition' : 'glass hover:bg-slate-800/80 text-slate-300 p-2.5 rounded-xl text-left flex items-center gap-2 transition';
+
+      const geom = mountainMesh.geometry;
+
+      if (mode === 'pbr') {
+        mountainMesh.material.wireframe = false;
+        cadHelpersGroup.visible = false;
+        geom.setAttribute('color', geom.getAttribute('color'));
+        geom.attributes.color.needsUpdate = true;
+      } else if (mode === 'tools') {
+        mountainMesh.material.wireframe = false;
+        cadHelpersGroup.visible = false;
+        geom.setAttribute('color', geom.getAttribute('colorTools'));
+        geom.attributes.color.needsUpdate = true;
+      } else if (mode === 'cad') {
+        mountainMesh.material.wireframe = false;
+        cadHelpersGroup.visible = true;
+        geom.setAttribute('color', geom.getAttribute('color'));
+        geom.attributes.color.needsUpdate = true;
+      } else if (mode === 'wire') {
+        mountainMesh.material.wireframe = true;
+        cadHelpersGroup.visible = true;
+      }
+    }
+
+    function updateZCut(val) {
+      document.getElementById('txt-z-cut').innerText = val + ' mm';
+      clipPlane.constant = parseFloat(val);
+    }
+
+    function toggleToken() {
+      showToken = !showToken;
+      tokenMesh.visible = showToken;
+      const btn = document.getElementById('btn-token');
+      btn.innerText = showToken ? 'Visible' : 'Oculto';
+      btn.className = showToken ? 'px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg mono transition' : 'px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold rounded-lg mono transition';
+    }
+
+    function resetCamera() {
+      camera.position.set(130, -140, 150);
+      controls.target.set(0, 0, 35);
+    }
+
+    function topCamera() {
+      camera.position.set(0, 0.1, 230);
+      controls.target.set(0, 0, 35);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+  </script>
+</body>
+</html>

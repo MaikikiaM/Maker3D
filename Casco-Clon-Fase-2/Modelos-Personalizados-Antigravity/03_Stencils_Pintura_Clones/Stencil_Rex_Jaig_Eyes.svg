@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <rect width="100%" height="100%" fill="#111827"/>
+  <text x="400" y="40" fill="#38bdf8" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="middle">CAPTAIN REX (501st) - STENCIL JAIG EYES &amp; TALLIES</text>
+  
+  <!-- Left Jaig Eye -->
+  <g fill="#0284c7" stroke="#38bdf8" stroke-width="2">
+    <path d="M 260 220 C 230 160, 280 110, 340 100 C 310 120, 290 150, 295 180 C 310 140, 350 130, 370 140 C 340 160, 320 200, 310 240 Z" />
+    <!-- Feathers -->
+    <path d="M 280 180 L 250 170 L 275 195 Z" />
+    <path d="M 270 205 L 240 200 L 265 220 Z" />
+    <circle cx="335" cy="155" r="10" fill="#f8fafc"/>
+  </g>
+  
+  <!-- Right Jaig Eye (Mirrored) -->
+  <g fill="#0284c7" stroke="#38bdf8" stroke-width="2" transform="translate(800, 0) scale(-1, 1)">
+    <path d="M 260 220 C 230 160, 280 110, 340 100 C 310 120, 290 150, 295 180 C 310 140, 350 130, 370 140 C 340 160, 320 200, 310 240 Z" />
+    <path d="M 280 180 L 250 170 L 275 195 Z" />
+    <path d="M 270 205 L 240 200 L 265 220 Z" />
+    <circle cx="335" cy="155" r="10" fill="#f8fafc"/>
+  </g>
+
+  <!-- Weld Lines Pattern -->
+  <g stroke="#64748b" stroke-width="4" stroke-dasharray="6,6">
+    <path d="M 220 290 Q 400 320 580 290" fill="none"/>
+  </g>
+  <text x="400" y="335" fill="#94a3b8" font-family="sans-serif" font-size="14" text-anchor="middle">Línea de soldadura híbrida Fase 1 / Fase 2</text>
+
+  <!-- Tally Marks -->
+  <g stroke="#38bdf8" stroke-width="4" stroke-linecap="round" transform="translate(150, 400)">
+    <line x1="0" y1="0" x2="0" y2="40"/>
+    <line x1="15" y1="0" x2="15" y2="40"/>
+    <line x1="30" y1="0" x2="30" y2="40"/>
+    <line x1="45" y1="0" x2="45" y2="40"/>
+    <line x1="-5" y1="35" x2="50" y2="5" stroke="#ef4444" stroke-width="3"/>
+  </g>
+  <g stroke="#38bdf8" stroke-width="4" stroke-linecap="round" transform="translate(230, 400)">
+    <line x1="0" y1="0" x2="0" y2="40"/>
+    <line x1="15" y1="0" x2="15" y2="40"/>
+    <line x1="30" y1="0" x2="30" y2="40"/>
+    <line x1="45" y1="0" x2="45" y2="40"/>
+    <line x1="-5" y1="35" x2="50" y2="5" stroke="#ef4444" stroke-width="3"/>
+  </g>
+  <text x="215" y="470" fill="#94a3b8" font-family="sans-serif" font-size="14" text-anchor="middle">Marcas de conteo (bajas) mejilla izquierda</text>
+</svg>

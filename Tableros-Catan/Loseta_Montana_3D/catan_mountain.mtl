@@ -1,0 +1,8 @@
+# Catan Mountain Full-Color Material
+newmtl MountainMaterial
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.050 0.050 0.050
+Ns 12.0
+map_Kd catan_mountain_diffuse_4k.png
+norm catan_mountain_normal_4k.png

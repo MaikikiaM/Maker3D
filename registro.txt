@@ -1,0 +1,17 @@
+================================================================================
+SESIÓN: 08/11/2026 - INICIALIZACIÓN Y CONSOLIDACIÓN DEL PROYECTO MAKER3D
+================================================================================
+
+**Prompts del usuario:**
+- "Adelante /boost /goal"
+
+**Acciones aplicadas:**
+1. Creación del monorrepo Maker3D para diseño paramétrico, modelado e impresión 3D FDM.
+2. Migración limpia de subproyectos eliminando prefijos numéricos:
+   - Casco-Clon-Fase-2 (modelo Comandante Thorn, aletas, binoculares y desarrollo-scratch).
+   - Funda-Lapiz-Xiaomi (estuche con bisagra print-in-place y soporte de bobina).
+   - Figuras-Poliedros (dodecaedro, icosaedro y poliedros de Arquímedes con tolerancias de encaje).
+   - Tableros-Catan (loseta de montaña 3D, generador multiescala 8K y pipeline-montana).
+3. Generación de Visores-HTML autónomos ligeros Three.js adaptados con controles táctiles para Android.
+4. Política de exclusión en Git: 0 archivos binarios pesados (.stl, .3mf, .obj, .npz, .npy) en GitHub; todo preservado en Google Drive.
+================================================================================

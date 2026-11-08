@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <rect width="100%" height="100%" fill="#111827"/>
+  <text x="400" y="40" fill="#38bdf8" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="middle">HARDCASE (501st) - BLUE FLAMES &amp; LIGHTNING STENCIL</text>
+  
+  <g fill="#0284c7" stroke="#38bdf8" stroke-width="2">
+    <path d="M 280 460 C 260 410, 210 380, 220 310 C 230 350, 250 360, 260 330 C 270 280, 230 250, 250 180 C 265 240, 280 260, 290 220 C 310 160, 280 120, 300 80 C 320 140, 315 200, 330 250 C 340 290, 320 330, 310 370 C 325 350, 340 370, 335 400 C 330 430, 300 460, 280 460 Z" />
+    <path d="M 520 460 C 540 410, 590 380, 580 310 C 570 350, 550 360, 540 330 C 530 280, 570 250, 550 180 C 535 240, 520 260, 510 220 C 490 160, 520 120, 500 80 C 480 140, 485 200, 470 250 C 460 290, 480 330, 490 370 C 475 350, 460 370, 465 400 C 470 430, 500 460, 520 460 Z" />
+  </g>
+  <text x="400" y="530" fill="#94a3b8" font-family="sans-serif" font-size="14" text-anchor="middle">Llamas y rayos de Hardcase desde la mandíbula hacia la cúpula</text>
+</svg>

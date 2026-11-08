@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Galería 3D Antigravity — Maker3D</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 32px 24px 20px 24px;
+      text-align: center;
+      background: linear-gradient(180deg, rgba(22, 27, 34, 0.9) 0%, rgba(13, 17, 23, 0.9) 100%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #f0f6fc;
+    }
+    header p {
+      margin: 8px 0 0 0;
+      color: #8b949e;
+      font-size: 0.9rem;
+    }
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      padding: 24px;
+      max-width: 1100px;
+      margin: 0 auto;
+      width: 100%;
+      flex: 1;
+    }
+    .card {
+      background: #161b22;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 20px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .card:hover, .card:active {
+      transform: translateY(-4px);
+      border-color: #58a6ff;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.4);
+    }
+    .card-icon {
+      font-size: 2.2rem;
+      margin-bottom: 12px;
+    }
+    .card h2 {
+      margin: 0 0 8px 0;
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #58a6ff;
+    }
+    .card p {
+      margin: 0 0 16px 0;
+      color: #8b949e;
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
+    .badge {
+      align-self: flex-start;
+      background: rgba(56, 139, 253, 0.15);
+      color: #58a6ff;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    footer {
+      text-align: center;
+      padding: 20px;
+      color: #484f58;
+      font-size: 0.8rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Galería 3D Antigravity — Maker3D</h1>
+    <p>Modelos 3D interactivos optimizados para pantallas táctiles Android y PC</p>
+  </header>
+
+  <main class="grid-container">
+    <a href="casco-clon-fase2.html" class="card">
+      <div>
+        <div class="card-icon">🪖</div>
+        <h2>Casco Clon Fase 2</h2>
+        <p>Modelo de alta precisión del Comandante Thorn de Fase II con aleta dorsal, visor T-shape y filtros de mejilla.</p>
+      </div>
+      <span class="badge">Three.js 3D</span>
+    </a>
+
+    <a href="funda-lapiz-xiaomi.html" class="card">
+      <div>
+        <div class="card-icon">✏️</div>
+        <h2>Funda Lápiz Xiaomi</h2>
+        <p>Estuche de protección rígido para Xiaomi Smart Pen de 2ª generación con cierre magnético y bisagra mecánica.</p>
+      </div>
+      <span class="badge">Three.js 3D</span>
+    </a>
+
+    <a href="figuras-poliedros.html" class="card">
+      <div>
+        <div class="card-icon">💎</div>
+        <h2>Figuras y Poliedros</h2>
+        <p>Conjunto de geometrías platónicas y arquimedianas (dodecaedro, icosaedro y octaedro) con tolerancias FDM.</p>
+      </div>
+      <span class="badge">Three.js 3D</span>
+    </a>
+
+    <a href="catan-loseta-montana.html" class="card">
+      <div>
+        <div class="card-icon">🏔️</div>
+        <h2>Loseta Montaña 3D (Catan)</h2>
+        <p>Loseta hexagonal con relieve alpino realista estilo Matterhorn/Tetons, crestas biseladas y cumbre nevada.</p>
+      </div>
+      <span class="badge">Three.js 3D</span>
+    </a>
+  </main>
+
+  <footer>
+    Antigravity AI Maker3D • Renderizado WebGL acelerado por hardware
+  </footer>
+</body>
+</html>

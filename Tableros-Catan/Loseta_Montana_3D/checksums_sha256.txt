@@ -1,0 +1,15 @@
+# SHA-256 INTEGRITY MANIFEST - CATAN 3D MOUNTAIN FULL-COLOR PRODUCTION SUITE
+# Certified: 2026-11-04 (5K Glaciated Peak Alpamayo / Mont Blanc Edition)
+
+af92809af6aff74549271e1ede87b0a4ffff2e8a7beb4b6e057800008fc9280f    243.71 MB  catan_mountain_solid.stl
+db1c30fc470098135b6fb4bcdf0d89bdf9733125260cc19b7a8781140c855f3a    112.11 MB  catan_mountain_fullcolor.ply
+b8eed0fd712056a2fa18cbef2a58c387e55b80044fbdd4b917d6cf99fd4805aa    188.41 MB  catan_mountain_fullcolor.obj
+1c72c1fba5288ae83fc723e7bcfd291b744ae04e39a7da69828a464f0476a5c5      0.00 MB  catan_mountain.mtl
+99f1daffd4fa5f23c75233deb7cd8f23ea9b06f4de55e35216c9e21e23c6f5dc    103.34 MB  catan_mountain_fullcolor.3mf
+c3ccf72593933336b3d1fd52ddc91ba7b5df5b548769ac15cbe33cd9a408a7a7      6.84 MB  catan_mountain_diffuse_4k.png
+9e3bea3909f8b50dbf70ff61037f4480ee3cd64106064f741772f482ce553605      2.69 MB  catan_mountain_diffuse_2k.png
+c4aefc32de274051c49e530a03ffbd08741f1d0dbaa5265490a5266f17b4b752     17.16 MB  catan_mountain_normal_4k.png
+d0cbd8a15b672ecd5263b71a59140f6aeb494456160db9fd955d7dc4e8efe8ff      7.50 MB  catan_mountain_viewer.html
+7c544bc8e89d5db24c14ae97d10225ce79d639282cadfdd2e4f8047ea276c640      0.01 MB  catan_mountain_engineering_dossier.md
+ec9a6608d552ee80bc6c6f9288609de0a844ba15f0d6125c46901ff31144781e      0.00 MB  bambu_orcaslicer_mountain_profile.json
+a36918e062b6b367e621c49adc930f6699c01a10cdc4c58e7b451b8a2c636228      0.00 MB  prusaslicer_mmu3_mountain_profile.ini

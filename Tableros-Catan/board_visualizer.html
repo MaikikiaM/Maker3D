@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Catán 3D Esculpido (Estilo Dakanzla) - 127 Losetas en Marco 146×146 cm</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;800&display=swap');
+    body { font-family: 'Inter', sans-serif; user-select: none; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    canvas { cursor: grab; }
+    canvas:active { cursor: grabbing; }
+  </style>
+</head>
+<body class="bg-[#090e1a] text-slate-100 min-h-screen p-3 md:p-6 antialiased">
+  <div class="max-w-[1720px] mx-auto space-y-4">
+    
+    <!-- TOP HEADER -->
+    <header class="bg-[#121b2d] border border-slate-700/80 rounded-2xl p-5 shadow-2xl flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+      <div>
+        <div class="flex flex-wrap items-center gap-2 mb-1.5">
+          <span class="px-2.5 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full text-[11px] font-bold uppercase tracking-wider mono">
+            TOPOGRAFÍA ESCULPIDA (ESTILO 3D SETTLERS)
+          </span>
+          <span class="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full text-[11px] font-bold uppercase tracking-wider mono">
+            MARCO 146 × 146 cm
+          </span>
+          <span class="px-2.5 py-0.5 bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-full text-[11px] font-bold uppercase tracking-wider mono">
+            127 LOSETAS (39 TIERRA + 88 OCÉANO)
+          </span>
+        </div>
+        <h1 class="text-xl md:text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
+          <span>🏔️</span> Catán 3D Esculpido: Picos de Montaña, Bosques en Anillo y Campos Aterrazados
+        </h1>
+        <p class="text-slate-400 text-xs mt-1">
+          Topografía de altura variable orgánica inspirada en los modelos de referencia: zócalo base común con imanes N52, cavidades para fichas numéricas y rebajes en aristas y vértices.
+        </p>
+      </div>
+
+      <!-- Quick CAD pills -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl px-3 py-1.5">
+          <span class="text-[10px] text-slate-400 uppercase font-bold block">Cuadrado Exterior</span>
+          <span class="font-extrabold text-amber-400 mono">1460 × 1460 mm</span>
+        </div>
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl px-3 py-1.5">
+          <span class="text-[10px] text-slate-400 uppercase font-bold block">Hexágono Inscrito</span>
+          <span class="font-extrabold text-sky-400 mono">1441 × 1280 mm</span>
+        </div>
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl px-3 py-1.5">
+          <span class="text-[10px] text-slate-400 uppercase font-bold block">Pico Montaña Z max</span>
+          <span class="font-extrabold text-slate-200 mono">Base 12 + Relieve 35 mm</span>
+        </div>
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl px-3 py-1.5">
+          <span class="text-[10px] text-slate-400 uppercase font-bold block">Imanes N52 Totales</span>
+          <span class="font-extrabold text-rose-400 mono">762 (127 × 6)</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- CONTROL TABS -->
+    <div class="bg-[#121b2d] border border-slate-700/80 rounded-2xl p-3 shadow-xl flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-800 text-xs">
+        <button id="btn-mode-3d" onclick="setMode('3d')" class="px-3.5 py-1.5 rounded-lg font-bold transition bg-sky-600 text-white shadow">
+          🎮 Vista 3D Esculpida Real
+        </button>
+        <button id="btn-mode-cad" onclick="setMode('cad')" class="px-3.5 py-1.5 rounded-lg font-bold transition text-slate-300 hover:text-white hover:bg-slate-800">
+          📐 Plano CAD & Cotas 146cm
+        </button>
+        <button id="btn-mode-cross" onclick="setMode('cross')" class="px-3.5 py-1.5 rounded-lg font-bold transition text-slate-300 hover:text-white hover:bg-slate-800">
+          🔍 Sección Anatómica de Loseta
+        </button>
+        <button id="btn-mode-magnets" onclick="setMode('magnets')" class="px-3.5 py-1.5 rounded-lg font-bold transition text-slate-300 hover:text-white hover:bg-slate-800">
+          🧲 Guía de Imanes (762 uds)
+        </button>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-3 text-xs text-slate-300">
+        <label class="flex items-center gap-1.5 cursor-pointer bg-slate-800/60 px-2.5 py-1 rounded-lg border border-slate-700/50 hover:bg-slate-800">
+          <input type="checkbox" id="chk-relief" checked onchange="toggleRelief()" class="rounded bg-slate-900 border-slate-700 text-sky-500">
+          <span>🏔️ Topografía 3D Real</span>
+        </label>
+        <label class="flex items-center gap-1.5 cursor-pointer bg-slate-800/60 px-2.5 py-1 rounded-lg border border-slate-700/50 hover:bg-slate-800">
+          <input type="checkbox" id="chk-frame" checked onchange="toggleFrame()" class="rounded bg-slate-900 border-slate-700 text-amber-500">
+          <span>🔲 Marco 146cm & Player Hubs</span>
+        </label>
+        <label class="flex items-center gap-1.5 cursor-pointer bg-slate-800/60 px-2.5 py-1 rounded-lg border border-slate-700/50 hover:bg-slate-800">
+          <input type="checkbox" id="chk-ports" checked onchange="togglePorts()" class="rounded bg-slate-900 border-slate-700 text-sky-500">
+          <span>⚓ Puertos (16)</span>
+        </label>
+        
+        <button onclick="rollDice()" class="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-extrabold rounded-lg shadow transition active:scale-95 mono">
+          <span>🎲</span>
+          <span>Tirar 2D6</span>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-1.5 text-xs">
+        <button onclick="resetCamera()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700">🔄 Reset</button>
+        <button onclick="topCamera()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700">⬆️ Cenital</button>
+        <button onclick="isoCamera()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700">📐 Isométrica</button>
+      </div>
+    </div>
+
+    <!-- MAIN VIEWPORT + SIDEBAR -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      
+      <!-- 3D CANVAS (8 COLS) -->
+      <div class="lg:col-span-8 bg-[#121b2d] border border-slate-700/80 rounded-2xl p-2 shadow-2xl relative flex flex-col justify-center items-center overflow-hidden min-h-[680px]">
+        
+        <div class="absolute top-4 left-4 z-10 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-xl p-3 text-xs shadow-xl pointer-events-none space-y-1">
+          <div class="font-bold text-white flex items-center gap-2">
+            <span id="canvas-mode-indicator" class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
+            <span id="canvas-mode-title">Relieve Esculpido Orgánico: Picos, Bosques y Terrazas</span>
+          </div>
+          <div class="text-[11px] text-slate-400">
+            🖱️ <b>Arrastra:</b> Rotar 360° | <b>Rueda:</b> Zoom +/- | <b>Clic:</b> Inspeccionar casilla y cavidad de ficha
+          </div>
+          <div id="dice-result-badge" class="hidden mt-1 px-2 py-0.5 bg-amber-500/20 border border-amber-500/40 rounded text-amber-300 font-bold mono">
+            Última tirada: <span id="dice-val">7</span> (<span id="dice-detail">Ladrón se activa</span>)
+          </div>
+        </div>
+
+        <canvas id="main-canvas" class="w-full h-[680px] rounded-xl bg-[#070b14] border border-slate-800/80 block"></canvas>
+
+        <div class="absolute bottom-4 left-4 right-4 z-10 flex items-center justify-between text-[11px] text-slate-400 pointer-events-none">
+          <div class="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-lg px-3 py-1.5 mono">
+            Cuadrado exterior: <b>146.0 × 146.0 cm</b> | Hexágono inscrito: <b>144.1 × 128.0 cm</b>
+          </div>
+          <div class="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-lg px-3 py-1.5 mono">
+            Topografía: <b class="text-amber-400">Picos de montaña en el centro</b>, <b class="text-emerald-400">Trigo bajo aterrazado</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- SIDEBAR (4 COLS) -->
+      <div class="lg:col-span-4 space-y-4">
+        
+        <!-- CARD: TILE SCULPTING CAD INSPECTOR -->
+        <div class="bg-[#121b2d] border border-slate-700/80 rounded-2xl p-4 shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-700 pb-2.5 mb-3">
+            <h3 class="font-extrabold text-sm text-white flex items-center gap-2">
+              <span id="insp-icon" class="text-lg">⛰️</span>
+              <span id="insp-name">Montaña con Pico Central</span>
+            </h3>
+            <span id="insp-coords" class="mono text-xs px-2 py-0.5 bg-slate-800 text-sky-400 border border-slate-700 rounded-md font-bold">
+              Fila 6, Col 4
+            </span>
+          </div>
+
+          <div class="space-y-2.5 text-xs">
+            
+            <!-- Biome Sculpting Analysis -->
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-2">
+              <div class="text-[10px] font-bold uppercase text-amber-400 tracking-wider flex items-center justify-between">
+                <span>Anatomía del Relieve Esculpido</span>
+                <span id="insp-sculpt-type" class="text-slate-300 mono font-semibold">Pico Central Rocoso</span>
+              </div>
+              <p id="insp-sculpt-desc" class="text-slate-300 text-[11px] leading-relaxed">
+                El relieve rocoso se alza en un pico central escarpado con riscos y cumbres nevadas. A media ladera incorpora una meseta cilíndrica de Ø26mm donde encaja la ficha numérica.
+              </p>
+            </div>
+
+            <!-- Dimensions -->
+            <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 space-y-1.5">
+              <div class="text-[10px] font-bold uppercase text-sky-400 tracking-wider">Cotas de Altura Real de la Loseta</div>
+              <div class="grid grid-cols-2 gap-2 text-[11px] mono">
+                <div>Zócalo base: <b class="text-sky-300">12.0 mm</b></div>
+                <div>Cavidad ficha: <b class="text-amber-300">Ø26 × 1.8 mm</b></div>
+                <div>Relieve pico Z: <b id="insp-z-relief" class="text-emerald-400">35.0 mm</b></div>
+                <div>Cota Z máxima: <b id="insp-z-total" class="text-white">47.0 mm</b></div>
+              </div>
+            </div>
+
+            <!-- Interlocking & Clearance -->
+            <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 space-y-1.5">
+              <div class="text-[10px] font-bold uppercase text-emerald-400 tracking-wider">Zonas de Contacto y Miniaturas</div>
+              <div class="text-[11px] space-y-1">
+                <div class="flex justify-between">
+                  <span class="text-slate-400">Borde perimetral libre:</span>
+                  <b class="text-slate-200 mono">Marco plano de 2.5 mm</b>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-400">Vértices para Ciudades/Murallas:</span>
+                  <b class="text-emerald-400 mono">Chaflán circular Ø20 mm</b>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-400">Canal para Caminos y Barcos:</span>
+                  <b class="text-slate-200 mono">Ranura 3.0 × 1.2 mm</b>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-400">Imanes N52 Laterales:</span>
+                  <b class="text-rose-400 mono">6 unidades (Z = 6.0 mm)</b>
+                </div>
+              </div>
+            </div>
+
+            <!-- Economic Yield -->
+            <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 space-y-1.5">
+              <div class="text-[10px] font-bold uppercase text-purple-400 tracking-wider">Ficha Numérica y Juego</div>
+              <div class="flex justify-between items-center text-[11px]">
+                <span class="text-slate-400">Número y Probabilidad:</span>
+                <span class="mono font-bold text-sm text-white" id="insp-game-num">8 (5 pips, 13.9%)</span>
+              </div>
+              <div class="flex justify-between items-center text-[11px]">
+                <span class="text-slate-400">Región Geográfica:</span>
+                <span class="font-bold text-sky-400" id="insp-game-zone">Continente Occidental</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- REFERENCE DECONSTRUCTION CARD -->
+        <div class="bg-[#121b2d] border border-slate-700/80 rounded-2xl p-4 shadow-xl space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-700 pb-2">
+            <h3 class="font-extrabold text-sm text-white flex items-center gap-1.5">
+              <span>🎨</span> Desglose del Estilo Esculpido (Fotos de Referencia)
+            </h3>
+          </div>
+
+          <div class="space-y-2 text-[11px] text-slate-300">
+            <div class="p-2 bg-slate-900/60 rounded-lg border border-slate-800">
+              <b class="text-amber-400 block mb-0.5">🌾 Trigo / Cultivos (Relieve Bajo ~4-6 mm):</b>
+              Campos geométricos labrados con surcos, pequeños pajares y granjas en miniatura. Relieve bajo y transitable.
+            </div>
+            <div class="p-2 bg-slate-900/60 rounded-lg border border-slate-800">
+              <b class="text-emerald-400 block mb-0.5">🐑 Pastos / Lana (Ondulado ~6-10 mm):</b>
+              Colinas suaves de hierba con cercados de madera, ovejitas blancas y riachuelos.
+            </div>
+            <div class="p-2 bg-slate-900/60 rounded-lg border border-slate-800">
+              <b class="text-green-400 block mb-0.5">🌲 Bosque / Madera (Arboledas ~14-18 mm):</b>
+              Copas de árboles redondeadas dispuestas en anillo o herradura, dejando un claro para la ficha.
+            </div>
+            <div class="p-2 bg-slate-900/60 rounded-lg border border-slate-800">
+              <b class="text-red-400 block mb-0.5">🧱 Arcilla / Colinas (Cañones ~12-16 mm):</b>
+              Estratos rocosos escalonados con curvas de nivel tipo cañón/cantera a cielo abierto.
+            </div>
+            <div class="p-2 bg-slate-900/60 rounded-lg border border-slate-800">
+              <b class="text-slate-300 block mb-0.5">⛰️ Montaña / Mineral (Picos ~25-35 mm):</b>
+              Picos escarpados cónicos en el centro o volcán con cráter y lava, con repisa para el número.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const TILES = [{"r": 0, "c": 0, "x": -332.55, "y": -576.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 0, "c": 1, "x": -221.7, "y": -576.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 0, "c": 2, "x": -110.85, "y": -576.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 0, "c": 3, "x": 0.0, "y": -576.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 0, "c": 4, "x": 110.85, "y": -576.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 0, "c": 5, "x": 221.7, "y": -576.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 0, "c": 6, "x": 332.55, "y": -576.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 1, "c": 0, "x": -387.98, "y": -480.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 1, "c": 1, "x": -277.13, "y": -480.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 1, "c": 2, "x": -166.28, "y": -480.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 1, "c": 3, "x": -55.43, "y": -480.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 1, "c": 4, "x": 55.43, "y": -480.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 1, "c": 5, "x": 166.28, "y": -480.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 1, "c": 6, "x": 277.13, "y": -480.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 1, "c": 7, "x": 387.98, "y": -480.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 2, "c": 0, "x": -443.41, "y": -384.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 2, "c": 1, "x": -332.55, "y": -384.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 2, "c": 2, "x": -221.7, "y": -384.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 2, "c": 3, "x": -110.85, "y": -384.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 2, "c": 4, "x": 0.0, "y": -384.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 2, "c": 5, "x": 110.85, "y": -384.0, "zone": "Atolón Norte", "terrain": "GOLD", "num": 6, "pips": 5, "z_height": 35}, {"r": 2, "c": 6, "x": 221.7, "y": -384.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 2, "c": 7, "x": 332.55, "y": -384.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 2, "c": 8, "x": 443.41, "y": -384.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 3, "c": 0, "x": -498.83, "y": -288.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 3, "c": 1, "x": -387.98, "y": -288.0, "zone": "Continente", "terrain": "WOOD", "num": 8, "pips": 5, "z_height": 50}, {"r": 3, "c": 2, "x": -277.13, "y": -288.0, "zone": "Continente", "terrain": "WHEAT", "num": 10, "pips": 3, "z_height": 22}, {"r": 3, "c": 3, "x": -166.28, "y": -288.0, "zone": "Continente", "terrain": "SHEEP", "num": 6, "pips": 5, "z_height": 25}, {"r": 3, "c": 4, "x": -55.43, "y": -288.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 3, "c": 5, "x": 55.43, "y": -288.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 3, "c": 6, "x": 166.28, "y": -288.0, "zone": "Atolón Norte", "terrain": "WOOD", "num": 5, "pips": 4, "z_height": 50}, {"r": 3, "c": 7, "x": 277.13, "y": -288.0, "zone": "Atolón Norte", "terrain": "WHEAT", "num": 9, "pips": 4, "z_height": 22}, {"r": 3, "c": 8, "x": 387.98, "y": -288.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 3, "c": 9, "x": 498.83, "y": -288.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 4, "c": 0, "x": -554.26, "y": -192.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 4, "c": 1, "x": -443.41, "y": -192.0, "zone": "Continente", "terrain": "CLAY", "num": 12, "pips": 1, "z_height": 40}, {"r": 4, "c": 2, "x": -332.55, "y": -192.0, "zone": "Continente", "terrain": "ORE", "num": 4, "pips": 3, "z_height": 70}, {"r": 4, "c": 3, "x": -221.7, "y": -192.0, "zone": "Continente", "terrain": "WOOD", "num": 3, "pips": 2, "z_height": 50}, {"r": 4, "c": 4, "x": -110.85, "y": -192.0, "zone": "Continente", "terrain": "WHEAT", "num": 10, "pips": 3, "z_height": 22}, {"r": 4, "c": 5, "x": 0.0, "y": -192.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 4, "c": 6, "x": 110.85, "y": -192.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 4, "c": 7, "x": 221.7, "y": -192.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 4, "c": 8, "x": 332.55, "y": -192.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 4, "c": 9, "x": 443.41, "y": -192.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 4, "c": 10, "x": 554.26, "y": -192.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 5, "c": 0, "x": -609.68, "y": -96.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 5, "c": 1, "x": -498.83, "y": -96.0, "zone": "Continente", "terrain": "SHEEP", "num": 6, "pips": 5, "z_height": 25}, {"r": 5, "c": 2, "x": -387.98, "y": -96.0, "zone": "Continente", "terrain": "WHEAT", "num": 4, "pips": 3, "z_height": 22}, {"r": 5, "c": 3, "x": -277.13, "y": -96.0, "zone": "Continente", "terrain": "CLAY", "num": 5, "pips": 4, "z_height": 40}, {"r": 5, "c": 4, "x": -166.28, "y": -96.0, "zone": "Continente", "terrain": "ORE", "num": 8, "pips": 5, "z_height": 70}, {"r": 5, "c": 5, "x": -55.43, "y": -96.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 5, "c": 6, "x": 55.43, "y": -96.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 5, "c": 7, "x": 166.28, "y": -96.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 5, "c": 8, "x": 277.13, "y": -96.0, "zone": "Isla de Oro", "terrain": "SHEEP", "num": 10, "pips": 3, "z_height": 25}, {"r": 5, "c": 9, "x": 387.98, "y": -96.0, "zone": "Isla de Oro", "terrain": "GOLD", "num": 8, "pips": 5, "z_height": 35}, {"r": 5, "c": 10, "x": 498.83, "y": -96.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 5, "c": 11, "x": 609.68, "y": -96.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 6, "c": 0, "x": -665.11, "y": 0.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 6, "c": 1, "x": -554.26, "y": 0.0, "zone": "Continente", "terrain": "WOOD", "num": 12, "pips": 1, "z_height": 50}, {"r": 6, "c": 2, "x": -443.41, "y": 0.0, "zone": "Continente", "terrain": "CLAY", "num": 11, "pips": 2, "z_height": 40}, {"r": 6, "c": 3, "x": -332.55, "y": 0.0, "zone": "Continente", "terrain": "SHEEP", "num": 2, "pips": 1, "z_height": 25}, {"r": 6, "c": 4, "x": -221.7, "y": 0.0, "zone": "Continente", "terrain": "ORE", "num": 5, "pips": 4, "z_height": 70}, {"r": 6, "c": 5, "x": -110.85, "y": 0.0, "zone": "Continente", "terrain": "WHEAT", "num": 9, "pips": 4, "z_height": 22}, {"r": 6, "c": 6, "x": 0.0, "y": 0.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 6, "c": 7, "x": 110.85, "y": 0.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 6, "c": 8, "x": 221.7, "y": 0.0, "zone": "Isla de Oro", "terrain": "WOOD", "num": 4, "pips": 3, "z_height": 50}, {"r": 6, "c": 9, "x": 332.55, "y": 0.0, "zone": "Isla de Oro", "terrain": "DESERT", "num": 0, "pips": 0, "z_height": 18}, {"r": 6, "c": 10, "x": 443.41, "y": 0.0, "zone": "Isla de Oro", "terrain": "ORE", "num": 5, "pips": 4, "z_height": 70}, {"r": 6, "c": 11, "x": 554.26, "y": 0.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 6, "c": 12, "x": 665.11, "y": 0.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 7, "c": 0, "x": -609.68, "y": 96.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 7, "c": 1, "x": -498.83, "y": 96.0, "zone": "Continente", "terrain": "SHEEP", "num": 11, "pips": 2, "z_height": 25}, {"r": 7, "c": 2, "x": -387.98, "y": 96.0, "zone": "Continente", "terrain": "ORE", "num": 3, "pips": 2, "z_height": 70}, {"r": 7, "c": 3, "x": -277.13, "y": 96.0, "zone": "Continente", "terrain": "WOOD", "num": 9, "pips": 4, "z_height": 50}, {"r": 7, "c": 4, "x": -166.28, "y": 96.0, "zone": "Continente", "terrain": "CLAY", "num": 6, "pips": 5, "z_height": 40}, {"r": 7, "c": 5, "x": -55.43, "y": 96.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 7, "c": 6, "x": 55.43, "y": 96.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 7, "c": 7, "x": 166.28, "y": 96.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 7, "c": 8, "x": 277.13, "y": 96.0, "zone": "Isla de Oro", "terrain": "WHEAT", "num": 9, "pips": 4, "z_height": 22}, {"r": 7, "c": 9, "x": 387.98, "y": 96.0, "zone": "Isla de Oro", "terrain": "GOLD", "num": 3, "pips": 2, "z_height": 35}, {"r": 7, "c": 10, "x": 498.83, "y": 96.0, "zone": "Isla de Oro", "terrain": "CLAY", "num": 11, "pips": 2, "z_height": 40}, {"r": 7, "c": 11, "x": 609.68, "y": 96.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 8, "c": 0, "x": -554.26, "y": 192.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 8, "c": 1, "x": -443.41, "y": 192.0, "zone": "Continente", "terrain": "WHEAT", "num": 10, "pips": 3, "z_height": 22}, {"r": 8, "c": 2, "x": -332.55, "y": 192.0, "zone": "Continente", "terrain": "CLAY", "num": 3, "pips": 2, "z_height": 40}, {"r": 8, "c": 3, "x": -221.7, "y": 192.0, "zone": "Continente", "terrain": "ORE", "num": 4, "pips": 3, "z_height": 70}, {"r": 8, "c": 4, "x": -110.85, "y": 192.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 8, "c": 5, "x": 0.0, "y": 192.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 8, "c": 6, "x": 110.85, "y": 192.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 8, "c": 7, "x": 221.7, "y": 192.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 8, "c": 8, "x": 332.55, "y": 192.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 8, "c": 9, "x": 443.41, "y": 192.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 8, "c": 10, "x": 554.26, "y": 192.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 9, "c": 0, "x": -498.83, "y": 288.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 9, "c": 1, "x": -387.98, "y": 288.0, "zone": "Continente", "terrain": "WOOD", "num": 11, "pips": 2, "z_height": 50}, {"r": 9, "c": 2, "x": -277.13, "y": 288.0, "zone": "Continente", "terrain": "SHEEP", "num": 8, "pips": 5, "z_height": 25}, {"r": 9, "c": 3, "x": -166.28, "y": 288.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 9, "c": 4, "x": -55.43, "y": 288.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 9, "c": 5, "x": 55.43, "y": 288.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 9, "c": 6, "x": 166.28, "y": 288.0, "zone": "Atolón Sur", "terrain": "DESERT", "num": 0, "pips": 0, "z_height": 18}, {"r": 9, "c": 7, "x": 277.13, "y": 288.0, "zone": "Atolón Sur", "terrain": "SHEEP", "num": 2, "pips": 1, "z_height": 25}, {"r": 9, "c": 8, "x": 387.98, "y": 288.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 9, "c": 9, "x": 498.83, "y": 288.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 10, "c": 0, "x": -443.41, "y": 384.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 10, "c": 1, "x": -332.55, "y": 384.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 10, "c": 2, "x": -221.7, "y": 384.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 10, "c": 3, "x": -110.85, "y": 384.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 10, "c": 4, "x": 0.0, "y": 384.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 10, "c": 5, "x": 110.85, "y": 384.0, "zone": "Atolón Sur", "terrain": "DESERT", "num": 0, "pips": 0, "z_height": 18}, {"r": 10, "c": 6, "x": 221.7, "y": 384.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 10, "c": 7, "x": 332.55, "y": 384.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 10, "c": 8, "x": 443.41, "y": 384.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 11, "c": 0, "x": -387.98, "y": 480.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 11, "c": 1, "x": -277.13, "y": 480.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 11, "c": 2, "x": -166.28, "y": 480.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 11, "c": 3, "x": -55.43, "y": 480.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 11, "c": 4, "x": 55.43, "y": 480.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 11, "c": 5, "x": 166.28, "y": 480.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 11, "c": 6, "x": 277.13, "y": 480.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 11, "c": 7, "x": 387.98, "y": 480.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 12, "c": 0, "x": -332.55, "y": 576.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 12, "c": 1, "x": -221.7, "y": 576.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 12, "c": 2, "x": -110.85, "y": 576.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 12, "c": 3, "x": 0.0, "y": 576.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 12, "c": 4, "x": 110.85, "y": 576.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 12, "c": 5, "x": 221.7, "y": 576.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}, {"r": 12, "c": 6, "x": 332.55, "y": 576.0, "zone": "Océano Abierto", "terrain": "WATER", "num": 0, "pips": 0, "z_height": 12}];
+    const PORTS = [{"id": 1, "r": 3, "c": 1, "type": "GENERIC", "ratio": "3:1", "name": "Puerto Genérico 3:1", "dir": "N"}, {"id": 2, "r": 3, "c": 3, "type": "SHEEP", "ratio": "2:1", "name": "Puerto Lana 2:1", "dir": "NE"}, {"id": 3, "r": 4, "c": 1, "type": "CLAY", "ratio": "2:1", "name": "Puerto Arcilla 2:1", "dir": "NW"}, {"id": 4, "r": 4, "c": 4, "type": "WHEAT", "ratio": "2:1", "name": "Puerto Trigo 2:1", "dir": "E"}, {"id": 5, "r": 5, "c": 1, "type": "GENERIC", "ratio": "3:1", "name": "Puerto Genérico 3:1", "dir": "W"}, {"id": 6, "r": 5, "c": 4, "type": "ORE", "ratio": "2:1", "name": "Puerto Mineral 2:1", "dir": "E"}, {"id": 7, "r": 6, "c": 1, "type": "WOOD", "ratio": "2:1", "name": "Puerto Madera 2:1", "dir": "W"}, {"id": 8, "r": 6, "c": 5, "type": "GENERIC", "ratio": "3:1", "name": "Puerto Genérico 3:1", "dir": "E"}, {"id": 9, "r": 7, "c": 1, "type": "GENERIC", "ratio": "3:1", "name": "Puerto Genérico 3:1", "dir": "SW"}, {"id": 10, "r": 8, "c": 3, "type": "GENERIC", "ratio": "3:1", "name": "Puerto Genérico 3:1", "dir": "SE"}, {"id": 11, "r": 9, "c": 2, "type": "GENERIC", "ratio": "3:1", "name": "Puerto Genérico 3:1", "dir": "S"}, {"id": 12, "r": 3, "c": 6, "type": "WOOD", "ratio": "2:1", "name": "Puerto Madera 2:1", "dir": "N"}, {"id": 13, "r": 3, "c": 7, "type": "WHEAT", "ratio": "2:1", "name": "Puerto Trigo 2:1", "dir": "NE"}, {"id": 14, "r": 5, "c": 8, "type": "SHEEP", "ratio": "2:1", "name": "Puerto Lana 2:1", "dir": "NW"}, {"id": 15, "r": 6, "c": 10, "type": "ORE", "ratio": "2:1", "name": "Puerto Mineral 2:1", "dir": "E"}, {"id": 16, "r": 7, "c": 10, "type": "CLAY", "ratio": "2:1", "name": "Puerto Arcilla 2:1", "dir": "SE"}];
+    const R = 64.0; // mm
+    const W = Math.sqrt(3) * R; // 110.851 mm
+    const FRAME_SIZE_MM = 1460.0;
+
+    let currentViewMode = '3d';
+    let showRelief = true;
+    let showFrame = true;
+    let showPorts = true;
+    let activeRoll = null;
+
+    let selectedTile = TILES.find(t => t.r === 6 && t.c === 4) || TILES[0];
+
+    // Camera 3D variables
+    let yaw = -0.48;
+    let pitch = 0.78;
+    let zoom = 0.38;
+    let panX = 0;
+    let panY = -15;
+
+    let isDragging = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+
+    const TERRAIN_CONFIG = {
+      'WATER': {
+        name: 'Agua / Mar', icon: '🌊', color: '#1e3a8a', sideColor: '#172554',
+        reliefZ: 3, type: 'Mar Ondulado',
+        desc: 'Superficie marina baja con micro-relieve de crestas de olas suaves y canales de navegación.'
+      },
+      'WOOD': {
+        name: 'Bosque (Madera)', icon: '🌲', color: '#166534', sideColor: '#14532d',
+        reliefZ: 16, type: 'Bosque en Herradura',
+        desc: 'Copas de árboles tupidas dispuestas en semicírculo/anillo, abrazando el claro central donde encaja la ficha numérica.'
+      },
+      'CLAY': {
+        name: 'Colinas (Arcilla)', icon: '🧱', color: '#991b1b', sideColor: '#7f1d1d',
+        reliefZ: 14, type: 'Estratos de Cañón Escalonado',
+        desc: 'Mesetas aterrazadas en gradas concéntricas (tipo cañón de arcilla roja) esculpidas en curvas de nivel.'
+      },
+      'SHEEP': {
+        name: 'Pastos (Lana)', icon: '🐑', color: '#22c55e', sideColor: '#15803d',
+        reliefZ: 8, type: 'Colinas Onduladas con Cercados',
+        desc: 'Ondulaciones suaves de hierba verde con vallado perimetral para ganado, un pequeño riachuelo y ovejas miniatura.'
+      },
+      'WHEAT': {
+        name: 'Cultivos (Trigo)', icon: '🌾', color: '#eab308', sideColor: '#a16207',
+        reliefZ: 5, type: 'Campos Labrados Aterrazados',
+        desc: 'Bancales agrícolas planos divididos en parcelas geométricas con textura de surcos arados y pequeños silos de grano.'
+      },
+      'ORE': {
+        name: 'Montañas (Mineral)', icon: '⛰️', color: '#64748b', sideColor: '#475569',
+        reliefZ: 32, type: 'Pico Rocoso Escarpado Central',
+        desc: 'Gran macizo montañoso que se alza en un pico piramidal en el medio, con riscos angulares y una repisa para la ficha numérica.'
+      },
+      'GOLD': {
+        name: 'Río de Oro', icon: '✨', color: '#f59e0b', sideColor: '#b45309',
+        reliefZ: 12, type: 'Garganta Fluvial con Vetas de Oro',
+        desc: 'Lecho de río rocoso que cruza la loseta con vetas doradas en las orillas y pequeñas bateas de prospección.'
+      },
+      'DESERT': {
+        name: 'Desierto / Guarida', icon: '🏜️', color: '#d97706', sideColor: '#92400e',
+        reliefZ: 4, type: 'Dunas de Arena con Ondulaciones',
+        desc: 'Relieve plano con delicadas ondas de viento en la arena, un esqueleto fosilizado y pedestal central para el Ladrón.'
+      }
+    };
+
+    const canvas = document.getElementById('main-canvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      draw();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        const dx = e.clientX - lastMouseX;
+        const dy = e.clientY - lastMouseY;
+        yaw += dx * 0.008;
+        pitch += dy * 0.008;
+        pitch = Math.max(0.1, Math.min(Math.PI / 2 - 0.05, pitch));
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        draw();
+      }
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.08 : 0.92;
+      zoom = Math.max(0.15, Math.min(2.0, zoom * factor));
+      draw();
+    }, { passive: false });
+
+    canvas.addEventListener('click', (e) => {
+      const clicked = pickTile(e);
+      if (clicked) {
+        selectedTile = clicked;
+        updateInspector();
+        draw();
+      }
+    });
+
+    function project(wx, wy, wz, cx, cy) {
+      const x0 = wx;
+      const y0 = wy;
+      const z0 = wz;
+
+      const x1 = x0 * Math.cos(yaw) - y0 * Math.sin(yaw);
+      const y1 = x0 * Math.sin(yaw) + y0 * Math.cos(yaw);
+      const z1 = z0;
+
+      const x2 = x1;
+      const y2 = y1 * Math.cos(pitch) - z1 * Math.sin(pitch);
+      const z2 = y1 * Math.sin(pitch) + z1 * Math.cos(pitch);
+
+      const sx = cx + (x2 * zoom) + panX;
+      const sy = cy + (y2 * zoom) + panY;
+      return { sx, sy, depth: z2 };
+    }
+
+    function getHexVertices(cx, cy, r) {
+      const pts = [];
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 180) * (30 + 60 * i);
+        pts.push({
+          x: cx + r * Math.cos(angle),
+          y: cy + r * Math.sin(angle)
+        });
+      }
+      return pts;
+    }
+
+    function draw() {
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2;
+
+      if (currentViewMode === 'cross') {
+        drawCrossSectionView(cx, cy, w, h);
+        return;
+      }
+      if (currentViewMode === 'magnets') {
+        drawMagnetsDiagram(cx, cy, w, h);
+        return;
+      }
+
+      // Square 146 cm outer frame
+      if (showFrame || currentViewMode === 'cad') {
+        drawSquareFrame(cx, cy);
+      }
+
+      // Depth sort 127 tiles
+      const sortedTiles = TILES.map(tile => {
+        const cfg = TERRAIN_CONFIG[tile.terrain];
+        const effRelief = showRelief ? cfg.reliefZ : 0;
+        const pCenter = project(tile.x, tile.y, (12 + effRelief) / 2, cx, cy);
+        return { tile, cfg, effRelief, depth: pCenter.depth };
+      });
+      sortedTiles.sort((a, b) => a.depth - b.depth);
+
+      // Draw each tile with realistic sculpted features
+      sortedTiles.forEach(({ tile, cfg, effRelief }) => {
+        drawSculptedHex(tile, cfg, effRelief, cx, cy);
+      });
+
+      // Draw ports
+      if (showPorts) drawPorts(cx, cy);
+
+      // CAD dimension overlays
+      if (currentViewMode === 'cad') {
+        drawCadDimensions(cx, cy);
+      }
+    }
+
+    function drawSquareFrame(cx, cy) {
+      const halfS = FRAME_SIZE_MM / 2;
+      const p1 = project(-halfS, -halfS, 0, cx, cy);
+      const p2 = project(halfS, -halfS, 0, cx, cy);
+      const p3 = project(halfS, halfS, 0, cx, cy);
+      const p4 = project(-halfS, halfS, 0, cx, cy);
+
+      ctx.fillStyle = '#0f172a88';
+      ctx.beginPath();
+      ctx.moveTo(p1.sx, p1.sy);
+      ctx.lineTo(p2.sx, p2.sy);
+      ctx.lineTo(p3.sx, p3.sy);
+      ctx.lineTo(p4.sx, p4.sy);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      // Corner Player Hubs
+      const cornerSize = 400;
+      [
+        [-halfS, -halfS, -halfS + cornerSize, -halfS, -halfS, -halfS + cornerSize],
+        [halfS, -halfS, halfS - cornerSize, -halfS, halfS, -halfS + cornerSize],
+        [-halfS, halfS, -halfS + cornerSize, halfS, -halfS, halfS - cornerSize],
+        [halfS, halfS, halfS - cornerSize, halfS, halfS, halfS - cornerSize]
+      ].forEach(([x1, y1, x2, y2, x3, y3]) => {
+        const pt1 = project(x1, y1, 0, cx, cy);
+        const pt2 = project(x2, y2, 0, cx, cy);
+        const pt3 = project(x3, y3, 0, cx, cy);
+        ctx.fillStyle = '#1e293baa';
+        ctx.beginPath();
+        ctx.moveTo(pt1.sx, pt1.sy);
+        ctx.lineTo(pt2.sx, pt2.sy);
+        ctx.lineTo(pt3.sx, pt3.sy);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#38bdf844';
+        ctx.stroke();
+      });
+    }
+
+    function drawSculptedHex(tile, cfg, effRelief, cx, cy) {
+      const isSelected = selectedTile && (selectedTile.r === tile.r && selectedTile.c === tile.c);
+      const isRolled = activeRoll && tile.num === activeRoll;
+
+      const baseZ = 12.0; // Common base height (zócalo)
+      const verts = getHexVertices(tile.x, tile.y, R - 0.8);
+
+      // 1. Draw base lateral walls (Z = 0 to 25 mm)
+      const baseTopProj = verts.map(v => project(v.x, v.y, baseZ, cx, cy));
+      const baseBotProj = verts.map(v => project(v.x, v.y, 0, cx, cy));
+
+      for (let i = 0; i < 6; i++) {
+        const next = (i + 1) % 6;
+        const p1 = baseTopProj[i];
+        const p2 = baseTopProj[next];
+        const p3 = baseBotProj[next];
+        const cross = (p2.sx - p1.sx) * (p3.sy - p1.sy) - (p2.sy - p1.sy) * (p3.sx - p1.sx);
+        if (cross > 0) {
+          ctx.beginPath();
+          ctx.moveTo(p1.sx, p1.sy);
+          ctx.lineTo(p2.sx, p2.sy);
+          ctx.lineTo(p3.sx, p3.sy);
+          ctx.lineTo(baseBotProj[i].sx, baseBotProj[i].sy);
+          ctx.closePath();
+
+          const faceAngle = (Math.PI / 180) * (30 + 60 * i + 30);
+          const dot = Math.cos(faceAngle - (yaw + 0.8));
+          ctx.fillStyle = adjustBrightness(cfg.sideColor, 0.45 + 0.35 * Math.max(0, dot));
+          ctx.fill();
+          ctx.strokeStyle = '#00000033';
+          ctx.lineWidth = 1 * zoom;
+          ctx.stroke();
+        }
+      }
+
+      // 2. Draw Top Flat Base Platform (Z = 25 mm)
+      ctx.beginPath();
+      ctx.moveTo(baseTopProj[0].sx, baseTopProj[0].sy);
+      for (let i = 1; i < 6; i++) ctx.lineTo(baseTopProj[i].sx, baseTopProj[i].sy);
+      ctx.closePath();
+      ctx.fillStyle = cfg.sideColor;
+      ctx.fill();
+      ctx.strokeStyle = isSelected ? '#38bdf8' : (isRolled ? '#f59e0b' : '#00000044');
+      ctx.lineWidth = (isSelected ? 3.5 : 1) * zoom;
+      ctx.stroke();
+
+      // 3. Draw Sculpted 3D Terrain Features on Top of Base
+      if (effRelief > 0 && showRelief) {
+        drawSpecificSculpt(tile, cfg, baseZ, effRelief, cx, cy);
+      }
+
+      // 4. Draw Recessed Number Socket & Token
+      if (tile.num > 0) {
+        // Offset number token slightly towards side to leave mountain peaks visible
+        const chitOffsetX = (tile.terrain === 'ORE' ? -14 : (tile.terrain === 'WOOD' ? 0 : 4));
+        const chitOffsetY = (tile.terrain === 'ORE' ? 12 : (tile.terrain === 'WOOD' ? 10 : 8));
+        
+        const socketProj = project(tile.x + chitOffsetX, tile.y + chitOffsetY, baseZ + 0.5, cx, cy);
+        const chitR = 15 * zoom;
+
+        // Recessed socket rim
+        ctx.beginPath();
+        ctx.arc(socketProj.sx, socketProj.sy, chitR + 1.5 * zoom, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f172a66';
+        ctx.fill();
+        ctx.strokeStyle = '#00000088';
+        ctx.lineWidth = 1 * zoom;
+        ctx.stroke();
+
+        // Chit Disk
+        ctx.beginPath();
+        ctx.arc(socketProj.sx, socketProj.sy, chitR, 0, Math.PI * 2);
+        ctx.fillStyle = '#fef3c7';
+        ctx.fill();
+        ctx.strokeStyle = (tile.num === 6 || tile.num === 8) ? '#dc2626' : '#78350f';
+        ctx.lineWidth = (tile.num === 6 || tile.num === 8 ? 2 : 1.2) * zoom;
+        ctx.stroke();
+
+        // Number
+        ctx.fillStyle = (tile.num === 6 || tile.num === 8) ? '#dc2626' : '#1e293b';
+        ctx.font = `bold ${Math.round(13 * zoom)}px 'JetBrains Mono', monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(tile.num, socketProj.sx, socketProj.sy - 2 * zoom);
+
+        // Pips
+        const pips = '•'.repeat(tile.pips);
+        ctx.font = `bold ${Math.round(9 * zoom)}px sans-serif`;
+        ctx.fillText(pips, socketProj.sx, socketProj.sy + 8 * zoom);
+      }
+
+      // 5. Draw Vertex Landing Pads (Ø20mm) and Edge Slots
+      if (showRelief) {
+        baseTopProj.forEach(pt => {
+          ctx.beginPath();
+          ctx.arc(pt.sx, pt.sy, 5.5 * zoom, 0, Math.PI * 2);
+          ctx.fillStyle = '#1e293b88';
+          ctx.fill();
+          ctx.strokeStyle = '#38bdf855';
+          ctx.lineWidth = 1 * zoom;
+          ctx.stroke();
+        });
+      }
+    }
+
+    // Specific 3D Terrain Sculpting Logic
+    function drawSpecificSculpt(tile, cfg, baseZ, effZ, cx, cy) {
+      const tType = tile.terrain;
+
+      if (tType === 'ORE') {
+        // Mountain: Tall central craggy peak
+        const apexZ = baseZ + effZ;
+        const pApex = project(tile.x + 8, tile.y - 10, apexZ, cx, cy);
+        const pSubApex = project(tile.x - 12, tile.y + 6, baseZ + effZ * 0.65, cx, cy);
+        
+        // Base ridge vertices
+        const rB1 = project(tile.x - 28, tile.y - 20, baseZ, cx, cy);
+        const rB2 = project(tile.x + 24, tile.y - 24, baseZ, cx, cy);
+        const rB3 = project(tile.x + 30, tile.y + 16, baseZ, cx, cy);
+        const rB4 = project(tile.x - 20, tile.y + 24, baseZ, cx, cy);
+
+        // Mountain faces
+        [
+          [rB1, rB2, pApex, '#64748b'],
+          [rB2, rB3, pApex, '#475569'],
+          [rB3, rB4, pApex, '#334155'],
+          [rB4, rB1, pApex, '#94a3b8']
+        ].forEach(([pA, pB, pC, col]) => {
+          ctx.beginPath();
+          ctx.moveTo(pA.sx, pA.sy);
+          ctx.lineTo(pB.sx, pB.sy);
+          ctx.lineTo(pC.sx, pC.sy);
+          ctx.closePath();
+          ctx.fillStyle = col;
+          ctx.fill();
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 0.8 * zoom;
+          ctx.stroke();
+        });
+
+        // Snow Cap on top peak
+        const pSnowL = project(tile.x + 4, tile.y - 8, apexZ - 6, cx, cy);
+        const pSnowR = project(tile.x + 12, tile.y - 12, apexZ - 7, cx, cy);
+        ctx.beginPath();
+        ctx.moveTo(pApex.sx, pApex.sy);
+        ctx.lineTo(pSnowL.sx, pSnowL.sy);
+        ctx.lineTo(pSnowR.sx, pSnowR.sy);
+        ctx.closePath();
+        ctx.fillStyle = '#f8fafc';
+        ctx.fill();
+
+      } else if (tType === 'WOOD') {
+        // Forest: Clustered tree crowns in a crescent/ring
+        const treeOffsets = [
+          [-22, -18, 14], [-6, -26, 16], [14, -22, 15], [26, -6, 13],
+          [24, 14, 14], [-24, 10, 13], [-14, 22, 15]
+        ];
+        treeOffsets.forEach(([ox, oy, th]) => {
+          const pTree = project(tile.x + ox, tile.y + oy, baseZ + th, cx, cy);
+          const trR = 9 * zoom;
+          ctx.beginPath();
+          ctx.arc(pTree.sx, pTree.sy, trR, 0, Math.PI * 2);
+          ctx.fillStyle = '#166534';
+          ctx.fill();
+          ctx.strokeStyle = '#14532d';
+          ctx.lineWidth = 1 * zoom;
+          ctx.stroke();
+          // Crown highlight
+          ctx.beginPath();
+          ctx.arc(pTree.sx - 2*zoom, pTree.sy - 2*zoom, trR * 0.4, 0, Math.PI * 2);
+          ctx.fillStyle = '#22c55e88';
+          ctx.fill();
+        });
+
+      } else if (tType === 'CLAY') {
+        // Hills: Terraced concentric quarry contour steps
+        [1.0, 0.65, 0.35].forEach((scale, step) => {
+          const stepZ = baseZ + (step + 1) * 4;
+          const sVerts = getHexVertices(tile.x, tile.y, (R - 14) * scale);
+          const sProj = sVerts.map(v => project(v.x, v.y, stepZ, cx, cy));
+          ctx.beginPath();
+          ctx.moveTo(sProj[0].sx, sProj[0].sy);
+          for (let i = 1; i < 6; i++) ctx.lineTo(sProj[i].sx, sProj[i].sy);
+          ctx.closePath();
+          ctx.fillStyle = step % 2 === 0 ? '#991b1b' : '#b91c1c';
+          ctx.fill();
+          ctx.strokeStyle = '#7f1d1d';
+          ctx.lineWidth = 1 * zoom;
+          ctx.stroke();
+        });
+
+      } else if (tType === 'WHEAT') {
+        // Wheat: Low terraced parcels with furrow texture
+        const p1 = project(tile.x - 24, tile.y - 20, baseZ + 3, cx, cy);
+        const p2 = project(tile.x + 22, tile.y - 18, baseZ + 4, cx, cy);
+        const p3 = project(tile.x + 20, tile.y + 20, baseZ + 3, cx, cy);
+        const p4 = project(tile.x - 22, tile.y + 18, baseZ + 4, cx, cy);
+
+        ctx.beginPath();
+        ctx.moveTo(p1.sx, p1.sy); ctx.lineTo(p2.sx, p2.sy);
+        ctx.lineTo(p3.sx, p3.sy); ctx.lineTo(p4.sx, p4.sy);
+        ctx.closePath();
+        ctx.fillStyle = '#eab308';
+        ctx.fill();
+        ctx.strokeStyle = '#ca8a04';
+        ctx.lineWidth = 1.5 * zoom;
+        ctx.stroke();
+
+        // Furrows
+        for (let i = -14; i <= 14; i += 6) {
+          const pf1 = project(tile.x + i, tile.y - 16, baseZ + 4, cx, cy);
+          const pf2 = project(tile.x + i, tile.y + 16, baseZ + 4, cx, cy);
+          ctx.beginPath();
+          ctx.moveTo(pf1.sx, pf1.sy); ctx.lineTo(pf2.sx, pf2.sy);
+          ctx.strokeStyle = '#a1620766';
+          ctx.lineWidth = 1 * zoom;
+          ctx.stroke();
+        }
+
+      } else if (tType === 'SHEEP') {
+        // Pasture: Gentle rolling mounds with sheep fence
+        const pMound = project(tile.x - 10, tile.y - 12, baseZ + 8, cx, cy);
+        ctx.beginPath();
+        ctx.arc(pMound.sx, pMound.sy, 16 * zoom, 0, Math.PI * 2);
+        ctx.fillStyle = '#4ade80';
+        ctx.fill();
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 1.2 * zoom;
+        ctx.stroke();
+
+        // Tiny sheep
+        [[-14, -10], [-6, -16], [4, -8], [-8, -4]].forEach(([sx, sy]) => {
+          const pShp = project(tile.x + sx, tile.y + sy, baseZ + 8.5, cx, cy);
+          ctx.beginPath();
+          ctx.arc(pShp.sx, pShp.sy, 2.5 * zoom, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+        });
+      }
+    }
+
+    function drawCadDimensions(cx, cy) {
+      const halfS = FRAME_SIZE_MM / 2;
+      const p1 = project(-halfS, -halfS, 0, cx, cy);
+      const p2 = project(halfS, -halfS, 0, cx, cy);
+      const p3 = project(halfS, halfS, 0, cx, cy);
+
+      drawDimensionLine(p1.sx, p1.sy - 25, p2.sx, p2.sy - 25, 'MARCO EXTERIOR = 1460.0 mm (146 cm)');
+      drawDimensionLine(p2.sx + 25, p2.sy, p3.sx + 25, p3.sy, 'FONDO EXTERIOR = 1460.0 mm (146 cm)');
+
+      const pHexL = project(-1441.1/2, 0, 0, cx, cy);
+      const pHexR = project(1441.1/2, 0, 0, cx, cy);
+      drawDimensionLine(pHexL.sx, pHexL.sy + 40, pHexR.sx, pHexR.sy + 40, 'HEXÁGONO INSC. W = 1441.1 mm (144.1 cm)');
+
+      if (selectedTile) {
+        const t = selectedTile;
+        const pL = project(t.x - W/2, t.y, 12, cx, cy);
+        const pR = project(t.x + W/2, t.y, 12, cx, cy);
+        drawDimensionLine(pL.sx, pL.sy, pR.sx, pR.sy, 'W = 110.85 mm');
+      }
+    }
+
+    function drawDimensionLine(x1, y1, x2, y2, text) {
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+
+      const midX = (x1 + x2) / 2;
+      const midY = (y1 + y2) / 2;
+      ctx.font = `bold 10px 'JetBrains Mono', monospace`;
+      const txtW = ctx.measureText(text).width;
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(midX - txtW / 2 - 4, midY - 7, txtW + 8, 14);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.strokeRect(midX - txtW / 2 - 4, midY - 7, txtW + 8, 14);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, midX, midY);
+    }
+
+    function drawPorts(cx, cy) {
+      PORTS.forEach(p => {
+        const tile = TILES.find(t => t.r === p.r && t.c === p.c);
+        if (!tile) return;
+        const pt = project(tile.x, tile.y, 18, cx, cy);
+
+        ctx.beginPath();
+        ctx.arc(pt.sx, pt.sy - 24 * zoom, 11 * zoom, 0, Math.PI * 2);
+        ctx.fillStyle = p.ratio === '2:1' ? '#0284c7' : '#0f172a';
+        ctx.fill();
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.5 * zoom;
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${Math.round(8 * zoom)}px 'JetBrains Mono', monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(p.ratio, pt.sx, pt.sy - 24 * zoom);
+      });
+    }
+
+    function drawCrossSectionView(cx, cy, w, h) {
+      ctx.fillStyle = '#0a0f1d';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = `bold 16px 'JetBrains Mono', monospace`;
+      ctx.textAlign = 'left';
+      ctx.fillText('ANATOMÍA DE LOSETA ESCULPIDA 3D (CORTE TRANSVERSAL REAL)', 40, 45);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = `12px sans-serif`;
+      ctx.fillText('Desglose de zócalo 12mm, imanes N52 a Z=6mm, ranuras de arista, chaflán de vértice Ø20mm y pico central.', 40, 68);
+
+      const startX = 140;
+      const groundY = h - 140;
+      const scaleMM = 3.6;
+
+      const widthPx = 110.85 * scaleMM;
+      const baseHeightPx = 12.0 * scaleMM;
+      const apexReliefPx = 35.0 * scaleMM; // Mountain peak
+      const totalHeightPx = baseHeightPx + apexReliefPx;
+      const chamferPx = 20.0 * scaleMM;
+
+      // Mountain sculpted profile
+      ctx.beginPath();
+      ctx.moveTo(startX, groundY);
+      ctx.lineTo(startX, groundY - baseHeightPx);
+      ctx.lineTo(startX + chamferPx, groundY - baseHeightPx);
+      
+      // Slope to apex
+      const apexX = startX + widthPx * 0.55;
+      ctx.lineTo(apexX, groundY - totalHeightPx);
+      
+      // Shoulder for number chit
+      const chitShelfX = startX + widthPx * 0.30;
+      ctx.lineTo(chitShelfX + 26 * scaleMM, groundY - baseHeightPx - 8 * scaleMM);
+      ctx.lineTo(chitShelfX, groundY - baseHeightPx - 8 * scaleMM);
+      ctx.lineTo(startX + chamferPx, groundY - baseHeightPx);
+      
+      ctx.lineTo(startX + widthPx - chamferPx, groundY - baseHeightPx);
+      ctx.lineTo(startX + widthPx, groundY - baseHeightPx);
+      ctx.lineTo(startX + widthPx, groundY);
+      ctx.closePath();
+
+      ctx.fillStyle = '#1e293b';
+      ctx.fill();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      // Magnet Pockets
+      const magDiaPx = 5.25 * scaleMM;
+      const magDepthPx = 2.20 * scaleMM;
+      const magZPx = 6.0 * scaleMM;
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(startX, groundY - magZPx - magDiaPx/2, magDepthPx, magDiaPx);
+      ctx.fillRect(startX + widthPx - magDepthPx, groundY - magZPx - magDiaPx/2, magDepthPx, magDiaPx);
+
+      // Dimension lines
+      drawDimensionLine(startX, groundY + 30, startX + widthPx, groundY + 30, 'Ancho cara a cara W = 110.85 mm');
+      drawDimensionLine(startX - 30, groundY, startX - 30, groundY - baseHeightPx, 'Z = 12.0 mm (Zócalo)');
+      drawDimensionLine(startX + widthPx + 30, groundY - baseHeightPx, startX + widthPx + 30, groundY - totalHeightPx, 'Relieve = 35.0 mm');
+      drawDimensionLine(startX + widthPx + 30, groundY, startX + widthPx + 30, groundY - totalHeightPx, 'Z TOTAL = 47.0 mm');
+    }
+
+    function drawMagnetsDiagram(cx, cy, w, h) {
+      ctx.fillStyle = '#0a0f1d';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.fillStyle = '#f43f5e';
+      ctx.font = `bold 16px 'JetBrains Mono', monospace`;
+      ctx.textAlign = 'left';
+      ctx.fillText('GUÍA DE MONTAJE Y POLARIDAD: 762 IMANES N52 (127 LOSETAS × 6 CARAS)', 40, 45);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = `12px sans-serif`;
+      ctx.fillText('Cada loseta lleva 6 imanes N52 cilíndricos (Ø10×3 mm) a Z=6mm con polaridad alternada N-S-N-S-N-S.', 40, 68);
+
+      const hexCX = w / 2;
+      const hexCY = h / 2;
+      const hexR = 150;
+      const verts = getHexVertices(hexCX, hexCY, hexR);
+
+      ctx.beginPath();
+      ctx.moveTo(verts[0].x, verts[0].y);
+      for (let i = 1; i < 6; i++) ctx.lineTo(verts[i].x, verts[i].y);
+      ctx.closePath();
+      ctx.fillStyle = '#1e293b';
+      ctx.fill();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      const pols = ['N', 'S', 'N', 'S', 'N', 'S'];
+      const cols = ['#ef4444', '#3b82f6', '#ef4444', '#3b82f6', '#ef4444', '#3b82f6'];
+
+      for (let i = 0; i < 6; i++) {
+        const next = (i + 1) % 6;
+        const mx = (verts[i].x + verts[next].x) / 2;
+        const my = (verts[i].y + verts[next].y) / 2;
+        ctx.beginPath();
+        ctx.arc(mx, my, 16, 0, Math.PI * 2);
+        ctx.fillStyle = cols[i];
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold 12px 'JetBrains Mono', monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(pols[i], mx, my);
+      }
+    }
+
+    function adjustBrightness(col, factor) {
+      let c = col.replace('#', '');
+      if (c.length === 3) c = c.split('').map(x => x + x).join('');
+      const num = parseInt(c, 16);
+      let r = Math.min(255, Math.floor((num >> 16) * factor));
+      let g = Math.min(255, Math.floor(((num >> 8) & 0x00FF) * factor));
+      let b = Math.min(255, Math.floor((num & 0x0000FF) * factor));
+      return `rgb(${r},${g},${b})`;
+    }
+
+    function pickTile(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = (e.clientX - rect.left) * window.devicePixelRatio;
+      const mouseY = (e.clientY - rect.top) * window.devicePixelRatio;
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+
+      let closest = null;
+      let minD = 999999;
+      TILES.forEach(t => {
+        const p = project(t.x, t.y, 12, cx, cy);
+        const d = Math.hypot(p.sx - mouseX, p.sy - mouseY);
+        if (d < (R * zoom * 0.9) && d < minD) {
+          minD = d;
+          closest = t;
+        }
+      });
+      return closest;
+    }
+
+    function updateInspector() {
+      if (!selectedTile) return;
+      const t = selectedTile;
+      const cfg = TERRAIN_CONFIG[t.terrain];
+
+      document.getElementById('insp-icon').textContent = cfg.icon;
+      document.getElementById('insp-name').textContent = cfg.name;
+      document.getElementById('insp-coords').textContent = `Fila ${t.r}, Col ${t.c}`;
+      document.getElementById('insp-sculpt-type').textContent = cfg.type;
+      document.getElementById('insp-sculpt-desc').textContent = cfg.desc;
+
+      document.getElementById('insp-z-relief').textContent = `${cfg.reliefZ}.0 mm`;
+      document.getElementById('insp-z-total').textContent = `${12 + cfg.reliefZ}.0 mm`;
+
+      const p = PORTS.find(port => port.r === t.r && port.c === t.c);
+      document.getElementById('insp-game-zone').textContent = t.zone;
+
+      if (t.num > 0) {
+        document.getElementById('insp-game-num').textContent = `${t.num} (${t.pips} pips, ${((t.pips/36)*100).toFixed(1)}%)`;
+      } else {
+        document.getElementById('insp-game-num').textContent = '-';
+      }
+    }
+
+    function setMode(mode) {
+      currentViewMode = mode;
+      ['3d', 'cad', 'cross', 'magnets'].forEach(m => {
+        const btn = document.getElementById(`btn-mode-${m}`);
+        btn.className = (m === mode) ? 'px-3.5 py-1.5 rounded-lg font-bold transition bg-sky-600 text-white shadow' : 'px-3.5 py-1.5 rounded-lg font-bold transition text-slate-300 hover:text-white hover:bg-slate-800';
+      });
+      draw();
+    }
+
+    function toggleRelief() { showRelief = document.getElementById('chk-relief').checked; draw(); }
+    function toggleFrame() { showFrame = document.getElementById('chk-frame').checked; draw(); }
+    function togglePorts() { showPorts = document.getElementById('chk-ports').checked; draw(); }
+
+    function resetCamera() { yaw = -0.48; pitch = 0.78; zoom = 0.38; panX = 0; panY = -15; draw(); }
+    function topCamera() { yaw = 0; pitch = 0.01; zoom = 0.42; panX = 0; panY = 0; draw(); }
+    function isoCamera() { yaw = -Math.PI / 4; pitch = Math.atan(1 / Math.sqrt(2)); zoom = 0.40; draw(); }
+
+    function rollDice() {
+      const d1 = Math.floor(Math.random() * 6) + 1;
+      const d2 = Math.floor(Math.random() * 6) + 1;
+      const sum = d1 + d2;
+      activeRoll = sum;
+
+      const badge = document.getElementById('dice-result-badge');
+      badge.classList.remove('hidden');
+      document.getElementById('dice-val').textContent = `${d1} + ${d2} = ${sum}`;
+
+      if (sum === 7) {
+        document.getElementById('dice-detail').textContent = '¡LADRÓN / PIRATA!';
+      } else {
+        const matching = TILES.filter(t => t.num === sum);
+        document.getElementById('dice-detail').textContent = `${matching.length} losetas producen`;
+      }
+      draw();
+    }
+
+    window.onload = () => {
+      resizeCanvas();
+      updateInspector();
+      draw();
+    };
+  </script>
+</body>
+</html>

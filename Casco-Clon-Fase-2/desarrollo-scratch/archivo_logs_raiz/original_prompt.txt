@@ -1,0 +1,28 @@
+The following is a <SYSTEM_MESSAGE> not actually sent by the user. It is provided by the system as important information to pay attention to.
+
+<SYSTEM_MESSAGE>
+[Message] timestamp=2026-10-17T21:41:20Z sender=2fd4d646-baa6-4103-8904-f9a4c7b10e97 priority=MESSAGE_PRIORITY_HIGH content=<original_task>
+**Task**:
+Pues debo decir que aun no esta logrado del todo, aunque sí ha habido grandes avances. Ha sido porque no has comprobado de forma correcta que fuese fiel a las fotos que te he mandado del que hice y a las que hay de Thorn en Internet de la version de Clone Wars. No has sido suficientemente detallista. Entre mucho errores mas, veo:
+Bueno, en primer lugar, lo que se ve en la primera foto, ya en la primera vista, que es de frente y me fijo mucho, es que debajo de la visera hay una franja totalmente blanca. Entonces, toda la franja que hay debajo del visor, quiero decir, del visor, el visor es como una cruz, ¿no? Pues esa la parte larga, digamos, la parte horizontal la has puesto blanca y realmente no es toda blanca, sino solamente una parte. Fíjate bien, pero básicamente más hacia el centro sí hay rojo y justamente llegando al borde vuelve a haber rojo. Entonces, es una franca blanca que yo diría que es el 50% más o menos de longitud total o igual el 60 o 65% la franja blanca, pero no es el 100% y eso se nota mucho, se nota mucho. Luego, lo siguiente que me he dado cuenta es pues que en la segunda imagen se ve de una forma muy extraña, se ve como si el rojo rompiese el visor. Entonces, eso ojo. Siento que no está siendo fiel al modelo original STL todo negro a las geometrías. Pero bueno, no lo sé, no lo sé. Luego, el tema de las franjas blancas de los respiradores o de la parte de abajo tienen que ir más hacia el centro, tienen que ser más amplias. O sea, no es suficiente hasta donde llegan, tienen que llegar más allá. Yo te diría que más o menos llegan hasta si cortases verticalmente el círculo que son los respiradores, más o menos justamente pasarían por un poco ese eje o llegarían a ese 
+<truncated 11668 bytes>
+tors, continuous red cheek depression and back wall, seamless wing root empalme, and 0 red vertices on the rear disc.
+  - Inspected 3MF internal XML structure (`3D/3dmodel.model`, `Metadata/model_settings.config`, `Metadata/project_settings.config`) verifying proper extruder assignment (1: White, 2: Red, 3: Black, 4: Grey).
+- **Shallow Verification (manual run only):**
+  - Eyeballed SVG stencil vector curves in [`Stencil_Thorn_Coruscant_Wings.svg`](file:///c:/Users/migue/Proyectos%20IA%20varios/Miscelanea/Diseños%203D/Casco/Antigravity/03_Stencils_Pintura_Clones/Stencil_Thorn_Coruscant_Wings.svg) against 1:1 millimeter coordinates.
+- **Unverified aspects:**
+  - Slicing and G-code simulation directly inside the proprietary Bambu Studio GUI application on a physical PC.
+  - Physical cutting on a vinyl plotter or laser cutter.
+
+## 4. Known Issues
+- `Minor Robustness Risk`: Slicers that do not parse Bambu Studio's `Metadata/model_settings.config` (e.g., standard Cura without multi-part 3MF plugin) will import all parts onto Extruder 1 unless loaded as separate STLs and grouped.
+- `Shallow Verification`: 1:1 SVG stencil is a 2D planar unrolling; applying vinyl tape over compound spherical curvature on the dome will require relief cuts along the slits.
+
+## 5. Untested Edge Cases & Next Step
+- Reviewer should import [`Clone_P2_Thorn_Guardia_Coruscant_Multicolor_Bambu_Prusa.3mf`](file:///c:/Users/migue/Proyectos%20IA%20varios/Miscelanea/Diseños%203D/Casco/Antigravity/05_Cascos_Pintados_Clones/Clone_P2_Thorn_Guardia_Coruscant_Multicolor_Bambu_Prusa.3mf) into Bambu Studio / OrcaSlicer, verify that the 6 parts prompt as a single multi-material assembly object, and check the purge volume on the wipe tower.
+</prior_attempt>
+
+<instructions>
+A prior worker attempted this task. Its code changes are already present, and its report is provided in a `<prior_attempt>` tag. Follow your Step 1–4 workflow: understand the task independently FIRST, then break the prior attempt, fix it, and re-verify.
+</instructions>
+</SYSTEM_MESSAGE>

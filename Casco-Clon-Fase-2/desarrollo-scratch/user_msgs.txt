@@ -1,0 +1,161 @@
+=== step 0 media=[]
+si tienes el modelo stl. Cómo de capaz te ves de hacerlo desde 0 tu? Un caso clon fase II. Ya se que para ti un stl son un monton de triangulos, pero puedes con distintas herramientas tener acceso por iamegn a todo, sean medidas, angulos, absolutamente todo
+
+=== step 2 media=[]
+te loe he metido en "casco" dentro de "diseños 3d". Hay muchas cosas, pero la idea es que lo hagas todo de una sola pieza. Ve mirando y tal
+
+=== step 50 media=[]
+Quiero que hagas versiones para cada cosa que me has dicho que elija. Y haz un modelo que se pueda luego editar. O sea, tenlo en mente. Pienso en por ejemplo que puedas añadir distintos colores para que se puedan hacer diseños como el de distintos clones como Thorn, Rex, Fives o Hardcore
+
+=== step 92 media=[]
+cuanto tiempo has tardado en hacerlo?
+
+=== step 94 media=[]
+Podrias ponerlo todo en una carpeta que sea "tuya" y dentro de esa carpeta subdividirlo en las ditintas categroias. Ponerlo directamente con los archivos fuente queda feo
+
+=== step 104 media=[]
+de donde sale el nombre bambu_prusa? me hace gracia
+
+=== step 106 media=[]
+has generado los 3mf con colores de cada uno de los 4 diseños de clones?
+
+=== step 122 media=[]
+Si. Quiero que me des cascos ya pintados
+
+=== step 148 media=['C:/Users/migue/.gemini/antigravity/brain/708952eb-13ab-449a-b9c1-cf788f04feb2/.user_uploaded/media_1792163906899_54954636.png']
+
+
+=== step 172 media=['C:/Users/migue/.gemini/antigravity/brain/708952eb-13ab-449a-b9c1-cf788f04feb2/.user_uploaded/media_1792164352474_280fb627.png']
+sale asi
+
+=== step 186 media=['C:/Users/migue/.gemini/antigravity/brain/708952eb-13ab-449a-b9c1-cf788f04feb2/.user_uploaded/media_1792164596360_1909019b.png']
+y sigue saliendo igual
+
+=== step 190 media=[]
+sigue saliendo solo naranja
+
+=== step 193 media=['C:/Users/migue/.gemini/antigravity/brain/708952eb-13ab-449a-b9c1-cf788f04feb2/.user_uploaded/media_1792165969076_3310d98d.png']
+el diseño de Thorn no es asi. Busca en Internet muchas imagenes, procesa cómo es y dibujalo correctamente
+
+=== step 232 media=['C:/Users/migue/.gemini/antigravity/brain/708952eb-13ab-449a-b9c1-cf788f04feb2/.user_uploaded/media_1792196510045_0473d5de.png']
+esta aun peor
+
+=== step 233 media=['C:/Users/migue/.gemini/antigravity/brain/708952eb-13ab-449a-b9c1-cf788f04feb2/.user_uploaded/media_1792243190671_c445165e.png']
+esta aun peor. No le estas dando la importania que merece y eso se traduce en un diseño insuficiente ya avrias veces. Hazlo perfecto y hasta que no veas desde cualquier angulo que es exacatmente fiel al diseño del comandante Thorn, no lo des por valido /goal
+
+=== step 310 media=['C:/Users/migue/.gemini/antigravity/brain/708952eb-13ab-449a-b9c1-cf788f04feb2/.user_uploaded/media_1792245174317_edc90dfd.png', 'C:/Users/migue/.gemini/antigravity/brain/708952eb-13ab-449a-b9c1-cf788f04feb2/.user_uploaded/media_1792245188728_6271f387.png', 'C:/Users/migue/.gemini/antigravity/brain/708952eb-13ab-449a-b9c1-cf788f04feb2/.user_uploaded/media_1792245235973_de5ec8f4.png']
+Quiero este diseño especifico. No debe ser el canonico totalmente pero es el de la serie animada de The Clone Wars y el que me has hecho ni se acerca. Dedicale mucho mas esfuerzo y busca mas informacion sobre cómo es el casco del Thorn que se ve representado en las 3 imagenes /goal
+
+=== step 535 media=[]
+No me puedes dar  una inspeccion en 4 angulos como hiciste en el anterior prompt?
+
+=== step 557 media=[]
+Lo primero: No se por que le has añadido visor y demas. Solo te pedi pintarlo y has ido mas alla, mientras que NO has cambiado el diseño. El diseño del comandante Thorn no es asi. Te voy a mandar varias fotos de un diseño hecho por mi ara que veas lo que busco, pero que sepas que ni eso es perfecto
+
+=== step 559 media=[]
+La carpeta se llama fotos y esta fuera de antigravity. Esta donde tienes todas las carpetas del casco sobre el que nos basamos. BUSCAMOS PERFECCION
+
+=== step 737 media=[]
+dirías que hay algo del diseño que puedas mejorar o no acabe de estar bien?
+
+=== step 739 media=[]
+diria que ademas la ala de arriba o la parte roja de arriba del ala se extiende mas de lo que deberia en grosor, o sea, es mas gruesa. Ves lo que te deigo?
+
+=== step 809 media=['C:/Users/migue/.gemini/antigravity/brain/708952eb-13ab-449a-b9c1-cf788f04feb2/.user_uploaded/media_1792253741864_cff221fd.png']
+Lo primero es que no quiero que pongas el visor aun pero, a ti esto te parece que esta bien?
+
+=== step 902 media=[]
+/teamwork-preview /boost /goal 
+
+Necesitas hacerlo mejor. Quiero perfeccion y de momento no te has acercado lo más minimo al diseño del casco de Thorn. No hay lineas rectas en la pintura y esta en general fatal llevado a cabo todo. Esta todo increiblemente mal.
+No quiero que me des el resultado hasta que no haya un modelo que haya pasado 20 revisiones por imagen del modelo, asi como otros multiples metodos que veas aceptables para este caso especifico. Quiero que hagas un control de calidad exhaustivo hasta dar con la perfección misma. Haz uso de todas las herramientas necesarias.
+Lo que has hecho hasta ahora es una mierda
+
+=== step 920 media=[]
+/automation
+
+=== step 921 media=[]
+cuanto has tardado en hacer esta ultima pintura del casco?
+
+=== step 929 media=[]
+Cuantas veces has hecho la revision hasta alcanzar el perfecto?
+
+=== step 951 media=[]
+cuantas versiones ha habido hasta encontrar el objetivo quiero decir. 1? 2? 3? 10?
+
+=== step 953 media=[]
+Digo ahora mismo en este ultimo prompt donde ha salido una version perfecta. Cuantas veces has tenido que revisar hasta dar con el objetivo
+
+=== step 961 media=[]
+/teamwork-preview /boost /goal /grill-me /browser 
+Pues debo decir que aun no esta logrado del todo, aunque sí ha habido grandes avances. Ha sido porque no has comprobado de forma correcta que fuese fiel a las fotos que te he mandado del que hice y a las que hay de Thorn en Internet de la version de Clone Wars. No has sido suficientemente detallista. Entre mucho errores mas, veo:
+Bueno, en primer lugar, lo que se ve en la primera foto, ya en la primera vista, que es de frente y me fijo mucho, es que debajo de la visera hay una franja totalmente blanca. Entonces, toda la franja que hay debajo del visor, quiero decir, del visor, el visor es como una cruz, ¿no? Pues esa la parte larga, digamos, la parte horizontal la has puesto blanca y realmente no es toda blanca, sino solamente una parte. Fíjate bien, pero básicamente más hacia el centro sí hay rojo y justamente llegando al borde vuelve a haber rojo. Entonces, es una franca blanca que yo diría que es el 50% más o menos de longitud total o igual el 60 o 65% la franja blanca, pero no es el 100% y eso se nota mucho, se nota mucho. Luego, lo siguiente que me he dado cuenta es pues que en la segunda imagen se ve de una forma muy extraña, se ve como si el rojo rompiese el visor. Entonces, eso ojo. Siento que no está siendo fiel al modelo original STL todo negro a las geometrías. Pero bueno, no lo sé, no lo sé. Luego, el tema de las franjas blancas de los respiradores o de la parte de abajo tienen que ir más hacia el centro, tienen que ser más amplias. O sea, no es suficiente hasta donde llegan, tienen que llegar más allá. Yo te diría que más o menos llegan hasta si cortases verticalmente el círculo que son los respiradores, más o menos justamente pasarían por un poco ese eje o llegarían a ese eje al menos. Y lo que has hecho ahora es que ni siquiera llegan a eso. Hace falta que llegue un poquito más, digamos, esas franjas blancas, pero están bien logradas, me gusta, me agradan. Luego, otra parte. El rojo avanza mucho más allá del visor en de forma horizontal o rodeando al modelo. De hecho, incluso, o sea, para que te hagas una referencia, hay una especie de líneas que son detallitos a cada lado del casco y más o menos son dos las líneas a las que llega el rojo por abajo. Y luego, si no me explico, me preguntas, y luego un poquito para arriba en cuanto empiezas a curvar donde se mete como hacia dentro del casco y primero hay una curva y después hay una pared, pero eso metiéndose como hacia dentro todo eso es rojo aún. Y incluso a la pared que está ya más alejada del centro que también pues es como toda esa zona, toda esa depresión, también hasta ahí llega el rojo, aunque no pasa de ahí, pero hasta ahí incluso llega rojo. Entonces, fíjate bien en el casco para saber a qué me refiero. Y bueno, eso sería por la parte delantera, aunque debo decirte también que las alas no son así. O sea, tú lo que has dibujado es un palo recto que viene de ser cutre, viene de no ser riguroso, de no ser detallista. Entonces, 
+
+=== step 975 media=[]
+/teamwork-preview /boost /goal /grill-me /browser 
+Pues debo decir que aun no esta logrado del todo, aunque sí ha habido grandes avances. Ha sido porque no has comprobado de forma correcta que fuese fiel a las fotos que te he mandado del que hice y a las que hay de Thorn en Internet de la version de Clone Wars. No has sido suficientemente detallista. Entre mucho errores mas, veo:
+Bueno, en primer lugar, lo que se ve en la primera foto, ya en la primera vista, que es de frente y me fijo mucho, es que debajo de la visera hay una franja totalmente blanca. Entonces, toda la franja que hay debajo del visor, quiero decir, del visor, el visor es como una cruz, ¿no? Pues esa la parte larga, digamos, la parte horizontal la has puesto blanca y realmente no es toda blanca, sino solamente una parte. Fíjate bien, pero básicamente más hacia el centro sí hay rojo y justamente llegando al borde vuelve a haber rojo. Entonces, es una franca blanca que yo diría que es el 50% más o menos de longitud total o igual el 60 o 65% la franja blanca, pero no es el 100% y eso se nota mucho, se nota mucho. Luego, lo siguiente que me he dado cuenta es pues que en la segunda imagen se ve de una forma muy extraña, se ve como si el rojo rompiese el visor. Entonces, eso ojo. Siento que no está siendo fiel al modelo original STL todo negro a las geometrías. Pero bueno, no lo sé, no lo sé. Luego, el tema de las franjas blancas de los respiradores o de la parte de abajo tienen que ir más hacia el centro, tienen que ser más amplias. O sea, no es suficiente hasta donde llegan, tienen que llegar más allá. Yo te diría que más o menos llegan hasta si cortases verticalmente el círculo que son los respiradores, más o menos justamente pasarían por un poco ese eje o llegarían a ese eje al menos. Y lo que has hecho ahora es que ni siquiera llegan a eso. Hace falta que llegue un poquito más, digamos, esas franjas blancas, pero están bien logradas, me gusta, me agradan. Luego, otra parte. El rojo avanza mucho más allá del visor en de forma horizontal o rodeando al modelo. De hecho, incluso, o sea, para que te hagas una referencia, hay una especie de líneas que son detallitos a cada lado del casco y más o menos son dos las líneas a las que llega el rojo por abajo. Y luego, si no me explico, me preguntas, y luego un poquito para arriba en cuanto empiezas a curvar donde se mete como hacia dentro del casco y primero hay una curva y después hay una pared, pero eso metiéndose como hacia dentro todo eso es rojo aún. Y incluso a la pared que está ya más alejada del centro que también pues es como toda esa zona, toda esa depresión, también hasta ahí llega el rojo, aunque no pasa de ahí, pero hasta ahí incluso llega rojo. Entonces, fíjate bien en el casco para saber a qué me refiero. Y bueno, eso sería por la parte delantera, aunque debo decirte también que las alas no son así. O sea, tú lo que has dibujado es un palo recto que viene de ser cutre, viene de no ser riguroso, de no ser detallista. Entonces
+
+=== step 1279 media=['C:/Users/migue/.gemini/antigravity/brain/708952eb-13ab-449a-b9c1-cf788f04feb2/.user_uploaded/media_1792280941574_1d9305e8.png']
+Ahora los "bigotes" blancos que hay por delante son una mierda enorme. Las "ojeras" blancas de delante estan logradas pero debe desplazarse el blanco algo mas hacia los lados. La parte trasera sigue sin estar matching; estás ignorando la forma del casco que ahi hay una especie de deprersion en el inicio de la cupula y no pareces verlo.. Fijate que en la primera foto qeue te adjunto los "bigotes" son como loshacias al principio pero mas largos. Las alas no están logradas
+
+=== step 1410 media=[]
+no esta lohrado. Primero haz el dibujo perfecto y entonces me confirmas. Pero haz el dibyjo perfecto. Estas fallando en eso
+
+=== step 1877 media=['C:/Users/migue/.gemini/antigravity/brain/708952eb-13ab-449a-b9c1-cf788f04feb2/.user_uploaded/media_1792330713905_14af042b.png']
+A ti esto te parece que esta bien? Es nivel de niño de 3 años
+
+=== step 2089 media=[]
+Mucho mejor la parte delantera, aunque las "ojeras" blancas son muy pequeñitas y por algun motivo los dientes se ven interrumpidos por una franja blanca. Las alas y la parte trasera soguen estando mal. No lo mandes hasta que no parezca que sea una copia del original /goal  y no puedas encontrar ninguna diferencia
+
+=== step 2280 media=[]
+esta mucho mas logrado, pero la "ojera" es demasiado grande. Ademas, en general, veo poco desarrollo en las formas. No hay detalles como cosas redondeadas... Parece todo muy bruto y se nota que no es "pintado" porque hay muchos detallitos que fallan. Por ejemplo, la misma ojera es un putisimo rectangulo y ya, no tiene una forma mas compleja y por eso falla tanto. Deberia ser mas o menos paralela al visor. Pero eso se puede ver a lo largo de todo el casco /goal
+
+=== step 2452 media=[]
+Aun no esta bien el dibujo eh. Ya te dijo yo que se notaba que no habia detalles en muchas cosas. Por ejemplo, desde el lado, es horrible todo a excepcion de las alas, que tb tienen mejoria
+
+=== step 2588 media=['C:/Users/migue/.gemini/antigravity/brain/708952eb-13ab-449a-b9c1-cf788f04feb2/.user_uploaded/media_1792351380792_7beca99a.png']
+quiero que las alas no lleguen hasta tan alto pq no me gusta del todo así. Achátalas un 20-30%. Tb quiero que las alargues un 15% hacia atras y asi ademas con todo eso quedan con algo mas de angulo de ataque. Finalmente el lado esta correcto aunque ese espacio que hay que es un puto angulo recto desde el lado es horrible (en la primera foto adjunta se ve), mejor pon de forma paralela a los bigotes el acabado de rojo final y echalo mas hacia detras. Si te parece, hasta la mitad de la depresion. Ademas, quiero que todo lo de la depresion sea rojo incluidas las paredes. Hablo de la depresion del pomulo
+
+=== step 2634 media=[]
+aun no es paralela a los bigotes. Y mejor quiero que llegue hasta el 35% de la depresion, no el 50
+
+=== step 2844 media=[]
+Sigue sin estar bien pero, por que te tengo que decir yo eso? Informate de cómo es y dejalo niquelado /goal 
+Estas cada vez simplemente cambiando alguna cosa que te digo sin revisar que este absolutamente perfecto todo
+
+=== step 2857 media=[]
+Sigue sin estar bien pero, por que te tengo que decir yo eso? Informate de cómo es y dejalo niquelado /goal 
+Estas cada vez simplemente cambiando alguna cosa que te digo sin revisar que este absolutamente perfecto todo.
+Basate en mis fotos o mi diseño para saber a qué version atenerte de Thorn (aunque ya te digo que es la de la serie de clone wars) y en Internet para sacar el diseño perfecto
+
+=== step 3032 media=[]
+Sigue siendo un puto desastre. Tienes que revisar tu trabajo final y rehacer si aun no esta perfecto. La pintura no va en concordancia con el casco
+
+=== step 3217 media=['C:/Users/migue/.gemini/antigravity/brain/708952eb-13ab-449a-b9c1-cf788f04feb2/.user_uploaded/media_1792363322855_98709387.png']
+Comparando ambas imagenes, que incosistencias ves?
+
+=== step 3221 media=['C:/Users/migue/.gemini/antigravity/brain/708952eb-13ab-449a-b9c1-cf788f04feb2/.user_uploaded/media_1792363609277_6e354e42.png']
+queria remarcar los puntos 3 y 4, que es donde no me estas pillando. El resto de cosas estan mal vistas por tu parte. Las alas no estan cortadas, sino que hay un visor de comandante tapando la conexion. Los dientes me parece bien lo que comentas. y sí hay ojeras pero simpkemente no te has dado cuenta (en la foto adjunta se ve mejor). Me he fijado en que no es que sean ojeras, sino que hay rojo en el centro solo con el grosor del "mastil" de las alas y el resto es blanco y que precisamente ese rojo continua tras el visor de los ojos (de vision que ya esta bien hecho) para luego formar las alas.
+Tb he visto que en la depresión de los pómulos hay un diseño blanco sobre rojo que se asemeja a un rayo. Fijate bien
+
+=== step 3233 media=[]
+Si. Haz una revision despues de aplicarlos para verificar que este bien
+
+=== step 3234 media=[]
+Si. Haz una revision despues de aplicarlos para verificar que este bien.
+Si no esta absolutamente perfecto, repitelo. Verifica eso tb y asi todo el rato hasta que quede absolutamente perfecto
+
+=== step 3235 media=[]
+Si. Haz una revision despues de aplicarlos para verificar que este bien.
+Si no esta absolutamente perfecto, repitelo. Verifica eso tb y asi todo el rato hasta que quede absolutamente perfecto /goal
+
+=== step 3470 media=[]
+Es un putisimo desastre
+
+=== step 3471 media=[]
+Es un putisimo desastre. Revierte todo
+
+=== step 3548 media=[]
+He cambiado el modelo utilizado a opus 5.5. Rehaz el diseño de thorn que sigue sin convencerme. Haz uso de toda esta conversacion para informarte de cómo ha de hacerse y toma datos de google si es necesario
+

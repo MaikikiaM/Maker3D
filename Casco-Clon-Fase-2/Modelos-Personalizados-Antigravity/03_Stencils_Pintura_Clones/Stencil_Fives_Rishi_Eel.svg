@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <rect width="100%" height="100%" fill="#111827"/>
+  <text x="400" y="40" fill="#60a5fa" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="middle">ARC TROOPER FIVES (CT-5555) - RISHI EEL STENCIL</text>
+  
+  <g fill="#1d4ed8" stroke="#60a5fa" stroke-width="2">
+    <path d="M 390 120 C 370 180, 430 240, 395 300 C 375 340, 425 380, 400 440 C 385 410, 360 410, 350 430 C 340 380, 370 340, 360 300 C 345 250, 400 190, 370 120 Z" />
+    <polygon points="380,440 400,470 420,440 410,435 400,450 390,435" fill="#f8fafc"/>
+    <circle cx="388" cy="420" r="4" fill="#ef4444"/>
+    <circle cx="412" cy="420" r="4" fill="#ef4444"/>
+    <polygon points="240,320 280,300 290,325 250,345" />
+    <polygon points="230,360 270,340 280,365 240,385" />
+    <polygon points="560,320 520,300 510,325 550,345" />
+    <polygon points="570,360 530,340 520,365 560,385" />
+  </g>
+  <text x="400" y="530" fill="#94a3b8" font-family="sans-serif" font-size="14" text-anchor="middle">Anguila Rishi de la cúpula y chevrones ARC de la 501</text>
+</svg>
