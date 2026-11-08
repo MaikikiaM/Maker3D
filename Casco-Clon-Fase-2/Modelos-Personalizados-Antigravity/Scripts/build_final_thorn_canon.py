@@ -5,12 +5,14 @@ import trimesh
 from manifold3d import Manifold, Mesh, CrossSection, OpType
 import numpy as np
 
-casco_dir = r"C:\Users\migue\Proyectos IA varios\Miscelanea\Diseños 3D\Casco"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+casco_root = os.path.abspath(os.path.join(script_dir, "..", ".."))
+casco_dir = os.path.join(casco_root, "Archivos-Base-Galactic-Armory")
 greeb_dir = os.path.join(casco_dir, "Greeblies")
-antigravity_dir = os.path.join(casco_dir, "Antigravity")
-out_clones = os.path.join(antigravity_dir, "05_Cascos_Pintados_Clones")
-out_stencils = os.path.join(antigravity_dir, "03_Stencils_Pintura_Clones")
-out_visuals = os.path.join(antigravity_dir, "04_Guias_Visuales_y_Planos")
+antigravity_dir = os.path.join(casco_root, "Modelos-Personalizados-Antigravity")
+out_clones = os.path.join(antigravity_dir, "Cascos-Pintados-Clones")
+out_stencils = os.path.join(antigravity_dir, "Stencils-Pintura-Clones")
+out_visuals = os.path.join(antigravity_dir, "Guias-Visuales-y-Planos")
 
 print("1. Loading geometry...")
 mb_teeth = trimesh.load(os.path.join(casco_dir, "Phase 2 Main Body.stl"))

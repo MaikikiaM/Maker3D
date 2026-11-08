@@ -4,11 +4,13 @@ import json
 import trimesh
 import numpy as np
 
-casco_dir = r"C:\Users\migue\Proyectos IA varios\Miscelanea\Diseños 3D\Casco"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+casco_root = os.path.abspath(os.path.join(script_dir, "..", ".."))
+casco_dir = os.path.join(casco_root, "Archivos-Base-Galactic-Armory")
 greeb_dir = os.path.join(casco_dir, "Greeblies")
-antigravity_dir = os.path.join(casco_dir, "Antigravity")
-out_clones = os.path.join(antigravity_dir, "05_Cascos_Pintados_Clones")
-out_editable = os.path.join(antigravity_dir, "02_Proyecto_Editable_MultiColor")
+antigravity_dir = os.path.join(casco_root, "Modelos-Personalizados-Antigravity")
+out_clones = os.path.join(antigravity_dir, "Cascos-Pintados-Clones")
+out_editable = os.path.join(antigravity_dir, "Proyecto-Editable-MultiColor")
 
 print("Loading base geometry...")
 mb_teeth = trimesh.load(os.path.join(casco_dir, "Phase 2 Main Body.stl"))

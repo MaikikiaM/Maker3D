@@ -2,8 +2,13 @@ import os
 
 print("--- Assembling Master 3D WebGL Mountain Viewer ---")
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+b64_path = os.path.join(script_dir, 'mountain_b64_data.js')
+if not os.path.exists(b64_path):
+    b64_path = 'scratch/mountain_b64_data.js'
+
 # Read base64 data
-with open('scratch/mountain_b64_data.js', 'r', encoding='utf-8') as f:
+with open(b64_path, 'r', encoding='utf-8') as f:
     b64_data_js = f.read()
 
 html_template = f"""<!DOCTYPE html>
@@ -676,16 +681,20 @@ html_template = f"""<!DOCTYPE html>
 """
 
 # Write to target locations
-out_html_1 = r"c:\Users\migue\Proyectos IA varios\Miscelanea\Tableros Catan\Loseta_Montana_3D\catan_mountain_viewer.html"
-out_html_2 = r"c:\Users\migue\Proyectos IA varios\Miscelanea\Tableros Catan\catan_mountain_viewer.html"
-brain_html = r"C:\Users\migue\.gemini\antigravity\brain\ae0d77ea-1004-4459-bb12-8bf2643bf77c\catan_mountain_viewer.html"
+catan_dir = os.path.abspath(os.path.join(script_dir, ".."))
+maker3d_dir = os.path.abspath(os.path.join(catan_dir, ".."))
 
+out_html_1 = os.path.join(catan_dir, "Loseta-Montana-3D", "catan_mountain_viewer.html")
+out_html_2 = os.path.join(catan_dir, "catan_mountain_viewer.html")
+out_html_3 = os.path.join(maker3d_dir, "Visores-HTML", "catan-loseta-montana-detailed.html")
+
+os.makedirs(os.path.dirname(out_html_1), exist_ok=True)
 with open(out_html_1, 'w', encoding='utf-8') as f:
     f.write(html_template)
 with open(out_html_2, 'w', encoding='utf-8') as f:
     f.write(html_template)
-with open(brain_html, 'w', encoding='utf-8') as f:
+with open(out_html_3, 'w', encoding='utf-8') as f:
     f.write(html_template)
 
-print(f"Viewer written to:\n  {out_html_1}\n  {out_html_2}\n  {brain_html}")
+print(f"Viewer written to:\n  {out_html_1}\n  {out_html_2}\n  {out_html_3}")
 print("Size of viewer HTML:", os.path.getsize(out_html_1) / 1024, "KB")

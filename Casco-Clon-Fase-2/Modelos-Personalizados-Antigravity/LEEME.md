@@ -6,7 +6,7 @@ Este directorio contiene todas las optimizaciones, variantes de una sola pieza, 
 
 ## Estructura de Carpetas
 
-### 📁 `01_Modelos_Una_Pieza_STL/`
+### 📁 `Modelos-Una-Pieza-STL/`
 Modelos listos para impresión 3D directa de una sola pieza (100% estancos, sin caras internas).
 * `Clone_P2_UnaPieza_ConDientes_Malla.stl`
 * `Clone_P2_UnaPieza_ConDientes_Hueco.stl`
@@ -15,7 +15,7 @@ Modelos listos para impresión 3D directa de una sola pieza (100% estancos, sin 
 
 ---
 
-### 📁 `02_Proyecto_Editable_MultiColor/`
+### 📁 `Proyecto-Editable-MultiColor/`
 Archivos base neutros para edición 3D en Blender / Substance o asignación libre de colores en Bambu Studio / PrusaSlicer.
 * `Clone_P2_Editable_Bambu_Prusa.3mf`
 * `Clone_P2_Editable.glb`
@@ -23,7 +23,7 @@ Archivos base neutros para edición 3D en Blender / Substance o asignación libr
 
 ---
 
-### 📁 `03_Stencils_Pintura_Clones/`
+### 📁 `Stencils-Pintura-Clones/`
 Plantillas vectoriales SVG a escala para máscaras físicas de aerógrafo, calcas o corte de vinilo:
 * `Stencil_Thorn_Coruscant_Wings.svg` (Alas y cresta roja)
 * `Stencil_Rex_Jaig_Eyes.svg` (Jaig eyes, bajas y soldaduras)
@@ -32,13 +32,13 @@ Plantillas vectoriales SVG a escala para máscaras físicas de aerógrafo, calca
 
 ---
 
-### 📁 `04_Guias_Visuales_y_Planos/`
+### 📁 `Guias-Visuales-y-Planos/`
 * `helmet_orthographic_analysis.png`: Planos técnicos ortográficos y corte sagital con espesores.
 * `clone_liveries_preview.png`: Lámina comparativa de los esquemas de pintura de los 4 clones.
 
 ---
 
-### 📁 `05_Cascos_Pintados_Clones/`
+### 📁 `Cascos-Pintados-Clones/`
 **¡Los 4 cascos ya pintados y listos!**
 Para cada clon se incluyen dos formatos:
 1. **`.glb`**: Archivo 3D completo a todo color. Abre directamente con doble clic en el Visor 3D de Windows, navegadores web o Blender.

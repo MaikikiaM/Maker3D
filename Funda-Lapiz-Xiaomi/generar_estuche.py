@@ -592,7 +592,9 @@ def export_stl(manifold, filepath):
 
 def main():
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    modelos_dir = os.path.join(base_dir, "01_Modelos_3D")
+    modelos_dir = os.path.join(base_dir, "Modelos-3D")
+    if not os.path.exists(modelos_dir):
+        modelos_dir = os.path.join(base_dir, "01_Modelos_3D")
     target_dir = modelos_dir if os.path.exists(modelos_dir) else base_dir
 
     print("=================================================================")

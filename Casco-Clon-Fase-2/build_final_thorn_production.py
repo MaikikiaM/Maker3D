@@ -36,24 +36,23 @@ print("=== PIPELINE MAESTRO DEFINITIVO: COMANDANTE THORN (TCW S6 / CC-3223)  ===
 print("=== PARTICION BOOLEANA 100% ESTANCA + AUDITORIA MULTI-ANGULO 20 VISTAS ===")
 print("=========================================================================")
 
-BASE_DIR = r"c:\Users\migue\Proyectos IA varios\Miscelanea"
-CASCO_P2_DIR = os.path.join(BASE_DIR, r"Diseños 3D\01_Casco_Clon_Fase_2")
-BASE_MODELS_DIR = os.path.join(CASCO_P2_DIR, "00_Archivos_Base_Galactic_Armory")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+CASCO_P2_DIR = SCRIPT_DIR
+BASE_MODELS_DIR = os.path.join(CASCO_P2_DIR, "Archivos-Base-Galactic-Armory")
 GREEB_DIR = os.path.join(BASE_MODELS_DIR, "Greeblies")
-ANTIGRAVITY_DIR = os.path.join(CASCO_P2_DIR, "02_Modelos_Personalizados_Antigravity")
+ANTIGRAVITY_DIR = os.path.join(CASCO_P2_DIR, "Modelos-Personalizados-Antigravity")
 
-OUT_05 = os.path.join(ANTIGRAVITY_DIR, "05_Cascos_Pintados_Clones")
+OUT_05 = os.path.join(ANTIGRAVITY_DIR, "Cascos-Pintados-Clones")
 OUT_05_STL = os.path.join(OUT_05, "Thorn_Despiece_Fabricacion_STL")
 OUT_05_3MF = os.path.join(OUT_05, "Modelos_Pintados_3MF_GLB")
 
-OUT_04 = os.path.join(ANTIGRAVITY_DIR, "04_Guias_Visuales_y_Planos")
+OUT_04 = os.path.join(ANTIGRAVITY_DIR, "Guias-Visuales-y-Planos")
 OUT_04_LAMINAS = os.path.join(OUT_04, "Laminas_Maestras")
 OUT_04_AUDIT = os.path.join(OUT_04, "Archivo_Auditoria_Renders")
 
-OUT_03 = os.path.join(ANTIGRAVITY_DIR, "03_Stencils_Pintura_Clones")
-ARTIFACT_DIR = r"C:\Users\migue\.gemini\antigravity\brain\708952eb-13ab-449a-b9c1-cf788f04feb2"
+OUT_03 = os.path.join(ANTIGRAVITY_DIR, "Stencils-Pintura-Clones")
 
-for d in (OUT_05_STL, OUT_05_3MF, OUT_04_LAMINAS, OUT_04_AUDIT, OUT_03, ARTIFACT_DIR):
+for d in (OUT_05_STL, OUT_05_3MF, OUT_04_LAMINAS, OUT_04_AUDIT, OUT_03):
     os.makedirs(d, exist_ok=True)
 
 # -------------------------------------------------------------------------

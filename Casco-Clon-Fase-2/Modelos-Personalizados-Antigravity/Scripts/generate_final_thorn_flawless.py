@@ -9,10 +9,14 @@ from PIL import Image
 print("=== INICIANDO PIPELINE MAESTRO DE COMMANDER THORN (THE CLONE WARS S6) ===")
 
 # Directorios de salida
-BASE_DIR = r"c:\Users\migue\Proyectos IA varios\Miscelanea"
-OUT_05 = os.path.join(BASE_DIR, r"Diseños 3D\Casco\Antigravity\05_Cascos_Pintados_Clones")
-OUT_04 = os.path.join(BASE_DIR, r"Diseños 3D\Casco\Antigravity\04_Guias_Visuales_y_Planos")
-OUT_03 = os.path.join(BASE_DIR, r"Diseños 3D\Casco\Antigravity\03_Stencils_Pintura_Clones")
+script_dir = os.path.dirname(os.path.abspath(__file__))
+casco_root = os.path.abspath(os.path.join(script_dir, "..", ".."))
+antigravity_dir = os.path.join(casco_root, "Modelos-Personalizados-Antigravity")
+casco_base_dir = os.path.join(casco_root, "Archivos-Base-Galactic-Armory")
+
+OUT_05 = os.path.join(antigravity_dir, "Cascos-Pintados-Clones")
+OUT_04 = os.path.join(antigravity_dir, "Guias-Visuales-y-Planos")
+OUT_03 = os.path.join(antigravity_dir, "Stencils-Pintura-Clones")
 
 os.makedirs(OUT_05, exist_ok=True)
 os.makedirs(OUT_04, exist_ok=True)
@@ -20,7 +24,7 @@ os.makedirs(OUT_03, exist_ok=True)
 
 # 1. CARGA DEL CASCO BASE FASE 2
 print("[1/6] Cargando modelo base Galactic Armory Phase 2...")
-base_mesh = trimesh.load(os.path.join(BASE_DIR, r"Diseños 3D\Casco\Phase 2 Main Body.stl"))
+base_mesh = trimesh.load(os.path.join(casco_base_dir, "Phase 2 Main Body.stl"))
 v_base = base_mesh.vertices.astype('float32')
 f_base = base_mesh.faces.astype('uint32')
 helmet_mani = m3d.Manifold(m3d.Mesh(vert_properties=v_base, tri_verts=f_base))
