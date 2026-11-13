@@ -19,7 +19,7 @@ Suite CAD/Mesh profesional de modelado procedimental e impresión 3D avanzada (F
 
 ## Skills y Workflows del Workspace
 - **`nanobanana-3d-sculpt` (`.agents/skills/nanobanana-3d-sculpt/SKILL.md`):** Integra generación imaginativa de Nano Banana (`image-generator`) —turnarounds conceptuales, mapas de altura cenitales y texturizado pictórico alineado al DEM— con el puente CAD puro NumPy/SciPy `scripts/nanobanana_to_catan_hex.py` (`watertight=True`, $\chi=2$, cotas Catan exactas).
-- **Prototipo Experimental V4 Nano Banana (`pipeline-montana/build_v4_nanobanana_preview.py` -> `Visores-HTML/preview-montana-v4-nanobanana.html`):** Primera prueba completa *Concept 360° -> Heightmap -> Clay -> Albedo pintado bloqueado al píxel -> Malla 202,614 Δ estanca ($\chi=2$, Vol `444.63 cm³`, `Z=89mm`)* verificada en Chromium con `0` errores de consola (sin sobrescribir V3).
+- **Prototipo Experimental V4 Nano Banana (`pipeline-montana/build_v4_nanobanana_preview.py` -> `Visores-HTML/preview-montana-v4-nanobanana.html`):** Refinado tras auditoría visual (`slope_gamma=0.72`, `relief=60mm` -> `Z=85mm`, recorte físico de nieve en `>=44°` con relleno mineral FFT `max_snow_ge44=0.000000%`). Malla estanca `V=106,929 / F=213,854` ($\chi=2$, Vol `474.86 cm³`) en visor preview `3.78 MB` (sin sobrescribir V3).
 
 ## Próximas Tareas Prioritarias
 1. Ajustar curva gamma del *heightmap* Nano Banana y filtro físico de nieve $\ge 44^\circ$ si el usuario decide promover el prototipo V4 Nano Banana a versión maestra `5M+ Δ`.

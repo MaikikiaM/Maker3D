@@ -87,3 +87,5 @@ Resultados de validación observados:
 - Verificación WebGL en Chromium (`http://127.0.0.1:8766/Visores-HTML/preview-montana-v4-nanobanana.html`): `0` errores de consola y carga completa.
 - Auditoría visual 3D directa: silueta 360° alta y muy dramática, detectando como mejora para V4 final suavizar la curva de pendiente del *heightmap* para evitar estiramiento lateral en paredes >75° y aplicar recorte físico de nieve en barrancos bajos/verticales.
 ================================================================================
+
+[Refinamiento V4 Opción A - 13/11/2026 18:50] Aplicadas mejoras en `build_v4_nanobanana_preview.py` sobre `Visores-HTML/preview-montana-v4-nanobanana.html` (`3.78 MB`, sin tocar V3): apertura de laderas (`slope_gamma=0.72`, `relief=60.0mm`, `Z=85mm`), grano mineral FFT y recorte físico suave de nieve en escarpes `>=44°` y barrancos bajos (`max_snow_ge44=0.000000%`). Malla resultante: `V=106,929 | F=213,854 | chi=2 | watertight=True | Vol=474.86 cm³`.
