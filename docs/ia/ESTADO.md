@@ -19,8 +19,9 @@ Suite CAD/Mesh profesional de modelado procedimental e impresión 3D avanzada (F
 
 ## Skills y Workflows del Workspace
 - **`nanobanana-3d-sculpt` (`.agents/skills/nanobanana-3d-sculpt/SKILL.md`):** Integra generación imaginativa de Nano Banana (`image-generator`) —turnarounds conceptuales, mapas de altura cenitales y texturizado pictórico alineado al DEM— con el puente CAD puro NumPy/SciPy `scripts/nanobanana_to_catan_hex.py` (`watertight=True`, $\chi=2$, cotas Catan exactas).
+- **Prototipo Experimental V4 Nano Banana (`pipeline-montana/build_v4_nanobanana_preview.py` -> `Visores-HTML/preview-montana-v4-nanobanana.html`):** Primera prueba completa *Concept 360° -> Heightmap -> Clay -> Albedo pintado bloqueado al píxel -> Malla 202,614 Δ estanca ($\chi=2$, Vol `444.63 cm³`, `Z=89mm`)* verificada en Chromium con `0` errores de consola (sin sobrescribir V3).
 
 ## Próximas Tareas Prioritarias
-1. Probar la nueva skill `nanobanana-3d-sculpt` (p. ej. nueva loseta Catan o refinamiento imaginativo Montaña V4 / otro bioma).
+1. Ajustar curva gamma del *heightmap* Nano Banana y filtro físico de nieve $\ge 44^\circ$ si el usuario decide promover el prototipo V4 Nano Banana a versión maestra `5M+ Δ`.
 2. Validar corte de impresión multicolor real (`infimech_cmykwog_mountain_slicing_guide.md`) con `catan_mountain_fullcolor.3mf` V2 o derivados LOD en OrcaSlicer/PrusaSlicer.
 3. Continuar con el resto de losetas modulares del tablero Catan 127 losetas siguiendo la arquitectura V2 pure NumPy/SciPy.

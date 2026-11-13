@@ -71,3 +71,19 @@ Resultados de validación observados:
 - `python -m py_compile .agents/skills/nanobanana-3d-sculpt/scripts/nanobanana_to_catan_hex.py`: salida 0.
 - `python .agents/skills/nanobanana-3d-sculpt/scripts/nanobanana_to_catan_hex.py --self-test`: `[OK] self_test_tile: V=7789 E=23361 F=15574 chi=2 watertight=True vol=384.41cm3`.
 ================================================================================
+
+================================================================================
+SESIÓN: 13/11/2026 - PROTOTIPO 3D EXPERIMENTAL V4 CON NANOBANANA (360° + ALTURA 64MM + VISOR PREVIEW)
+Prompt usuario: Generar una versión más alta y en 360° de la montaña con Nano Banana y probar qué tal queda llevada a 3D real.
+
+Decisiones técnicas y arquitectura:
+- Generada lámina conceptual 360° dual (`3/4 South` + `3/4 North`) más alta y escarpada vía `image-generator` (subagente nativo integrado, sin API key externa configurada).
+- Sintetizado *heightmap* cenital ortográfico 90° (`catan_mountain_hex_heightmap_clean_...jpg`), proyectado mediante `build_v4_nanobanana_preview.py` (`relief=64.0mm`, `micro_detail=0.18mm`, `Z_PEAK=89.00mm`) a vista *clay* exacta (`scratch_v4_nanobanana/v4_nanobanana_clay_overhead.png`).
+- Pasada pictórica `v4_nanobanana_diffuse_albedo_v2` pintada por `image-generator` directamente sobre el *clay* cenital (alineación UV 1:1 con granito estriado, escombro ocre, musgo y nieve en circos).
+- Compilado visor interactivo no destructivo en `Visores-HTML/preview-montana-v4-nanobanana.html` (`3.66 MB`, manteniendo intacta V3).
+
+Resultados de validación observados:
+- Malla estanca V4 preview (`nx=350`): `V=101,309 | F=202,614 | chi=2 | watertight=True | Vol=444.63 cm³`.
+- Verificación WebGL en Chromium (`http://127.0.0.1:8766/Visores-HTML/preview-montana-v4-nanobanana.html`): `0` errores de consola y carga completa.
+- Auditoría visual 3D directa: silueta 360° alta y muy dramática, detectando como mejora para V4 final suavizar la curva de pendiente del *heightmap* para evitar estiramiento lateral en paredes >75° y aplicar recorte físico de nieve en barrancos bajos/verticales.
+================================================================================
