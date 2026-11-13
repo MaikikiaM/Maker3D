@@ -1,42 +1,36 @@
 """
 =============================================================================
-GENERADOR PARAMÉTRICO DE ESTUCHE DEFINITIVO (V8) PARA XIAOMI SMART PEN 2
+GENERADOR PARAMÉTRICO DE ESTUCHE DEFINITIVO (V8.1) PARA XIAOMI SMART PEN 2
 =============================================================================
-Diseño optimizado: Sistema de Suspensión Elástica por Patitas Flotantes,
-Simetría Total respecto al Centro de la Holgura, Parachoques Macizo en Punta,
-Mecanismo Slide-to-Release (+4.0 mm) y Carcasa Blindada de PETG.
+Diseño optimizado: Sistema de Suspensión Elástica por Patitas en T Rectas,
+Simetría Total respecto al Centro de la Holgura, Mecanismo Slide-to-Release Real,
+Uñero de TPU hasta el Suelo y Carcasa Blindada de PETG.
 
-Novedades clave de la versión V8:
-  1. Suspensión Elástica por 4 Patitas Flotantes (según boceto del usuario):
+Novedades clave de la versión V8.1:
+  1. Suspensión Elástica por 4 Patitas en T Rectas:
      - El cuerpo central de TPU (anchura h = 15.6 mm) ya no está constreñido por
        las paredes rígidas de PETG.
-     - 4 patitas elásticas en los tercios (X = ±L/6 = ±34.0 mm) con terminal
-       en ballesta curva que apoyan suavemente contra el PETG.
-     - Colchón de aire libre de h/2 = 7.8 mm a cada lado: las paredes de TPU
-       pueden flexionar y abrirse con total libertad para coger y soltar el lápiz.
+     - 4 patitas en X = ±51.0 mm con nervio fino (2.40 mm) para no trasladar
+       fuerzas excesivas sobre el lápiz.
+     - Pie transversal de apoyo 100% recto (26.40 mm, sin rampitas) y más grueso
+       (2.40 mm solo en la sección que toca el PETG).
   2. Simetría Total respecto al Centro de la Holgura (X = 0.00 mm):
-     - El semicírculo ergonómico de agarre es ahora el centro geométrico absoluto.
-     - La distancia hacia el frontal (cabeza) es idéntica a la trasera (102.0 mm).
-     - Parachoques macizo de goma en la punta: 11.0 mm de goma sólida frontal
-       (más del triple de amortiguación contra impactos directos de punta).
-  3. Mecanismo Slide-to-Release (+4.0 mm de carrera longitudinal):
-     - La punta del lápiz queda resguardada bajo la capucha superior de goma.
-     - Con 4.0 mm de holgura longitudinal, se empuja el lápiz 4 mm hacia atrás
-       con el pulgar, la punta sale de debajo del saliente y el lápiz se levanta
-       limpiamente hacia arriba sin ninguna fuerza ni doblez.
-  4. Suelo de TPU Reforzado (+2.00 mm macizos):
-     - Suelo de goma bajo el lápiz pasa a 4.00 mm macizos (altura TPU = 14.50 mm).
-     - Mayor absorción ante caídas sobre superficies duras.
-  5. Envolvencia Suavizada un 10%:
-     - Garganta de apertura ensanchada a 7.20 mm para extracción cómoda.
-  6. Cavidades de Repuesto 15% Más Amplias:
-     - Vástago, manguito y cono recto aumentados un 15% para drop-in fácil.
-  7. Carcasa Blindada de PETG Adaptada:
-     - Cajera interior de 31.40 mm de ancho para alojar las patitas.
-     - Anchura exterior: 39.20 mm | Altura exterior cerrada: 20.60 mm.
-     - 8 imanes D6x3 mm cautivos (cavidad 3.40 mm de profundidad con membrana 0.40 mm).
-     - Uñera ergonómica simétrica en la base del semicírculo.
-     - Teléfono grabado en relieve en la tapa ('644 727 688').
+     - El semicírculo ergonómico de agarre es el centro geométrico absoluto.
+     - Distancia hacia el frontal y trasera idéntica (102.0 mm, TPU = 204.0 mm).
+  3. Mecanismo Slide-to-Release Real (embocadura abierta hasta X = -92.0 mm):
+     - Cono de transición suave sin estrangulamientos (-75 a -89 mm) hasta la
+       cámara de punta (-95 mm, domo -98 mm).
+     - En reposo adelantado, ~4 mm de la punta quedan protegidos bajo la capucha.
+     - Al empujar hacia atrás contra +71.0 mm (163.0 mm abiertos), cualquier lápiz
+       de 152-158 mm libera completamente la punta para levantarlo sin obstáculos.
+  4. Suelo de TPU Ligero (2.00 mm):
+     - Eliminado el aumento macizo de suelo: suelo de 2.00 mm, altura TPU = 12.50 mm
+       y altura total cerrada = 18.60 mm.
+  5. Uñero de TPU hasta el Suelo con Curvatura Conservada (R = 32.0 mm):
+     - La muesca del TPU baja hasta Z = 2.00 mm (suelo del canal) aumentando la
+       circunferencia completa para conservar una curvatura suave.
+  6. Envolvencia Suavizada (garganta 7.20 mm) y Repuestos +15% Más Amplios.
+  7. Carcasa Blindada de PETG (39.20 x 18.60 mm cerrada, 8 imanes D6x3 mm).
   8. 100% Libre de Soportes para Impresión 3D FDM.
 =============================================================================
 """
@@ -72,23 +66,24 @@ PRY_NOTCH_H = 1.00             # Altura en cada mitad (2.00 mm total entre base 
 PRY_NOTCH_DEPTH = 1.10         # Profundidad hacia adentro (pared de 2.0 mm -> 0.90 mm macizo continuo)
 PRY_NOTCH_R = 0.90             # Radio de redondeo de esquinas (mm)
 
-# Inserto blando (TPU 85A a 20% de relleno) V8:
+# Inserto blando (TPU 85A a 20% de relleno) V8.1:
 TPU_LEN = 204.00               # Longitud exterior total del TPU (102.0 mm a cada lado del centro)
 TPU_WIDTH = 15.60              # Anchura 'h' del cuerpo principal del TPU (mm)
-TPU_FLOOR = 4.00               # Suelo elástico macizo (+2.0 mm -> 4.00 mm de goma bajo el lápiz)
-TPU_H = 14.50                  # Altura completa del TPU (mm) (+2.0 mm por suelo)
+TPU_FLOOR = 2.00               # Suelo elástico fino (2.00 mm bajo el lápiz, sin exceso macizo)
+TPU_H = 12.50                  # Altura completa del TPU (mm)
 TPU_CORNER_R = 1.20            # Radio de esquinas del inserto (mm)
+TPU_SCOOP_R = 32.00            # Radio ampliado del uñero del TPU para llegar al suelo conservando curvatura
 
-# 4 Patitas de suspensión amortiguadoras según boceto:
-# Ubicadas en los tercios de la longitud: X = ± TPU_LEN / 6 = ± 34.0 mm
+# 4 Patitas de suspensión amortiguadoras en T recta:
+# Ubicadas en los cuartos de la longitud: X = ± TPU_LEN / 4 = ± 51.0 mm
 LEG_X_OFFSETS = [-TPU_LEN / 4.0, +TPU_LEN / 4.0]  # [-51.0, +51.0] mm (Equidistante: misma distancia de la holgura que del final)
 LEG_STEM_LEN = TPU_WIDTH / 2.0                     # h/2 = 7.80 mm de separación libre a cada lado
-LEG_STEM_W = 2.40                                  # Grosor del nervio de la patita (mm)
-LEG_FLAT_PER_SIDE = 4.00                           # 4 mm de pata lisa a cada lado antes de meterse hacia dentro
-LEG_WING_LEN = 8.00                                # Longitud de la aleta curva hacia dentro (mm)
-LEG_PAD_THICK = 1.40                               # Grosor del pie de apoyo (mm)
-LEG_BOW = 1.50                                     # Flecha de curvatura hacia adentro (mm)
-LEG_PAD_LEN = 2 * (LEG_STEM_W / 2.0 + LEG_FLAT_PER_SIDE + LEG_WING_LEN) # 26.40 mm total alargado
+LEG_STEM_W = 2.40                                  # Grosor del nervio de la patita (mm) — sin aumentar para no transmitir fuerza al lápiz
+LEG_FLAT_PER_SIDE = 4.00                           # Tramo base a cada lado del nervio (mm)
+LEG_WING_LEN = 8.00                                # Tramo exterior a cada lado (mm)
+LEG_PAD_THICK = 2.40                               # Grosor reforzado únicamente en el pie recto que toca el PETG (mm)
+LEG_BOW = 0.00                                     # Sin rampitas: pie en T totalmente recto en contacto completo con el PETG
+LEG_PAD_LEN = 2 * (LEG_STEM_W / 2.0 + LEG_FLAT_PER_SIDE + LEG_WING_LEN) # 26.40 mm total recto
 
 # Anchura total a través de las patitas:
 TOTAL_TPU_WIDTH = TPU_WIDTH + 2 * LEG_STEM_LEN    # 15.60 + 2 * 7.80 = 31.20 mm
@@ -101,9 +96,9 @@ POCKET_WIDTH = TOTAL_TPU_WIDTH + 0.20             # 31.40 mm (aloja las patitas 
 POCKET_LEN = TPU_LEN + 0.40                       # 204.40 mm
 POCKET_R = 1.20
 
-# Pieza 1: Base rígida (PLA / PETG) - 10.60 mm:
+# Pieza 1: Base rígida (PLA / PETG) - 9.60 mm:
 BASE_FLOOR = 1.60              # Suelo rígido inferior (mm)
-BASE_BODY_H = 10.60            # Altura exterior de la base hasta la costura (10.60 mm)
+BASE_BODY_H = 9.60             # Altura exterior de la base hasta la costura (9.60 mm)
 LIP_H = 5.40                   # Altura del labio vertical reforzado (5.40 mm)
 LIP_THICKNESS = 1.70           # Grosor macizo del labio (1.70 mm continuo)
 
@@ -112,9 +107,9 @@ lip_width = POCKET_WIDTH + 2 * LIP_THICKNESS      # 31.40 + 3.40 = 34.80 mm
 lip_len = POCKET_LEN + 1.00                       # 205.40 mm
 lip_corner_r = 1.00
 
-# Pieza 2: Tapa rígida (PLA / PETG) - 10.00 mm:
-LID_BODY_H = 10.00             # Altura exterior neta de la tapa sobre la costura (10.00 mm)
-TOTAL_CLOSED_H = BASE_BODY_H + LID_BODY_H         # 20.60 mm total cerrado (+2.0 mm)
+# Pieza 2: Tapa rígida (PLA / PETG) - 9.00 mm:
+LID_BODY_H = 9.00              # Altura exterior neta de la tapa sobre la costura (9.00 mm)
+TOTAL_CLOSED_H = BASE_BODY_H + LID_BODY_H         # 18.60 mm total cerrado
 LID_CEILING = 2.40             # Techo sólido de la tapa (mm)
 
 LID_WALL = 2.00                # Grosor de pared exterior de la tapa (2.00 mm macizos)
@@ -279,30 +274,41 @@ def rounded_slot_3d(length, height, depth, r=1.0):
 
 def build_suspension_leg(stem_len=LEG_STEM_LEN, stem_w=LEG_STEM_W, flat_per_side=LEG_FLAT_PER_SIDE, wing_len=LEG_WING_LEN, pad_thick=LEG_PAD_THICK, bow=LEG_BOW, height=TPU_H):
     """
-    Genera una patita elástica de suspensión con apoyo plano de 4 mm antes de curvar hacia dentro:
-    - Se extiende una distancia stem_len (h/2 = 7.80 mm) en Y.
-    - Zona de contacto con PETG: plano recto continuo de >10.4 mm (4 mm de pata lisa a cada lado)
-      para que el calcetín apoye con total estabilidad sin terminar en pico.
-    - Extremos en ballesta curva que se meten hacia dentro (bow = 1.50 mm) para actuar como
-      resorte progresivo y evitar pellizcos.
-    - Misma altura que todo el TPU (height = 14.50 mm) desde la cama Z=0: 100% libre de soportes.
+    Genera una patita elástica de suspensión en T totalmente recta:
+    - Nervio de unión fino (stem_w = 2.40 mm) para no trasladar fuerzas excesivas al lápiz.
+    - Barra transversal de apoyo totalmente recta (bow = 0.00 mm, 26.40 mm de longitud)
+      sin rampitas laterales, apoyando de punta a punta contra la pared de PETG.
+    - Grosor reforzado únicamente en el pie de apoyo (pad_thick = 2.40 mm).
+    - Misma altura que todo el TPU (height = 12.50 mm) desde la cama Z=0: 100% libre de soportes.
     """
     x_flat = stem_w / 2.0 + flat_per_side   # 1.2 + 4.0 = 5.2 mm
     x_tip = x_flat + wing_len               # 5.2 + 8.0 = 13.2 mm
-    pts = [
-        [stem_w / 2.0, -0.5],
-        [stem_w / 2.0, stem_len - pad_thick],
-        [x_flat, stem_len - pad_thick],
-        [x_tip, stem_len - pad_thick - bow],
-        [x_tip, stem_len - bow],
-        [x_flat, stem_len],
-        [-x_flat, stem_len],
-        [-x_tip, stem_len - bow],
-        [-x_tip, stem_len - pad_thick - bow],
-        [-x_flat, stem_len - pad_thick],
-        [-stem_w / 2.0, stem_len - pad_thick],
-        [-stem_w / 2.0, -0.5],
-    ]
+    if bow == 0.0:
+        pts = [
+            [stem_w / 2.0, -0.5],
+            [stem_w / 2.0, stem_len - pad_thick],
+            [x_tip, stem_len - pad_thick],
+            [x_tip, stem_len],
+            [-x_tip, stem_len],
+            [-x_tip, stem_len - pad_thick],
+            [-stem_w / 2.0, stem_len - pad_thick],
+            [-stem_w / 2.0, -0.5],
+        ]
+    else:
+        pts = [
+            [stem_w / 2.0, -0.5],
+            [stem_w / 2.0, stem_len - pad_thick],
+            [x_flat, stem_len - pad_thick],
+            [x_tip, stem_len - pad_thick - bow],
+            [x_tip, stem_len - bow],
+            [x_flat, stem_len],
+            [-x_flat, stem_len],
+            [-x_tip, stem_len - bow],
+            [-x_tip, stem_len - pad_thick - bow],
+            [-x_flat, stem_len - pad_thick],
+            [-stem_w / 2.0, stem_len - pad_thick],
+            [-stem_w / 2.0, -0.5],
+        ]
     cs = m3d.CrossSection([pts])
     cs = cs.offset(-0.4, join_type=m3d.JoinType.Round).offset(0.4, join_type=m3d.JoinType.Round)
     return m3d.Manifold.extrude(cs, height)
@@ -333,31 +339,37 @@ def build_tpu_insert(enveloping=True):
         body = body + leg_pos + leg_neg
 
     pen_r = 4.50  # radio del canal cilíndrico (Ø 9.0 mm para lápiz de 8.8 mm)
-    pen_z = TPU_FLOOR + PEN_RADIUS  # 4.00 + 4.40 = 8.40 mm
+    pen_z = TPU_FLOOR + PEN_RADIUS  # 2.00 + 4.40 = 6.40 mm
     
     # 1. Canal cilíndrico principal:
-    # Carrera desde X = +70.0 mm (pared trasera) hasta X = -72.0 mm (longitud 142.0 mm)
-    cyl_len = 70.0 - (-72.0)
-    cyl_center_x = (70.0 + -72.0) / 2.0  # -1.0 mm
+    # Carrera desde X = +71.0 mm (pared trasera) hasta X = -75.0 mm (longitud 146.0 mm)
+    pen_back_x = 71.0
+    cyl_front_x = -75.0
+    cyl_len = pen_back_x - cyl_front_x
+    cyl_center_x = (pen_back_x + cyl_front_x) / 2.0  # -2.0 mm
     main_cyl = make_cylinder_x(cyl_len + 0.2, pen_r, segments=48).translate([cyl_center_x - 0.1, 0, pen_z])
     
-    # 2. Cono de transición para el cuello de la punta:
-    cone_len = 12.0
-    cone_center_x = -72.0 - cone_len / 2.0  # -78.0 mm
-    cone = make_cone_x(cone_len + 0.2, 2.4, pen_r, segments=48).translate([cone_center_x, 0, pen_z])
+    # 2. Cono de transición para el cuello de la punta (suave sin estrangulamientos):
+    cone_end_x = -89.0
+    cone_len = cyl_front_x - cone_end_x  # 14.0 mm
+    cone_center_x = (cyl_front_x + cone_end_x) / 2.0  # -82.0 mm
+    cone = make_cone_x(cone_len + 0.2, 3.0, pen_r, segments=48).translate([cone_center_x, 0, pen_z])
     
-    # 3. Cámara de desahogo de la punta con 4.0 mm de holgura longitudinal (Slide-to-Release):
-    # Llega hasta X = -95.0 mm. Deja 7.0 mm macizos antes del final y 11.0 mm ante la punta en reposo.
-    tip_len = 11.0
-    tip_center_x = -84.0 - tip_len / 2.0  # -89.5 mm
+    # 3. Cámara de desahogo de la punta para Slide-to-Release real:
+    # Llega hasta X = -95.0 mm (esfera hasta -98.0 mm, dejando 4.0 mm de parachoques frontal hasta -102.0).
+    tip_end_x = -95.0
+    tip_len = cone_end_x - tip_end_x  # 6.0 mm
+    tip_center_x = (cone_end_x + tip_end_x) / 2.0  # -92.0 mm
     nib_cyl = make_cylinder_x(tip_len, 3.0, segments=32).translate([tip_center_x, 0, pen_z])
-    nib_dome = m3d.Manifold.sphere(3.0, circular_segments=32).translate([-95.0, 0, pen_z])
+    nib_dome = m3d.Manifold.sphere(3.0, circular_segments=32).translate([tip_end_x, 0, pen_z])
     
     # 4. Embocadura superior (open_slot):
-    # Se detiene en X = -87.0 mm (dejando una capucha superior cerrada de 8.0 mm sobre la punta).
-    # Al deslizar el lápiz 4.0 mm hacia atrás, la punta queda en X = -87.0 mm, totalmente libre para salir.
-    slot_len = 70.0 - (-87.0)  # 157.0 mm
-    slot_center_x = (70.0 + -87.0) / 2.0  # -8.5 mm
+    # Llega hasta X = -92.0 mm (longitud abierta 163.0 mm desde +71.0 mm).
+    # En reposo adelantado (-96.0 mm), ~4 mm de la punta quedan cubiertos bajo la capucha (-92..-98).
+    # Al deslizar hacia atrás (+71.0), lápices de 152-158 mm quedan con 5-11 mm libres por delante de -92.0.
+    slot_front_x = -92.0
+    slot_len = pen_back_x - slot_front_x  # 163.0 mm
+    slot_center_x = (pen_back_x + slot_front_x) / 2.0  # -10.5 mm
     
     if enveloping:
         # Garganta 7.20 mm (-10% de envolvencia sobre V7 para extracción sedosa)
@@ -390,9 +402,11 @@ def build_tpu_insert(enveloping=True):
     open_slot = open_slot.rotate([90, 0, 90]).translate([slot_center_x, 0, 0])
     
     # 5. Muescas suaves para dedos en el centro absoluto (X = 0.00 mm):
-    scoop_z = TPU_FLOOR + 5.60 + SCOOP_R  # 24.60 mm
-    scoop_cyl = make_cylinder_y(TOTAL_TPU_WIDTH + 6.0, SCOOP_R, segments=48).translate([0, 0, scoop_z])
-    scoop_box = m3d.Manifold.cube([SCOOP_R * 2, TOTAL_TPU_WIDTH + 6.0, 15.0], center=True).translate([0, 0, scoop_z + 7.5])
+    # Llega hasta el suelo del canal (Z = TPU_FLOOR = 2.00 mm) con circunferencia ampliada (TPU_SCOOP_R = 32.0 mm)
+    # para conservar la curvatura suave aunque abarque más longitud del lápiz.
+    scoop_z = TPU_FLOOR + TPU_SCOOP_R  # 34.00 mm
+    scoop_cyl = make_cylinder_y(TPU_WIDTH + 6.0, TPU_SCOOP_R, segments=64).translate([0, 0, scoop_z])
+    scoop_box = m3d.Manifold.cube([TPU_SCOOP_R * 2, TPU_WIDTH + 6.0, TPU_SCOOP_R], center=True).translate([0, 0, scoop_z + TPU_SCOOP_R / 2.0])
     tpu_scoop = scoop_cyl + scoop_box
     
     # 6. Dos hendiduras para puntas de repuesto (+15% más amplias):
@@ -456,13 +470,13 @@ def build_tpu_insert(enveloping=True):
 
 def build_base():
     """
-    Pieza 1: Base rígida (PLA / PETG) V8 ensanchada con 4 imanes D6x3 mm ocultos en las esquinas.
-    - Altura exterior hasta costura: BASE_BODY_H = 10.60 mm (+1.0 mm).
-    - Labio vertical reforzado: LIP_H = 5.40 mm (total base = 16.00 mm).
+    Pieza 1: Base rígida (PLA / PETG) ensanchada con 4 imanes D6x3 mm ocultos en las esquinas.
+    - Altura exterior hasta costura: BASE_BODY_H = 9.60 mm.
+    - Labio vertical reforzado: LIP_H = 5.40 mm (total base = 15.00 mm).
     - Apertura semicircular en el centro (X = 0.00 mm) con R = 15.0 mm que baja hasta Z = 7.20 mm.
-    - Cajera interior ensanchada: 204.40 x 31.40 mm (aloja el TPU con sus 4 patitas elásticas).
+    - Cajera interior ensanchada: 204.40 x 31.40 mm (aloja el TPU con sus 4 patitas en T rectas).
     - 4 Cavidades internas ciegas para imanes D6x3 mm (profundidad 3.40 mm, membrana 0.40 mm).
-      * Pausa en slicer a Z = 10.40 mm (capa 52 a 0.20 mm).
+      * Pausa en slicer a Z = 9.20 mm (capa 46 a 0.20 mm).
     - Uñeras ergonómicas en la base del semicírculo en X = 0.00 mm.
     """
     base_body = rounded_box(CASE_LEN, CASE_WIDTH, BASE_BODY_H, CORNER_R)
@@ -502,13 +516,13 @@ def build_base():
 
 def build_lid(with_phone_number=True):
     """
-    Pieza 2: Tapa exterior rígida (PLA / PETG) V8 con 4 imanes D6x3 mm ocultos en las esquinas.
-    - Altura exterior neta: LID_BODY_H = 10.00 mm (+1.0 mm, total cerrado 20.60 mm).
+    Pieza 2: Tapa exterior rígida (PLA / PETG) con 4 imanes D6x3 mm ocultos en las esquinas.
+    - Altura exterior neta: LID_BODY_H = 9.00 mm (total cerrado 18.60 mm).
     - Cerradura semicircular en paredes exteriores en X = 0.00 mm.
     - CIERRE REAL POR COMPRESIÓN EN TPU: 0.40 mm de apriete elástico.
     - Canal de desahogo de seguridad para el lápiz y botones con >2.5 mm de aire libre.
     - 4 Cavidades internas ciegas para imanes D6x3 mm (profundidad 3.40 mm, membrana 0.40 mm):
-      * Pausa en slicer a Z = 9.80 mm (capa 49 a 0.20 mm).
+      * Pausa en slicer a Z = 8.60 mm (capa 43 a 0.20 mm).
     - Teléfono grabado en bajorrelieve (7.50 mm de altura).
     """
     lid_body = rounded_box(CASE_LEN, CASE_WIDTH, LID_BODY_H, CORNER_R)
@@ -537,8 +551,8 @@ def build_lid(with_phone_number=True):
     lip_trench = trench_outer - trench_inner
     
     # 2. Superficie interna de compresión sobre los hombros del TPU:
-    tpu_protrusion = (BASE_FLOOR + TPU_H) - BASE_BODY_H   # 1.6 + 14.5 - 10.6 = 5.50 mm
-    tpu_comp_depth = tpu_protrusion - COMPRESSION         # 5.50 - 0.40 = 5.10 mm
+    tpu_protrusion = (BASE_FLOOR + TPU_H) - BASE_BODY_H   # 1.6 + 12.5 - 9.6 = 4.50 mm
+    tpu_comp_depth = tpu_protrusion - COMPRESSION         # 4.50 - 0.40 = 4.10 mm
     tpu_comp_pocket = rounded_box(POCKET_LEN + 0.40, POCKET_WIDTH + 0.40, tpu_comp_depth + 0.50, 0.80).translate([0, 0, -0.5])
     
     # 3. Canal de desahogo de seguridad para el lápiz y botones:
@@ -598,10 +612,10 @@ def main():
     target_dir = modelos_dir if os.path.exists(modelos_dir) else base_dir
 
     print("=================================================================")
-    print(" GENERANDO ESTUCHE V8 DEFINITIVO PARA XIAOMI SMART PEN 2")
+    print(" GENERANDO ESTUCHE V8.1 DEFINITIVO PARA XIAOMI SMART PEN 2")
     print(f" Dimensiones: {CASE_LEN:.1f} x {CASE_WIDTH:.1f} x {TOTAL_CLOSED_H:.1f} mm (Blindado con Suspensión)")
-    print(f" TPU: {TPU_LEN:.1f} x {TOTAL_TPU_WIDTH:.1f} x {TPU_H:.1f} mm | Suelo: {TPU_FLOOR:.1f} mm")
-    print(f" Suspensión: 4 patitas elásticas (h/2 = {LEG_STEM_LEN:.1f} mm aire) | Slide-to-Release: 4.0 mm")
+    print(f" TPU: {TPU_LEN:.1f} x {TOTAL_TPU_WIDTH:.1f} x {TPU_H:.1f} mm | Suelo: {TPU_FLOOR:.1f} mm | Uñero R={TPU_SCOOP_R:.1f} mm")
+    print(f" Patitas T rectas (nervio {LEG_STEM_W:.1f} mm, apoyo {LEG_PAD_THICK:.1f} mm) | Embocadura 163.0 mm")
     print("=================================================================")
     
     tpu_insert = build_tpu_insert(enveloping=True)

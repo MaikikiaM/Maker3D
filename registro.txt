@@ -105,3 +105,17 @@ Decisiones técnicas y avance real:
 ================================================================================
 
 [Pulido Bioma 1 - 13/11/2026 19:09] Recompilado Bioma 1 Montaña con faldón `9.0mm` y albedo mineral cálido sin manchas ocres planas (`V=95,697 | F=191,390 | chi=2 | Vol=427.51 cm³ | 3.43 MB`) sincronizado en `catan-bioma-montana.html` y `preview-montana-v4-nanobanana.html`.
+
+================================================================================
+SESIÓN: 13/11/2026 - REFINAMIENTO FUNDA LÁPIZ XIAOMI (V8.1)
+Prompt usuario: Corregir el sistema Slide-to-Release en la punta (estaba cubierta), eliminar el aumento macizo de suelo en TPU, bajar el uñero del TPU hasta el suelo conservando curvatura, y hacer las patitas en T totalmente rectas y más gruesas solo en la sección de contacto.
+
+Decisiones técnicas y arquitectura (`Funda-Lapiz-Xiaomi/generar_estuche.py` + `MANUAL_IMPRESION.md`):
+- Slide-to-Release funcional: embocadura superior (`open_slot`) ampliada desde `X=+71.0` hasta `X=-92.0` (`163.0 mm` abiertos), transición cónica suave `-75.0..-89.0` (`r=4.50->3.00`, sin estrangulamiento) hasta la cámara de punta (`-95.0 mm`, domo `-98.0 mm`). En reposo adelantado ~`4 mm` quedan bajo capucha (`-92..-98`), y al deslizar hacia atrás contra `+71.0` lápices de `152–158 mm` liberan la punta `5–11 mm` por delante de `-92.0`.
+- Eliminación del suelo macizo: `TPU_FLOOR=2.00 mm`, `TPU_H=12.50 mm`, `BASE_BODY_H=9.60 mm`, `LID_BODY_H=9.00 mm`, `TOTAL_CLOSED_H=18.60 mm` (pausas imanes Base `Z=9.20 mm`/C46, Tapa `Z=8.60 mm`/C43).
+- Uñero TPU hasta el suelo: `TPU_SCOOP_R=32.00 mm` tangente al suelo del canal (`Z=2.00 mm`), conservando el ángulo/curvatura suave (`47.8°`) con mayor longitud abierta alrededor del lápiz.
+- Patitas en T rectas: `LEG_BOW=0.00 mm` (sin rampitas), barra de contacto engrosada a `LEG_PAD_THICK=2.40 mm`, manteniendo el nervio de unión en `LEG_STEM_W=2.40 mm`.
+
+Resultados de validación observados:
+- Regenerados los 7 archivos STL en `Funda-Lapiz-Xiaomi/Modelos-3D/`, todos `Watertight: True` (`estuche_xiaomi_pen2_inserto_TPU.stl`: `204.0 x 31.2 x 12.5 mm`, `27538.3 mm³`, `2,528 Δ`, componente único).
+================================================================================
