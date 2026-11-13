@@ -285,7 +285,11 @@ def main():
 
     with open(viewer_html, "r", encoding="utf-8") as hf:
         html = hf.read()
+    html = html.replace("🏔️ Cordillera Montaña Catan 3D · V3 PBR", f"{args.title} · V3 PBR")
     html = html.replace("Cordillera Montaña Catan 3D (V3)", args.title)
+    html = html.replace("110.85×128×83", f"110.85×128×{z_peak:.0f}")
+    html = html.replace(">83.0 mm<", f">{z_peak:.1f} mm<")
+    html = html.replace('max="83.5" step="0.5" value="83.5"', f'max="{z_peak + 0.5:.1f}" step="0.5" value="{z_peak + 0.5:.1f}"')
     html = html.replace("Z=83mm", f"Z={z_peak:.0f}mm")
     if not args.snow_filter:
         html = html.replace("<span>Nieve en ≥44°</span><strong>0.000000 (0%)</strong>", f"<span>Relieve Máx</span><strong>+{args.relief_mm:.1f} mm</strong>")

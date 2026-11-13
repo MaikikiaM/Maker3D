@@ -119,3 +119,14 @@ Decisiones técnicas y arquitectura (`Funda-Lapiz-Xiaomi/generar_estuche.py` + `
 Resultados de validación observados:
 - Regenerados los 7 archivos STL en `Funda-Lapiz-Xiaomi/Modelos-3D/`, todos `Watertight: True` (`estuche_xiaomi_pen2_inserto_TPU.stl`: `204.0 x 31.2 x 12.5 mm`, `27538.3 mm³`, `2,528 Δ`, componente único).
 ================================================================================
+
+================================================================================
+SESIÓN: 13/11/2026 - BIOMAS CATAN NANO BANANA 360° (BIOMA 2: BOSQUE)
+Prompt usuario: Proceder tras reinicio de cuota (/goal /boost) completando todos los biomas uno a uno con commit+push tras cada bioma.
+
+Decisiones técnicas y avance:
+- **Bioma 2/8 — Bosque / Madera (`bosque`, `Z=63.0 mm`, `relief=38.0 mm`):**
+  - Inspeccionado `bosque_clay_overhead.png` sobre DEM de Nano Banana (`catan_forest_heightmap_...jpg`) y generada pasada de albedo pictórico bloqueado pixel-a-pixel (`bosque_albedo_v1_...jpg`).
+  - Construido sólido estanco (`V=95,697 | F=191,390 | chi=2 | watertight=True | Vol=399.76 cm³`), auditado en 6 vistas equidistantes 60° (`bosque_6views_audit.png`) y verificado en Chromium (`0` errores de consola/página en `Visores-HTML/catan-bioma-bosque.html`, `3.33 MB`).
+  - Actualizado `build_catan_biome.py` para sustituir también título HUD, cotas máximas y límite Z de sección transversal en la plantilla WebGL, y enlazado `Bioma 2 — Bosque` en `Visores-HTML/index.html`.
+================================================================================

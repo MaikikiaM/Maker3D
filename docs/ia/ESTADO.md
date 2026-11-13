@@ -19,11 +19,12 @@ Suite CAD/Mesh profesional de modelado procedimental e impresión 3D avanzada (F
 
 ## Skills y Workflows del Workspace
 - **`nanobanana-3d-sculpt` (`.agents/skills/nanobanana-3d-sculpt/SKILL.md`):** Actualizada a **6 vistas equidistantes hexagonales (`0°–300°`)** cada 60°, combinando conceptos y *heightmaps* cenitales de `image-generator` con [build_catan_biome.py](../../Tableros-Catan/pipeline-biomas/build_catan_biome.py) (`watertight=True`, $\chi=2$, faldón suavizado `16.5mm`).
-- **Avance Biomas Catan 3D (`1/8` completado — bloqueo por cuota `image-generator`):**
+- **Avance Biomas Catan 3D (`2/8` completados):**
   - **Bioma 1 (Montaña equilibrada):** `Z=65.0mm` (`relief=40mm`), `V=95,697 / F=191,390 Δ` ($\chi=2$, `427.51 cm³`), faldón `9.0mm`, hoja conceptual 6 vistas + *heightmap* Nano Banana + albedo mineral HBAO-pradera + visor `Visores-HTML/catan-bioma-montana.html` (`3.43 MB`).
-  - **Biomas 2–8 pendientes** (`Bosque`, `Colinas`, `Pastos`, `Campos`, `Desierto`, `Río de Oro`, `Océano`): bloqueados temporalmente por `429 RESOURCE_EXHAUSTED` de `gemini-3.1-flash-image` hasta ~`22:17:43Z` (`23:17:43` CET).
+  - **Bioma 2 (Bosque / Madera):** `Z=63.0mm` (`relief=38mm`), `V=95,697 / F=191,390 Δ` ($\chi=2$, `399.76 cm³`), arboleda de coníferas + rocas musgosas + claro central, lámina 6 vistas + *heightmap* + albedo pictórico bloqueado a `bosque_clay_overhead.png`, auditoría 6 vistas y visor `Visores-HTML/catan-bioma-bosque.html` (`3.33 MB`) verificado en Chromium (`0` errores).
+  - **Biomas 3–8 en ejecución secuencial** (`Colinas`, `Pastos`, `Campos`, `Desierto`, `Río de Oro`, `Océano`).
 
 ## Próximas Tareas Prioritarias
-1. Reanudar **Biomas 2–8** con `build_catan_biome.py` + `image-generator` en cuanto se restablezca la cuota de `gemini-3.1-flash-image` (`~23:17 CET`), o si el usuario decide generar previews procedimentales previos.
+1. Completar **Biomas 3–8** (`colina`, `pasto`, `campo`, `desierto`, `oro`, `oceano`) secuencialmente con `image-generator` + `build_catan_biome.py` + verificación WebGL y push tras cada bioma.
 2. Validar corte de impresión multicolor real (`infimech_cmykwog_mountain_slicing_guide.md`) con `catan_mountain_fullcolor.3mf` V2 o derivados LOD en OrcaSlicer/PrusaSlicer.
 3. Continuar con el resto de losetas modulares del tablero Catan 127 losetas siguiendo la arquitectura V2 pure NumPy/SciPy.
