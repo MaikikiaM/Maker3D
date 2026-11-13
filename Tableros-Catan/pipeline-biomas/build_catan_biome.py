@@ -9,7 +9,7 @@ import os
 import sys
 import numpy as np
 import scipy.ndimage as ndi
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SKILL_SCRIPTS = os.path.join(REPO_ROOT, ".agents", "skills", "nanobanana-3d-sculpt", "scripts")
@@ -19,6 +19,7 @@ sys.path.insert(0, MONTANA_PIPE)
 
 import nanobanana_to_catan_hex as nb
 import assemble_viewer_v2 as av2
+import prototype_v3_cordillera as pv3
 
 
 def refine_heightmap(hm_u8, gamma=0.80, blur_px=1.0):
@@ -84,9 +85,10 @@ def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filte
 def render_6_equidistant_views(hm_arr, diffuse_flip_u8, relief_mm, out_path, title):
     """Render gapless 3x2 studio turnaround every 60 deg (0, 60, 120, 180, 240, 300 deg)."""
     N = 900
-    X, Y, Z, de, _, dx, dy = nb.synthesize_dem_from_heightmap(
+    X, Y, Z, de, dv, dx, dy = nb.synthesize_dem_from_heightmap(
         hm_arr, N, N, relief_mm=relief_mm, micro_detail_mm=0.0, x_lim=nb.R, y_lim=nb.R
     )
+    Z = apply_smooth_hex_apron(X, Y, Z, de, dv, relief_mm, apron_mm=16.5)
     diff = np.flipud(diffuse_flip_u8)
     col = np.clip((X + nb.R) / (2.0 * nb.R) * (diff.shape[1] - 1), 0, diff.shape[1] - 1).astype(np.int32)
     row = np.clip((Y + nb.R) / (2.0 * nb.R) * (diff.shape[0] - 1), 0, diff.shape[0] - 1).astype(np.int32)
@@ -146,17 +148,38 @@ def render_6_equidistant_views(hm_arr, diffuse_flip_u8, relief_mm, out_path, tit
                 img[py[order] + dyo, px[order] + dxo] = C[order]
         pil = Image.fromarray((np.clip(img, 0, 1) * 255).astype(np.uint8))
         draw = ImageDraw.Draw(pil)
-        draw.text((16, 14), f"Vista {int(yaw_deg)}°", fill=(40, 48, 60))
+        try:
+            fnt = ImageFont.truetype("C:/Windows/Fonts/segoeui.ttf", 18)
+        except Exception:
+            fnt = ImageFont.load_default()
+        draw.text((16, 12), f"Vista {int(yaw_deg)} deg", fill=(35, 42, 54), font=fnt)
         return np.asarray(pil)
 
     angles = [0, 60, 120, 180, 240, 300]
     row1 = np.hstack([render_cam(a) for a in angles[:3]])
     row2 = np.hstack([render_cam(a) for a in angles[3:]])
-    grid = Image.fromarray(np.vstack([row1, row2]))
+    body = np.vstack([row1, row2])
+    footer = np.full((38, body.shape[1], 3), (230, 233, 238), dtype=np.uint8)
+    grid = Image.fromarray(np.vstack([body, footer]))
     draw = ImageDraw.Draw(grid)
-    draw.text((18, grid.height - 24), f"{title} — 6 Vistas Equidistantes 60° (Z_PEAK={nb.Z_BASE+relief_mm:.1f}mm)", fill=(55, 65, 81))
+    try:
+        fnt_b = ImageFont.truetype("C:/Windows/Fonts/segoeuib.ttf", 20)
+    except Exception:
+        fnt_b = ImageFont.load_default()
+    draw.text((18, body.shape[0] + 7), f"{title} — 6 Vistas Equidistantes 60 deg (Z_PEAK={nb.Z_BASE+relief_mm:.1f}mm)", fill=(30, 41, 59), font=fnt_b)
     grid.save(out_path)
     return out_path
+
+
+def apply_smooth_hex_apron(X, Y, Z, dist_edge, dist_vert, relief_mm, apron_mm=16.0):
+    """Feather steep AI edge drops gradually over apron_mm so terrain flows naturally out of flat road margins."""
+    d_clear = np.minimum(dist_edge - nb.ROAD_MARGIN, dist_vert - nb.PAD_RADIUS)
+    taper = nb.smoothstep(0.0, apron_mm, d_clear)
+    rel = np.maximum(0.0, Z - nb.Z_BASE) * taper
+    rmax = float(np.max(rel))
+    if rmax > 1e-5:
+        rel *= (relief_mm / rmax)
+    return (nb.Z_BASE + rel).astype(np.float32)
 
 
 def main():
@@ -168,10 +191,12 @@ def main():
     p.add_argument("--albedo", default=None)
     p.add_argument("--relief-mm", type=float, required=True)
     p.add_argument("--slope-gamma", type=float, default=0.80)
+    p.add_argument("--blur-px", type=float, default=1.2)
     p.add_argument("--micro-detail", type=float, default=0.18)
     p.add_argument("--nx", type=int, default=340)
     p.add_argument("--tex-size", type=int, default=2048)
     p.add_argument("--snow-filter", action="store_true")
+    p.add_argument("--auto-mineral-albedo", action="store_true", help="Fallback: paint Nano Banana DEM with V3 hyperreal mineral-runoff PBR shader.")
     p.add_argument("--viewer-html", default=None, help="Output HTML path relative to repo root")
     args = p.parse_args()
 
@@ -180,11 +205,12 @@ def main():
     viewer_html = args.viewer_html or os.path.join("Visores-HTML", f"catan-bioma-{args.slug}.html")
 
     hm_raw = np.asarray(Image.open(args.heightmap).convert("L"))
-    hm_arr = refine_heightmap(hm_raw, gamma=args.slope_gamma)
+    hm_arr = refine_heightmap(hm_raw, gamma=args.slope_gamma, blur_px=args.blur_px)
 
     Xt, Yt, Zt, dist_t, dist_vt, dxt, dyt = nb.synthesize_dem_from_heightmap(
         hm_arr, args.tex_size, args.tex_size, relief_mm=args.relief_mm, micro_detail_mm=args.micro_detail, x_lim=nb.R, y_lim=nb.R
     )
+    Zt = apply_smooth_hex_apron(Xt, Yt, Zt, dist_t, dist_vt, args.relief_mm, apron_mm=16.5)
     clay_rgb = nb.render_shaded_clay_rgb(Zt, dist_t, dxt, dyt)
     clay_path = os.path.join(out_dir, f"{args.slug}_clay_overhead.png")
     nb.save_uv_aligned_png(clay_rgb, clay_path)
@@ -193,22 +219,47 @@ def main():
         print(f"[Clay Ready] {args.slug} (Z_PEAK={nb.Z_BASE + args.relief_mm:.1f}mm) -> {clay_path}")
         return
 
-    if not args.albedo:
-        p.error("--albedo is required in --mode build")
+    if not args.albedo and not args.auto_mineral_albedo:
+        p.error("--albedo or --auto-mineral-albedo is required in --mode build")
 
-    alb_arr = np.asarray(Image.open(args.albedo).convert("RGB"))
-    diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
-    diff_rgb, max_snow = refine_biome_albedo(diff_raw, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=args.snow_filter)
-    norm_u8, rough_u8 = nb.compute_pbr_maps(Zt, diff_rgb, dxt, dyt)
+    if args.auto_mineral_albedo:
+        rmf_m = pv3.ridged_multifractal_xy(Xt, Yt, seed=401)
+        rmf_f = pv3.ridged_multifractal_xy(Xt, Yt, seed=402)
+        broad = pv3.fft_fbm_canonical(Xt, Yt, 7.0, 24.0, beta=2.15, seed=404)
+        z_scaled = nb.Z_BASE + (Zt - nb.Z_BASE) * (58.0 / max(args.relief_mm, 1.0))
+        d_f32, _, _, slope_s, _, _, shader_stats = pv3.synthesize_hyperreal_textures(
+            Xt, Yt, z_scaled, dist_t, dist_vt, dxt, dyt, rmf_m, rmf_f, broad
+        )
+        # Enhance natural warm ochre valley scree & alpine olive foothill meadows so Nano Banana terrain pops warmly
+        rel = np.maximum(0.0, Zt - nb.Z_BASE)
+        z_mac = ndi.gaussian_filter(Zt, 3.2 / dxt)
+        concav = np.clip((z_mac - Zt) / 2.6, 0.0, 1.0)  # + inside gullies & valley floors
+        in_area = nb.smoothstep(nb.ROAD_MARGIN + 0.6, nb.ROAD_MARGIN + 4.5, dist_t) * nb.smoothstep(nb.PAD_RADIUS + 0.6, nb.PAD_RADIUS + 4.5, dist_vt)
+        scree_w = np.clip(concav * (1.0 - nb.smoothstep(args.relief_mm * 0.45, args.relief_mm * 0.75, rel)) * in_area * 0.85, 0.0, 0.72)[..., None]
+        meadow_w = np.clip((1.0 - nb.smoothstep(5.0, args.relief_mm * 0.34, rel)) * (1.0 - nb.smoothstep(28.0, 48.0, slope_s)) * in_area * 0.90, 0.0, 0.80)[..., None]
+        ochre_col = np.array([0.62, 0.42, 0.24], dtype=np.float32)
+        meadow_col = np.array([0.31, 0.40, 0.19], dtype=np.float32)
+        d_mix = np.clip(d_f32 * (1.0 - scree_w * 0.65) + ochre_col * (scree_w * 0.65), 0.0, 1.0)
+        d_mix = np.clip(d_mix * (1.0 - meadow_w * 0.70) + meadow_col * (meadow_w * 0.70), 0.0, 1.0)
+        d_u8 = np.clip(d_mix * 255.0, 0, 255).astype(np.uint8)
+        diff_rgb, max_snow_phys = refine_biome_albedo(d_u8, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=True, snowline_mm=args.relief_mm * 0.42)
+        max_snow = max(float(shader_stats.get("max_snow_steep", 0.0)), max_snow_phys)
+        norm_u8, rough_u8 = nb.compute_pbr_maps(Zt, diff_rgb, dxt, dyt)
+    else:
+        alb_arr = np.asarray(Image.open(args.albedo).convert("RGB"))
+        diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
+        diff_rgb, max_snow = refine_biome_albedo(diff_raw, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=args.snow_filter)
+        norm_u8, rough_u8 = nb.compute_pbr_maps(Zt, diff_rgb, dxt, dyt)
 
     nb.save_uv_aligned_png(diff_rgb, os.path.join(out_dir, "catan_mountain_diffuse_2k.png"))
     nb.save_uv_aligned_png(norm_u8, os.path.join(out_dir, "catan_mountain_normal_2k.png"))
     nb.save_uv_aligned_png(rough_u8, os.path.join(out_dir, "catan_mountain_roughness_2k.png"))
 
     ny = int(round(args.nx * (nb.R / nb.APOTHEM)))
-    Xm, Ym, Zm, dist_m, _, _, _ = nb.synthesize_dem_from_heightmap(
+    Xm, Ym, Zm, dist_m, dist_vm, _, _ = nb.synthesize_dem_from_heightmap(
         hm_arr, args.nx, ny, relief_mm=args.relief_mm, micro_detail_mm=args.micro_detail, x_lim=nb.APOTHEM, y_lim=nb.R
     )
+    Zm = apply_smooth_hex_apron(Xm, Ym, Zm, dist_m, dist_vm, args.relief_mm, apron_mm=16.5)
     verts, faces = nb.build_solid_hex_mesh(Xm, Ym, Zm, dist_m, include_magnet=True)
     stats = nb.verify_watertight(verts, faces)
     if not stats["watertight"]:

@@ -89,3 +89,17 @@ Resultados de validación observados:
 ================================================================================
 
 [Refinamiento V4 Opción A - 13/11/2026 18:50] Aplicadas mejoras en `build_v4_nanobanana_preview.py` sobre `Visores-HTML/preview-montana-v4-nanobanana.html` (`3.78 MB`, sin tocar V3): apertura de laderas (`slope_gamma=0.72`, `relief=60.0mm`, `Z=85mm`), grano mineral FFT y recorte físico suave de nieve en escarpes `>=44°` y barrancos bajos (`max_snow_ge44=0.000000%`). Malla resultante: `V=106,929 | F=213,854 | chi=2 | watertight=True | Vol=474.86 cm³`.
+
+================================================================================
+SESIÓN: 13/11/2026 - SKILL DE 6 VISTAS EQUIDISTANTES + BIOMA 1 (MONTAÑA EQUILIBRADA) + BLOQUEO CUOTA BIOMAS 2-8
+Prompt usuario: Modificar la skill para dar 6 vistas equidistantes (cada 60° en hexágono), rehacer la montaña con altura equilibrada estilo inicial Nano Banana y completar secuencialmente todos los biomas de Catán.
+
+Decisiones técnicas y avance real:
+- Actualizadas `.agents/skills/nanobanana-3d-sculpt/SKILL.md` y `references/prompt-recipes.md` al formato de **6 vistas equidistantes hexagonales (0°, 60°, 120°, 180°, 240°, 300°)** y auditoría visual en rejilla 3×2.
+- Creado pipeline unificado multi-bioma en `Tableros-Catan/pipeline-biomas/build_catan_biome.py` con apertura de laderas, transición suave de faldón (`16.5mm`), relleno mineral y auditoría automática 3×2 de 6 vistas equidistantes.
+- **Bioma 1/8 — Montaña (`Z=65.0mm`, altura equilibrada `40mm`):**
+  - Generada lámina conceptual de 6 vistas (`catan_alpine_hex_turnaround_sheet_v3_...jpg`) y *heightmap* cenital (`catan_alpine_hex_heightmap_v3_...jpg`) antes del límite de cuota.
+  - Al lanzar la pasada de albedo sobre `montana_clay_overhead.png`, `image-generator` (`gemini-3.1-flash-image`) devolvió `429 RESOURCE_EXHAUSTED` (reset estimado `22:17:43Z` / `23:17:43` CET).
+  - Completado **Bioma 1** aplicando el shader mineral-HBAO-scree sobre el DEM de Nano Banana (`V=95,697 | F=191,390 | chi=2 | watertight=True | Vol=438.93->402.16 cm³`) y desplegado en `Visores-HTML/catan-bioma-montana.html` (`3.24 MB`), `preview-montana-v4-nanobanana.html` y `Visores-HTML/index.html`.
+- **Pendiente (Biomas 2–8):** Bosque, Colinas, Pastos, Campos, Desierto, Río de Oro y Océano quedan detenidos limpiamente hasta restablecimiento de cuota de `image-generator` (~23:17 CET) para respetar la petición de construirlos con Nano Banana.
+================================================================================

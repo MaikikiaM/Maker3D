@@ -18,10 +18,12 @@ Suite CAD/Mesh profesional de modelado procedimental e impresión 3D avanzada (F
   - Visor WebGL Three.js (`226,230 Δ`, zócalo hexagonal con normales planas limpias, Diffuse+Normal+Roughness 2K, HDR IBL por `PMREMGenerator`, sombras suaves `PCFSoftShadowMap`, 3 atmósferas, corte sólido stencil Z y drawer responsive móvil) desplegado en las 5 rutas HTML y verificado en Chromium (`0` errores de consola, `<1.2s`).
 
 ## Skills y Workflows del Workspace
-- **`nanobanana-3d-sculpt` (`.agents/skills/nanobanana-3d-sculpt/SKILL.md`):** Integra generación imaginativa de Nano Banana (`image-generator`) —turnarounds conceptuales, mapas de altura cenitales y texturizado pictórico alineado al DEM— con el puente CAD puro NumPy/SciPy `scripts/nanobanana_to_catan_hex.py` (`watertight=True`, $\chi=2$, cotas Catan exactas).
-- **Prototipo Experimental V4 Nano Banana (`pipeline-montana/build_v4_nanobanana_preview.py` -> `Visores-HTML/preview-montana-v4-nanobanana.html`):** Refinado tras auditoría visual (`slope_gamma=0.72`, `relief=60mm` -> `Z=85mm`, recorte físico de nieve en `>=44°` con relleno mineral FFT `max_snow_ge44=0.000000%`). Malla estanca `V=106,929 / F=213,854` ($\chi=2$, Vol `474.86 cm³`) en visor preview `3.78 MB` (sin sobrescribir V3).
+- **`nanobanana-3d-sculpt` (`.agents/skills/nanobanana-3d-sculpt/SKILL.md`):** Actualizada a **6 vistas equidistantes hexagonales (`0°–300°`)** cada 60°, combinando conceptos y *heightmaps* cenitales de `image-generator` con [build_catan_biome.py](../../Tableros-Catan/pipeline-biomas/build_catan_biome.py) (`watertight=True`, $\chi=2$, faldón suavizado `16.5mm`).
+- **Avance Biomas Catan 3D (`1/8` completado — bloqueo por cuota `image-generator`):**
+  - **Bioma 1 (Montaña equilibrada):** `Z=65.0mm` (`relief=40mm`), `V=95,697 / F=191,390 Δ` ($\chi=2$, `402.16 cm³`), hoja conceptual 6 vistas + *heightmap* Nano Banana + albedo mineral HBAO-scree-pradera + visor `Visores-HTML/catan-bioma-montana.html` (`3.24 MB`).
+  - **Biomas 2–8 pendientes** (`Bosque`, `Colinas`, `Pastos`, `Campos`, `Desierto`, `Río de Oro`, `Océano`): bloqueados temporalmente por `429 RESOURCE_EXHAUSTED` de `gemini-3.1-flash-image` hasta ~`22:17:43Z` (`23:17:43` CET).
 
 ## Próximas Tareas Prioritarias
-1. Ajustar curva gamma del *heightmap* Nano Banana y filtro físico de nieve $\ge 44^\circ$ si el usuario decide promover el prototipo V4 Nano Banana a versión maestra `5M+ Δ`.
+1. Reanudar **Biomas 2–8** con `build_catan_biome.py` + `image-generator` en cuanto se restablezca la cuota de `gemini-3.1-flash-image` (`~23:17 CET`), o si el usuario decide generar previews procedimentales previos.
 2. Validar corte de impresión multicolor real (`infimech_cmykwog_mountain_slicing_guide.md`) con `catan_mountain_fullcolor.3mf` V2 o derivados LOD en OrcaSlicer/PrusaSlicer.
 3. Continuar con el resto de losetas modulares del tablero Catan 127 losetas siguiendo la arquitectura V2 pure NumPy/SciPy.
