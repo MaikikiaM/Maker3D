@@ -138,3 +138,15 @@ Decisiones técnicas y avance:
   - Lámina conceptual 6 vistas (`catan_hills_clay_hex_turnaround_sheet_...jpg`), *heightmap* cenital suavizado en bordes (`colina_heightmap_clean.png`) y albedo terracota/ocre pixel-locked sobre `colina_clay_overhead.png` (`colina_albedo_v1_...jpg`).
   - Sólido estanco (`V=95,697 | F=191,390 | chi=2 | watertight=True | Vol=380.92 cm³`), auditado en 6 vistas equidistantes 60° (`colina_6views_audit.png`) y desplegado en `Visores-HTML/catan-bioma-colina.html` (`3.11 MB`) + `Visores-HTML/index.html`.
 ================================================================================
+
+================================================================================
+SESIÓN: 13/11/2026 - BIOMAS CATAN NANO BANANA 360° (BIOMA 4: PASTOS / LANA + CORTE POR CUOTA)
+Decisiones técnicas y avance:
+- **Bioma 4/8 — Pastos / Lana (`pasto`, `Z=38.0 mm`, `relief=13.0 mm`):**
+  - Lámina conceptual 6 vistas (`catan_pasture_hex_turnaround_v2_...jpg`), *heightmap* cenital (`catan_pasture_hex_heightmap_v2_...jpg`) y albedo pictórico pixel-locked sobre `pasto_clay_overhead.png` (`pasto_albedo_v1_...jpg`).
+  - Sólido estanco (`V=95,697 | F=191,390 | chi=2 | watertight=True | Vol=319.42 cm³`), auditado en 6 vistas equidistantes 60° (`pasto_6views_audit.png`) y desplegado en `Visores-HTML/catan-bioma-pasto.html` (`2.94 MB`) + `Visores-HTML/index.html`.
+- **Bioma 5/8 — Campos / Trigo (`campo`):**
+  - Generada lámina conceptual 6 vistas (`catan_fields_turnaround_1794609034842.jpg`).
+  - Al lanzar la extracción de *heightmap* cenital para `campo`, `gemini-3.1-flash-image` devolvió `429 RESOURCE_EXHAUSTED` con reinicio programado a `2026-11-14T03:17:43Z` (`04:17:43 CET`, ~4h46m).
+  - Quedan **Biomas 5–8** (`Campos`, `Desierto`, `Río de Oro`, `Océano`) pendientes de reanudar con Nano Banana tras el reseteo.
+================================================================================

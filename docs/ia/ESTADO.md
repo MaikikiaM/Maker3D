@@ -19,13 +19,14 @@ Suite CAD/Mesh profesional de modelado procedimental e impresión 3D avanzada (F
 
 ## Skills y Workflows del Workspace
 - **`nanobanana-3d-sculpt` (`.agents/skills/nanobanana-3d-sculpt/SKILL.md`):** Actualizada a **6 vistas equidistantes hexagonales (`0°–300°`)** cada 60°, combinando conceptos y *heightmaps* cenitales de `image-generator` con [build_catan_biome.py](../../Tableros-Catan/pipeline-biomas/build_catan_biome.py) (`watertight=True`, $\chi=2$, faldón suavizado `16.5mm`).
-- **Avance Biomas Catan 3D (`3/8` completados):**
+- **Avance Biomas Catan 3D (`4/8` completados — pausa por cuota `image-generator`):**
   - **Bioma 1 (Montaña equilibrada):** `Z=65.0mm` (`relief=40mm`), `V=95,697 / F=191,390 Δ` ($\chi=2$, `427.51 cm³`), visor `Visores-HTML/catan-bioma-montana.html` (`3.43 MB`).
   - **Bioma 2 (Bosque / Madera):** `Z=63.0mm` (`relief=38mm`), `V=95,697 / F=191,390 Δ` ($\chi=2$, `399.76 cm³`), visor `Visores-HTML/catan-bioma-bosque.html` (`3.33 MB`).
-  - **Bioma 3 (Colinas / Arcilla):** `Z=53.0mm` (`relief=28mm`), `V=95,697 / F=191,390 Δ` ($\chi=2$, `380.92 cm³`), mesetas estratificadas de terracota/ocre + loma + cañón, visor `Visores-HTML/catan-bioma-colina.html` (`3.11 MB`).
-  - **Biomas 4–8 en ejecución secuencial** (`Pastos`, `Campos`, `Desierto`, `Río de Oro`, `Océano`).
+  - **Bioma 3 (Colinas / Arcilla):** `Z=53.0mm` (`relief=28mm`), `V=95,697 / F=191,390 Δ` ($\chi=2$, `380.92 cm³`), visor `Visores-HTML/catan-bioma-colina.html` (`3.11 MB`).
+  - **Bioma 4 (Pastos / Lana):** `Z=38.0mm` (`relief=13mm`), `V=95,697 / F=191,390 Δ` ($\chi=2$, `319.42 cm³`), pradera esmeralda + muro seco de caliza + sendero arenoso, visor `Visores-HTML/catan-bioma-pasto.html` (`2.94 MB`).
+  - **Bioma 5 (Campos / Trigo):** lámina conceptual 6 vistas (`catan_fields_turnaround_1794609034842.jpg`) generada; *heightmap* cenital y **Biomas 6–8** (`Desierto`, `Río de Oro`, `Océano`) detenidos limpiamente por `429 RESOURCE_EXHAUSTED` de `gemini-3.1-flash-image` hasta `2026-11-14T03:17:43Z` (`04:17:43` CET).
 
 ## Próximas Tareas Prioritarias
-1. Completar **Biomas 4–8** (`pasto`, `campo`, `desierto`, `oro`, `oceano`) secuencialmente con `image-generator` + `build_catan_biome.py` + verificación WebGL y push tras cada bioma.
+1. Reanudar **Bioma 5–8** (`campo` desde su lámina 6 vistas ya guardada, `desierto`, `oro`, `oceano`) a partir de las `04:17:43` CET (`2026-11-14T03:17:43Z`) tras el reseteo de `gemini-3.1-flash-image`.
 2. Validar corte de impresión multicolor real (`infimech_cmykwog_mountain_slicing_guide.md`) con `catan_mountain_fullcolor.3mf` V2 o derivados LOD en OrcaSlicer/PrusaSlicer.
 3. Continuar con el resto de losetas modulares del tablero Catan 127 losetas siguiendo la arquitectura V2 pure NumPy/SciPy.
