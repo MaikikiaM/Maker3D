@@ -19,12 +19,13 @@ Suite CAD/Mesh profesional de modelado procedimental e impresión 3D avanzada (F
 
 ## Skills y Workflows del Workspace
 - **`nanobanana-3d-sculpt` (`.agents/skills/nanobanana-3d-sculpt/SKILL.md`):** Actualizada a **6 vistas equidistantes hexagonales (`0°–300°`)** cada 60°, combinando conceptos y *heightmaps* cenitales de `image-generator` con [build_catan_biome.py](../../Tableros-Catan/pipeline-biomas/build_catan_biome.py) (`watertight=True`, $\chi=2$, faldón suavizado `16.5mm`).
-- **Avance Biomas Catan 3D (`2/8` completados):**
-  - **Bioma 1 (Montaña equilibrada):** `Z=65.0mm` (`relief=40mm`), `V=95,697 / F=191,390 Δ` ($\chi=2$, `427.51 cm³`), faldón `9.0mm`, hoja conceptual 6 vistas + *heightmap* Nano Banana + albedo mineral HBAO-pradera + visor `Visores-HTML/catan-bioma-montana.html` (`3.43 MB`).
-  - **Bioma 2 (Bosque / Madera):** `Z=63.0mm` (`relief=38mm`), `V=95,697 / F=191,390 Δ` ($\chi=2$, `399.76 cm³`), arboleda de coníferas + rocas musgosas + claro central, lámina 6 vistas + *heightmap* + albedo pictórico bloqueado a `bosque_clay_overhead.png`, auditoría 6 vistas y visor `Visores-HTML/catan-bioma-bosque.html` (`3.33 MB`) verificado en Chromium (`0` errores).
-  - **Biomas 3–8 en ejecución secuencial** (`Colinas`, `Pastos`, `Campos`, `Desierto`, `Río de Oro`, `Océano`).
+- **Avance Biomas Catan 3D (`3/8` completados):**
+  - **Bioma 1 (Montaña equilibrada):** `Z=65.0mm` (`relief=40mm`), `V=95,697 / F=191,390 Δ` ($\chi=2$, `427.51 cm³`), visor `Visores-HTML/catan-bioma-montana.html` (`3.43 MB`).
+  - **Bioma 2 (Bosque / Madera):** `Z=63.0mm` (`relief=38mm`), `V=95,697 / F=191,390 Δ` ($\chi=2$, `399.76 cm³`), visor `Visores-HTML/catan-bioma-bosque.html` (`3.33 MB`).
+  - **Bioma 3 (Colinas / Arcilla):** `Z=53.0mm` (`relief=28mm`), `V=95,697 / F=191,390 Δ` ($\chi=2$, `380.92 cm³`), mesetas estratificadas de terracota/ocre + loma + cañón, visor `Visores-HTML/catan-bioma-colina.html` (`3.11 MB`).
+  - **Biomas 4–8 en ejecución secuencial** (`Pastos`, `Campos`, `Desierto`, `Río de Oro`, `Océano`).
 
 ## Próximas Tareas Prioritarias
-1. Completar **Biomas 3–8** (`colina`, `pasto`, `campo`, `desierto`, `oro`, `oceano`) secuencialmente con `image-generator` + `build_catan_biome.py` + verificación WebGL y push tras cada bioma.
+1. Completar **Biomas 4–8** (`pasto`, `campo`, `desierto`, `oro`, `oceano`) secuencialmente con `image-generator` + `build_catan_biome.py` + verificación WebGL y push tras cada bioma.
 2. Validar corte de impresión multicolor real (`infimech_cmykwog_mountain_slicing_guide.md`) con `catan_mountain_fullcolor.3mf` V2 o derivados LOD en OrcaSlicer/PrusaSlicer.
 3. Continuar con el resto de losetas modulares del tablero Catan 127 losetas siguiendo la arquitectura V2 pure NumPy/SciPy.

@@ -130,3 +130,11 @@ Decisiones técnicas y avance:
   - Construido sólido estanco (`V=95,697 | F=191,390 | chi=2 | watertight=True | Vol=399.76 cm³`), auditado en 6 vistas equidistantes 60° (`bosque_6views_audit.png`) y verificado en Chromium (`0` errores de consola/página en `Visores-HTML/catan-bioma-bosque.html`, `3.33 MB`).
   - Actualizado `build_catan_biome.py` para sustituir también título HUD, cotas máximas y límite Z de sección transversal en la plantilla WebGL, y enlazado `Bioma 2 — Bosque` en `Visores-HTML/index.html`.
 ================================================================================
+
+================================================================================
+SESIÓN: 13/11/2026 - BIOMAS CATAN NANO BANANA 360° (BIOMA 3: COLINAS / ARCILLA)
+Decisiones técnicas y avance:
+- **Bioma 3/8 — Colinas / Arcilla (`colina`, `Z=53.0 mm`, `relief=28.0 mm`):**
+  - Lámina conceptual 6 vistas (`catan_hills_clay_hex_turnaround_sheet_...jpg`), *heightmap* cenital suavizado en bordes (`colina_heightmap_clean.png`) y albedo terracota/ocre pixel-locked sobre `colina_clay_overhead.png` (`colina_albedo_v1_...jpg`).
+  - Sólido estanco (`V=95,697 | F=191,390 | chi=2 | watertight=True | Vol=380.92 cm³`), auditado en 6 vistas equidistantes 60° (`colina_6views_audit.png`) y desplegado en `Visores-HTML/catan-bioma-colina.html` (`3.11 MB`) + `Visores-HTML/index.html`.
+================================================================================
