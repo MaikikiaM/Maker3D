@@ -15,3 +15,22 @@ SESIÓN: 08/11/2026 - INICIALIZACIÓN Y CONSOLIDACIÓN DEL PROYECTO MAKER3D
 3. Generación de Visores-HTML autónomos ligeros Three.js adaptados con controles táctiles para Android.
 4. Política de exclusión en Git: 0 archivos binarios pesados (.stl, .3mf, .obj, .npz, .npy) en GitHub; todo preservado en Google Drive.
 ================================================================================
+
+================================================================================
+SESIÓN: 13/11/2026 - RECONSTRUCCIÓN INTEGRAL LOSETA MONTAÑA CATAN V2 (5.18M TRIS + UV + 45G/15V + VISOR ANDROID)
+Prompt usuario: Cumplir todos los requisitos acumulados de la loseta de montaña Catan (geometría/tolerancias exactas, >5M caras estancas, escultura realista, física nieve 0% en >=44°, uso completo de 45 grises + 15 verdes, fix UV y visor fluido compatible con Android/Visores-HTML).
+
+Decisiones técnicas y arquitectura:
+- Pipeline V2 puro en NumPy/SciPy Delaunay/PIL/zipfile sin trimesh (eliminando bloqueos de importación en Windows) en Tableros-Catan/pipeline-montana/build_catan_mountain_master_v2.py.
+- Geomorfología V2.22: pico piramidal asimétrico tipo Matterhorn en (-1.5, +2.5)mm, aristas conectadas sin costuras lineales radiales ni efecto domo/panettone, 4 circos escarpados de granito en cara norte y transición suave hacia valles verdes bajos alrededor de los 6 bordes respetando carril plano 3.50mm y bases Ø20.00mm en Z=25.00mm.
+- Texturizado 4K/2K con inversión np.flipud en exportación PNG para coincidencia exacta Y-up con OBJ/3MF/WebGL (verificado por round-trip binario en 1,000 vértices aleatorios).
+- Ajuste de índices snow_tone_idx/rock_tone_idx/g_tone_idx garantizando uso activo de 45/45 grises (G00..G44) y 15/15 verdes (V00..V14) con 0.000000 nieve en pendientes >=44.0°.
+- Suite de auditoría y renders raycasted puros en Tableros-Catan/pipeline-montana/render_audit_suite_v2.py (11 salidas en Tableros-Catan/Loseta_Montana_3D/renders_cad/) e inspección visual confirmada.
+- Nuevo visor HTML único (3.40 MB, malla interactiva 190,910 tris comprimida por gzip + DecompressionStream, texturas Diffuse/Normal 2K, corte Z sólido por Stencil, cotas exteriores y 6 triángulos equiláteros sin oclusión, drawer responsive colapsable en Android) generado por assemble_viewer_v2.py y sincronizado en las 5 rutas de Tableros-Catan/ y Visores-HTML/.
+
+Resultados de validación observados:
+- Malla maestra (nx=1770, ny=2044): V=2,590,913 | E=7,772,733 | F=5,181,822 | chi=2 | watertight=True | Vol=433.55 cm³ | Bounds X[-55.4256, 55.4256], Y[-64.0000, 64.0000], Z[0.0000, 83.0000].
+- LODs estancos (chi=2): lod1_1m (1,021,686 Δ), lod2_250k (256,934 Δ), lod3_50k (59,870 Δ).
+- Cobertura: Snow=10.66%, Tundra=10.21%, Rock=79.13%, Steep>=44°=56.59%, MaxSnow>=44°=0.000000. Paleta 45/45 grises (min=84 px) y 15/15 verdes (min=20,014 px).
+- Regenerado checksums_sha256.txt (26 archivos) y dossier técnico actualizado.
+================================================================================
