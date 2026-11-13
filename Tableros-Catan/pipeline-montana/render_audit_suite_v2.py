@@ -74,8 +74,9 @@ def sample_uv_image(img_flip_f32, x, y):
 
 
 def raycast_tile(Z_dem, diff_png_f32, norm_png_f32, az_deg, el_deg, width=1100, height=820,
-                 fov_mm=142.0, center=(0.0, 0.0, 36.0), bg_top=(0.09, 0.11, 0.14), bg_bot=(0.04, 0.05, 0.07)):
-    """Orthographic-perspective hybrid raymarcher of exact hex prism + V2 terrain + shadowed studio lighting."""
+                 fov_mm=142.0, center=(0.0, 0.0, 36.0), bg_top=(0.09, 0.11, 0.14), bg_bot=(0.04, 0.05, 0.07),
+                 rough_png_f32=None):
+    """Orthographic-perspective hybrid raymarcher of exact hex prism + V3 cordillera + PBR studio lighting."""
     az = math.radians(az_deg)
     el = math.radians(el_deg)
     forward = np.array([
@@ -187,11 +188,12 @@ def raycast_tile(Z_dem, diff_png_f32, norm_png_f32, az_deg, el_deg, width=1100, 
     is_wall = d_h < 0.22
     is_bot = hz < 0.15
 
-    # Surface normal & base albedo
+    # Surface normal, roughness & base albedo
     n_vec = sample_uv_image(norm_png_f32, hx, hy) * 2.0 - 1.0
     n_len = np.linalg.norm(n_vec, axis=-1, keepdims=True)
     n_vec = n_vec / np.maximum(n_len, 1e-6)
     albedo = sample_uv_image(diff_png_f32, hx, hy)
+    rough = sample_uv_image(rough_png_f32, hx, hy)[:, 0] if rough_png_f32 is not None else np.full(len(hx), 0.72, dtype=np.float32)
 
     if np.any(is_wall):
         # Outward hex wall normal
@@ -208,6 +210,7 @@ def raycast_tile(Z_dem, diff_png_f32, norm_png_f32, az_deg, el_deg, width=1100, 
         n_vec[is_wall] = best_n
         # Neutral charcoal architectural plinth color
         albedo[is_wall] = np.array([0.23, 0.25, 0.28], dtype=np.float32)
+        rough[is_wall] = 0.72
         # Subtle bevel highlight near Z=25mm
         rim = np.exp(-((hz[is_wall] - Z_BASE) / 0.65) ** 2)[:, None]
         albedo[is_wall] = albedo[is_wall] + 0.08 * rim
@@ -215,69 +218,81 @@ def raycast_tile(Z_dem, diff_png_f32, norm_png_f32, az_deg, el_deg, width=1100, 
     if np.any(is_bot):
         n_vec[is_bot] = [0.0, 0.0, -1.0]
         albedo[is_bot] = [0.16, 0.17, 0.20]
+        rough[is_bot] = 0.75
 
-    # Key directional sun shadow march (14 steps along sun dir)
-    sun = np.array([0.52, -0.44, 0.73], dtype=np.float32)
+    # Key directional sun shadow march (18 steps along sun dir)
+    sun = np.array([0.55, -0.45, 0.70], dtype=np.float32)
     sun /= np.linalg.norm(sun)
     shadow = np.ones(len(hx), dtype=np.float32)
-    for st in np.linspace(1.2, 48.0, 18):
+    for st in np.linspace(1.2, 48.0, 20):
         sx_p = hx + sun[0] * st
         sy_p = hy + sun[1] * st
         sz_p = hz + sun[2] * st
-        occ = (in_hex_mask(sx_p, sy_p) >= 0.0) & (sz_p < sample_bilinear(Z_dem, sx_p, sy_p) - 0.18)
-        shadow = np.where(occ, np.minimum(shadow, 0.22), shadow)
+        occ = (in_hex_mask(sx_p, sy_p) >= 0.0) & (sz_p < sample_bilinear(Z_dem, sx_p, sy_p) - 0.16)
+        shadow = np.where(occ, np.minimum(shadow, 0.24), shadow)
 
     ndotl = np.clip(n_vec[:, 0] * sun[0] + n_vec[:, 1] * sun[1] + n_vec[:, 2] * sun[2], 0.0, 1.0)
+    half_v = sun - np.stack([rxh, ryh, rzh], axis=-1)
+    half_v /= np.maximum(np.linalg.norm(half_v, axis=-1, keepdims=True), 1e-6)
+    ndoth = np.clip(np.sum(n_vec * half_v, axis=-1), 0.0, 1.0)
+    shininess = np.clip((1.0 - rough) ** 2 * 180.0, 6.0, 120.0)
+    spec = (ndoth ** shininess) * (1.0 - rough) * 0.25 * shadow
+
     fill_dir = np.array([-0.55, 0.55, 0.50], dtype=np.float32)
     fill_dir /= np.linalg.norm(fill_dir)
     fill = np.clip(n_vec[:, 0] * fill_dir[0] + n_vec[:, 1] * fill_dir[1] + n_vec[:, 2] * fill_dir[2], 0.0, 1.0)
     hemi = 0.5 + 0.5 * n_vec[:, 2]
 
-    # Subtle micro-relief ambient term from height near plinth
-    z_ao = np.clip(0.70 + 0.30 * (hz - Z_BASE) / 35.0, 0.62, 1.0)
-    shade = (0.30 * hemi * z_ao + 0.18 * fill * (0.4 + 0.6 * z_ao) + 0.88 * ndotl * shadow)[:, None]
-    rgb = albedo * shade
+    warm_sun = np.array([1.04, 0.99, 0.93], dtype=np.float32)
+    cool_sky = np.array([0.78, 0.87, 1.02], dtype=np.float32)
+    z_ao = np.clip(0.72 + 0.28 * (hz - Z_BASE) / 35.0, 0.65, 1.0)
+    rgb = albedo * (
+        0.34 * (hemi * z_ao)[:, None] * cool_sky
+        + 0.20 * (fill * (0.4 + 0.6 * z_ao))[:, None] * cool_sky
+        + 0.88 * (ndotl * shadow)[:, None] * warm_sun
+    ) + spec[:, None] * warm_sun
 
-    # Soft studio floor shadow ellipse? Skip for floating clean CAD look, gamma tone-map slightly
-    rgb = np.clip(rgb, 0.0, 1.0) ** (1.0 / 1.08)
+    rgb = np.clip(rgb, 0.0, 1.0) ** (1.0 / 1.10)
     img[idx_y[h_idx], idx_x[h_idx]] = rgb
     return (img * 255.0 + 0.5).astype(np.uint8)
 
 
 def generate_all():
     t0 = time.time()
-    print("[Suite V2] Loading 4K textures & V2 metrics...")
+    print("[Suite V3] Loading 4K PBR textures & master metrics...")
     with open(os.path.join(SCRATCH_DIR, "master_metrics_v2.json"), "r", encoding="utf-8") as f:
         metrics = json.load(f)
 
     diff_png = np.array(Image.open(os.path.join(OUT_DIR, "catan_mountain_diffuse_4k.png")).convert("RGB"), dtype=np.float32) / 255.0
     norm_png = np.array(Image.open(os.path.join(OUT_DIR, "catan_mountain_normal_4k.png")).convert("RGB"), dtype=np.float32) / 255.0
+    rough_p = os.path.join(OUT_DIR, "catan_mountain_roughness_4k.png")
+    rough_png = np.array(Image.open(rough_p).convert("RGB"), dtype=np.float32) / 255.0 if os.path.exists(rough_p) else None
 
     # Generate high-res DEM (900x1040) for razor-sharp CAD raycasting & cross-sections
     X, Y, Z, dist_edge, dist_vert, dx, dy, _, _ = generate_mountain_dem(900, 1040)
     slope_deg, _, _, _ = compute_geomorphometry(Z, dx, dy)
 
     # 1. Isometric Hero Render
-    print("[Suite V2] Rendering Isometric, Top Ortho, Tabletop Eye-Level...")
-    iso = raycast_tile(Z, diff_png, norm_png, az_deg=-52.0, el_deg=31.0, width=1280, height=960, fov_mm=142.0, center=(0, 0, 42.0))
+    print("[Suite V3] Rendering Isometric, Top Ortho, Tabletop Eye-Level...")
+    iso = raycast_tile(Z, diff_png, norm_png, az_deg=-50.0, el_deg=26.0, width=1280, height=960, fov_mm=140.0, center=(0, 0, 44.0), rough_png_f32=rough_png)
     Image.fromarray(iso).save(os.path.join(RENDERS_DIR, "render_mountain_isometric.png"))
 
     # 2. Top Ortho Render
-    top_img = raycast_tile(Z, diff_png, norm_png, az_deg=-90.0, el_deg=89.6, width=1200, height=1100, fov_mm=138.0, center=(0, 0, 40.0))
+    top_img = raycast_tile(Z, diff_png, norm_png, az_deg=-90.0, el_deg=89.6, width=1200, height=1100, fov_mm=138.0, center=(0, 0, 40.0), rough_png_f32=rough_png)
     Image.fromarray(top_img).save(os.path.join(RENDERS_DIR, "render_mountain_top_ortho.png"))
 
     # 3. North Face Cliff View & Tabletop Eye-Level
-    north_img = raycast_tile(Z, diff_png, norm_png, az_deg=98.0, el_deg=24.0, width=1200, height=900, fov_mm=136.0, center=(0, 0, 43.0))
-    eye_img = raycast_tile(Z, diff_png, norm_png, az_deg=-35.0, el_deg=15.0, width=1280, height=820, fov_mm=144.0, center=(0, 0, 39.0))
+    north_img = raycast_tile(Z, diff_png, norm_png, az_deg=132.0, el_deg=22.0, width=1200, height=900, fov_mm=136.0, center=(0, 0, 44.0), rough_png_f32=rough_png)
+    eye_img = raycast_tile(Z, diff_png, norm_png, az_deg=-35.0, el_deg=15.0, width=1280, height=820, fov_mm=144.0, center=(0, 0, 41.0), rough_png_f32=rough_png)
     Image.fromarray(eye_img).save(os.path.join(RENDERS_DIR, "render_mountain_tabletop_eyelevel.png"))
 
     # 4. Master Suite 4-View
     fig, axes = plt.subplots(2, 2, figsize=(16, 11.5), dpi=130, facecolor="#0d1117")
     views = [
         (top_img, "A. Cenital Orthographic (UV Aligned + 3.50mm Margin & Ø20mm Pads)"),
-        (iso, "B. Southeast Alpine Isometric (Asymmetric Matterhorn Peak & Arêtes)"),
-        (north_img, "C. North Face Granite Cirque (0% Snow on Slopes >=44.0°)"),
-        (eye_img, "D. Tabletop Player Eye-Level (Z=0..83.00mm Silhouette & Plinth)"),
+        (iso, "B. Southeast Alpine Isometric (5-Spire Cordillera V3 & Arêtes)"),
+        (north_img, "C. Northwest Glacial Cirque (0% Snow on Slopes >=44.0°)"),
+        (eye_img, "D. Tabletop Player Eye-Level (Z=0..83.00mm Stylized Skyline)"),
     ]
     for ax, (im_arr, title) in zip(axes.flat, views):
         ax.imshow(im_arr)
@@ -286,8 +301,8 @@ def generate_all():
     m = metrics["master"]
     cov = metrics["coverage"]
     fig.suptitle(
-        f"CATAN MOUNTAIN TILE V2 — MASTER AUDIT | F={m['F']:,} tris (chi={m['chi']}, Watertight={m['watertight']}) | "
-        f"Vol={m['volume_cm3']:.2f} cm3 | Snow={cov['snow_pct']:.1f}% | MaxSnow>=44°={cov['max_snow_steep']:.6f} | 45G+15V Active",
+        f"CATAN MOUNTAIN CORDILLERA V3 — MASTER AUDIT | F={m['F']:,} tris (chi={m['chi']}, Watertight={m['watertight']}) | "
+        f"Vol={m['volume_cm3']:.2f} cm3 | Snow={cov['snow_pct']:.1f}% | MaxSnow>=44°={cov['max_snow_steep']:.6f} | Hyperreal PBR",
         color="#58a6ff", fontsize=12.5, fontweight="bold", y=0.98
     )
     plt.tight_layout(rect=[0, 0, 1, 0.955])
@@ -326,36 +341,34 @@ def generate_all():
     plt.savefig(os.path.join(RENDERS_DIR, "render_overhang_printability_map.png"), facecolor="#0d1117")
     plt.close(fig)
 
-    # 6. Palette Distribution Histogram (45 Grays + 15 Greens)
-    print("[Suite V2] Rendering 45G + 15V Palette Histogram...")
-    greys_45, greens_15 = build_palettes()
-    gc = np.array(cov["greys_counts"], dtype=np.float64)
-    vc = np.array(cov["greens_counts"], dtype=np.float64)
-
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 8.2), dpi=140, facecolor="#111827", gridspec_kw={"height_ratios": [1.2, 1.0]})
-    x_g = np.arange(45)
-    bars_g = ax1.bar(x_g, gc / 1e3, color=greys_45, edgecolor="#94a3b8", linewidth=0.5)
+    # 6. Continuous Painterly Gamut & Biome Audit (Replaces legacy quantized 45G/15V bar chart)
+    print("[Suite V3] Rendering Continuous Painterly PBR Gamut & Zone Distribution...")
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 8.2), dpi=140, facecolor="#111827", gridspec_kw={"height_ratios": [1.3, 1.0]})
+    luma_4k = (0.2126 * diff_png[:, :, 0] + 0.7152 * diff_png[:, :, 1] + 0.0722 * diff_png[:, :, 2]).ravel()
+    hist_luma, edges = np.histogram(luma_4k, bins=64, range=(0.08, 1.0))
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    bar_cols = np.column_stack([centers * 0.96, centers * 0.97, centers * 1.00])
+    ax1.bar(centers, hist_luma / 1e3, width=0.013, color=np.clip(bar_cols, 0, 1), edgecolor="#64748b", linewidth=0.35)
     ax1.set_yscale("log")
-    ax1.set_xticks(x_g)
-    ax1.set_xticklabels([f"G{i:02d}" for i in range(45)], rotation=60, fontsize=8, color="#e2e8f0")
+    ax1.set_xlabel("Relative Luminance (Continuous 4K Painterly Gradient — Zero Color Banding)", color="#e2e8f0")
     ax1.set_ylabel("4K Pixels (thousands, log)", color="#e2e8f0")
-    ax1.set_title(f"45 Calibrated Gray Stops (G00..G44) — ALL 45/45 Active (min={int(gc.min()):,} px)", color="#f8fafc", fontsize=12, fontweight="bold")
+    ax1.set_title("Hyperreal Continuous Painterly Tonal Spectrum (Alpine Slate -> Granite Quartz -> Hoarfrost -> Glacier Snow)", color="#f8fafc", fontsize=12, fontweight="bold")
     ax1.set_facecolor("#1f2937")
     ax1.tick_params(colors="#cbd5e1")
     ax1.grid(axis="y", alpha=0.25, color="#94a3b8")
 
-    x_v = np.arange(15)
-    bars_v = ax2.bar(x_v, vc / 1e3, color=greens_15, edgecolor="#94a3b8", linewidth=0.6)
-    ax2.set_yscale("log")
-    ax2.set_xticks(x_v)
-    ax2.set_xticklabels([f"V{i:02d}" for i in range(15)], fontsize=9.5, color="#e2e8f0")
-    ax2.set_ylabel("4K Pixels (thousands, log)", color="#e2e8f0")
-    ax2.set_title(f"15 Calibrated Botanical Green Stops (V00..V14) — ALL 15/15 Active (min={int(vc.min()):,} px)", color="#f8fafc", fontsize=12, fontweight="bold")
+    zones = ["Granite & Scree Rock", "Glacier Snow & Frost (<44°)", "Alpine Meadow & Moss", "Steep Cliff Faces (>=44°)", "Snow on >=44° Cliffs"]
+    vals_z = [cov["rock_pct"], cov["snow_pct"], cov["tundra_pct"], cov["steep_pct"], cov["max_snow_steep"] * 100.0]
+    cols_z = ["#64748b", "#e2e8f0", "#4d7c0f", "#f97316", "#ef4444"]
+    bars_z = ax2.barh(zones, vals_z, color=cols_z, edgecolor="#cbd5e1", linewidth=0.6)
+    ax2.set_xlim(0, 108)
+    ax2.set_xlabel("Coverage Percentage / Physical Max (%)", color="#e2e8f0")
+    ax2.set_title("Physical Geomorphometry & Material Distribution Audit (0.000000 Snow >=44°)", color="#f8fafc", fontsize=12, fontweight="bold")
     ax2.set_facecolor("#1f2937")
     ax2.tick_params(colors="#cbd5e1")
-    ax2.grid(axis="y", alpha=0.25, color="#94a3b8")
-    for b, cnt in zip(bars_v, vc):
-        ax2.text(b.get_x() + b.get_width() / 2, b.get_height() * 1.15, f"{int(cnt/1e3)}k", ha="center", va="bottom", color="#e2e8f0", fontsize=8)
+    ax2.grid(axis="x", alpha=0.25, color="#94a3b8")
+    for b, val in zip(bars_z, vals_z):
+        ax2.text(val + 1.2, b.get_y() + b.get_height() / 2, f"{val:.2f}%", va="center", color="#f8fafc", fontsize=9.5, fontweight="bold")
     plt.tight_layout()
     plt.savefig(os.path.join(RENDERS_DIR, "render_palette_distribution_histogram.png"), facecolor="#111827")
     plt.close(fig)
@@ -445,12 +458,12 @@ def generate_all():
     plt.close(fig)
 
     # 9. Macro Zoom Proof (3 close-ups)
-    print("[Suite V2] Rendering Macro Zoom & 6 Player Perspectives...")
-    z1 = raycast_tile(Z, diff_png, norm_png, az_deg=-45.0, el_deg=35.0, width=640, height=560, fov_mm=44.0, center=(-1.5, 2.5, 71.0))
-    z2 = raycast_tile(Z, diff_png, norm_png, az_deg=110.0, el_deg=26.0, width=640, height=560, fov_mm=56.0, center=(-10.0, 14.0, 52.0))
-    z3 = raycast_tile(Z, diff_png, norm_png, az_deg=-25.0, el_deg=28.0, width=640, height=560, fov_mm=62.0, center=(26.0, -22.0, 29.0))
+    print("[Suite V3] Rendering Macro Zoom & 6 Player Perspectives...")
+    z1 = raycast_tile(Z, diff_png, norm_png, az_deg=-42.0, el_deg=28.0, width=640, height=560, fov_mm=54.0, center=(-1.0, 3.0, 62.0), rough_png_f32=rough_png)
+    z2 = raycast_tile(Z, diff_png, norm_png, az_deg=118.0, el_deg=24.0, width=640, height=560, fov_mm=58.0, center=(-10.0, 14.0, 52.0), rough_png_f32=rough_png)
+    z3 = raycast_tile(Z, diff_png, norm_png, az_deg=-25.0, el_deg=28.0, width=640, height=560, fov_mm=62.0, center=(26.0, -22.0, 30.0), rough_png_f32=rough_png)
     fig, ax = plt.subplots(1, 3, figsize=(16, 5.4), dpi=130, facecolor="#0d1117")
-    for a, img_p, ttl in zip(ax, [z1, z2, z3], ["A. Summit Spire & Arêtes", "B. Steep Alpine Granite Cirque", "C. Foothill Meadow + 3.50mm Pad Transition"]):
+    for a, img_p, ttl in zip(ax, [z1, z2, z3], ["A. Summit Spire & Glacier Cornices", "B. Steep Alpine Granite Cirque", "C. Foothill Meadow + 3.50mm Pad Transition"]):
         a.imshow(img_p)
         a.set_title(ttl, color="#f8fafc", fontsize=10.5, fontweight="bold")
         a.axis("off")
@@ -462,26 +475,26 @@ def generate_all():
     fig, axes = plt.subplots(2, 3, figsize=(15.5, 9.2), dpi=125, facecolor="#0d1117")
     for k, ax in enumerate(axes.flat):
         az = -90.0 + k * 60.0
-        pim = raycast_tile(Z, diff_png, norm_png, az_deg=az, el_deg=24.0, width=600, height=440, fov_mm=142.0, center=(0, 0, 41.0))
+        pim = raycast_tile(Z, diff_png, norm_png, az_deg=az, el_deg=24.0, width=600, height=440, fov_mm=142.0, center=(0, 0, 42.0), rough_png_f32=rough_png)
         ax.imshow(pim)
         ax.set_title(f"Player Seat {k+1} (Azimuth {az:.0f}°)", color="#e2e8f0", fontsize=10, fontweight="bold")
         ax.axis("off")
-    fig.suptitle("CATAN MOUNTAIN V2 — 360° 6-PLAYER TABLETOP PERSPECTIVES", color="#58a6ff", fontsize=13, fontweight="bold", y=0.98)
+    fig.suptitle("CATAN MOUNTAIN CORDILLERA V3 — 360° 6-PLAYER TABLETOP PERSPECTIVES", color="#58a6ff", fontsize=13, fontweight="bold", y=0.98)
     plt.tight_layout(rect=[0, 0, 1, 0.955])
     plt.savefig(os.path.join(RENDERS_DIR, "render_mountain_6_player_perspectives.png"), facecolor="#0d1117")
     plt.close(fig)
 
     # 11. 360° Turntable GIF (30 frames @ 540x405)
-    print("[Suite V2] Rendering 360° Turntable GIF (30 frames)...")
+    print("[Suite V3] Rendering 360° Turntable GIF (30 frames)...")
     frames = []
     for k in range(30):
         az = -90.0 + k * (360.0 / 30.0)
-        fr = raycast_tile(Z, diff_png, norm_png, az_deg=az, el_deg=28.0, width=540, height=405, fov_mm=142.0, center=(0, 0, 41.0))
+        fr = raycast_tile(Z, diff_png, norm_png, az_deg=az, el_deg=28.0, width=540, height=405, fov_mm=142.0, center=(0, 0, 42.0), rough_png_f32=rough_png)
         frames.append(Image.fromarray(fr))
     gif_path = os.path.join(RENDERS_DIR, "catan_mountain_turntable_360.gif")
     frames[0].save(gif_path, save_all=True, append_images=frames[1:], duration=90, loop=0)
 
-    print(f"[Suite V2] ALL 11 CAD & Audit Renders Complete in {time.time()-t0:.2f}s -> {RENDERS_DIR}")
+    print(f"[Suite V3] ALL 11 CAD & Audit Renders Complete in {time.time()-t0:.2f}s -> {RENDERS_DIR}")
 
 
 if __name__ == "__main__":

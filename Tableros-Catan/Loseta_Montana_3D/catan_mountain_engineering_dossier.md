@@ -1,4 +1,4 @@
-# Dossier de Ingeniería CAD — Loseta de Montaña Catan 3D (V2 Master)
+# Dossier de Ingeniería CAD — Loseta de Montaña Catan 3D (Cordillera V3 PBR)
 
 ## 1. Especificaciones Geométricas y Tolerancias Mecánicas
 - **Hexágono Regular Estándar Catan 3D:**
@@ -20,21 +20,20 @@
   - Vértices (`V`): **2,590,913** | Aristas (`E`): **7,772,733** | Triángulos (`F`): **5,181,822** (>5.0M requeridos)
   - Característica de Euler: **$\chi = V - E + F = 2$** (100% 2-manifold estanco `watertight=True`, cero aristas sueltas o degeneradas)
   - Área mínima de triángulo: **0.001963 mm²** (>0 estricto)
-  - Volumen sólido calculado: **433.55 cm³** (`435.50 cm³` en LOD1)
+  - Volumen sólido calculado: **438.72 cm³**
 - **LODs Estancos Verificados (`watertight=True`, $\chi=2$):**
-  - `catan_mountain_lod1_1m.stl`: **1,021,686** triángulos
-  - `catan_mountain_lod2_250k.stl`: **256,934** triángulos
-  - `catan_mountain_lod3_50k.stl`: **59,870** triángulos
-- **Visor WebGL Táctil (`catan_mountain_viewer.html`):**
-  - Malla interactiva fluida: **95,457** vértices / **190,910** triángulos + texturas Diffuse/Normal 2K (`3.40 MB`).
+  - `catan_mountain_lod1_1m.stl`: **1,021,686** triángulos (`438.73 cm³`)
+  - `catan_mountain_lod2_250k.stl`: **256,934** triángulos (`438.74 cm³`)
+  - `catan_mountain_lod3_50k.stl`: **59,870** triángulos (`438.73 cm³`)
+- **Visor WebGL Táctil AAA PBR (`catan_mountain_viewer.html`):**
+  - Malla interactiva fluida: **113,117** vértices / **226,230** triángulos con normales planas arquitectónicas separadas en el zócalo hexagonal, texturas 2K **Diffuse + Normal + Roughness**, iluminación HDR IBL (`THREE.PMREMGenerator`), sombras direccionales suaves `PCFSoftShadowMap` (`2048×2048`) y 3 atmósferas (`Sol Alpino`, `Atardecer`, `Nublado`) en **4.56 MB**.
 
-## 3. Geomorfología Escultórica V2 y Física de Texturizado
-- **Geomorfología V2.22:** Aguja piramidal asimétrica tipo Matterhorn en `(-1.5, +2.5) mm` con aristas conectadas sin uniones radiales artificiales ni "efecto panettone"; 4 circos glaciares escarpados en la cara norte; estratos tectónicos inclinados y micro-relieve FFT multibanda calibrado en milímetros.
-- **Texturas UV Alineadas (`Y-up` estándar WebGL / OBJ / 3MF):**
-  - `catan_mountain_diffuse_4k.png` / `2k.png` + `catan_mountain_normal_4k.png` + variantes estacionales `winter_4k` y `autumn_4k`.
+## 3. Geomorfología Escultórica V3 y Texturizado Hiperrealista Pintado
+- **Cordillera Estilizada V3 (`prototype_v3_cordillera.py`):** 5 agujas alpinas esbeltas en curva S (cumbre principal en `(-3.5, +4.5) mm` a `Z = 83.0000 mm`, sub-cumbres a `47.0 / 41.5 / 30.5 / 29.5 mm` de relieve), aristas sinuosas con cornisas, 4 circos glaciares esculpidos y cuencas glaciares colgantes sobre valles protegidos sin escalones perimetrales.
+- **Pipeline Pictórico Continuo e Hidrológico (`D-inf` + LIC):** Escorrentía hidráulica `flow_accumulation`, estriaciones minerales advecidas por pendiente (`slope_advect_field`), 16 direcciones HBAO y muestreo canónico FFT bit-idéntico entre todos los LODs y texturas UV.
+- **Texturas PBR 4K Alineadas (`Y-up` estándar WebGL / OBJ / 3MF):**
+  - `catan_mountain_diffuse_4k.png` / `2k.png`, `catan_mountain_normal_4k.png`, **`catan_mountain_roughness_4k.png`** + variantes estacionales `winter_4k` y `autumn_4k`.
   - Verificación round-trip UV automática (1,000 vértices aleatorios): coincidencia binaria exacta contra PNG en disco.
-- **Cobertura Física y Uso Completo de Paletas:**
-  - **Nieve:** **10.66%** | **Tundra / Praderas:** **10.21%** | **Roca alpina / Granito:** **79.13%**
-  - **Paredes escarpadas ($\ge 44.0^\circ$):** **56.59%** del relieve con **0.000000** nieve en pendientes $\ge 44^\circ$.
-  - **Paleta 45 Grises (`G00..G44`):** **45 / 45 activos** (mínimo **84 px** en `G44`).
-  - **Paleta 15 Verdes (`V00..V14`):** **15 / 15 activos** (mínimo **20,014 px** en `V13`), concentrados en valles bajos alrededor de los 6 bordes con franja amortiguadora de roca pura antes de la cota de nieve.
+- **Cobertura Física:**
+  - **Nieve / Escarcha Glacial:** **6.59%** | **Pradera / Musgo de Valle:** **2.98%** | **Roca Granítica / Canchal:** **90.43%**
+  - **Paredes escarpadas ($\ge 44.0^\circ$):** **61.81%** del relieve con **0.000000** nieve en pendientes $\ge 44^\circ$.

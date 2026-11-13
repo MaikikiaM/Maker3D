@@ -60,18 +60,35 @@ def build_viewer():
     # Precompute UVs cleanly: u=(x+R)/(2R), v=(y+R)/(2R) matching flipped PNG top=+R
     R = 64.0
     APOTHEM = R * math.cos(math.radians(30.0))
+    Z_BASE = 25.0
     uvs = np.column_stack([
         np.clip((verts[:, 0] + R) / (2.0 * R), 0.0, 1.0),
         np.clip((verts[:, 1] + R) / (2.0 * R), 0.0, 1.0),
     ]).astype(np.float32)
+
+    # Split vertical plinth & bottom faces onto sharp architectural vertices with clean slate UV (zero smear!)
+    # Since split plinth triangles don't share vertices across corners or with terrain, Three.js computeVertexNormals()
+    # automatically produces exact planar flat normals on walls/bottom & smooth normals on terrain with 0KB extra payload!
+    is_plinth_face = np.any(verts[faces, 2] < (Z_BASE - 0.05), axis=1)
+    pf = faces[is_plinth_face]
+    n_pf = len(pf)
+    verts_p = verts[pf.ravel()]
+    uvs_p = np.full((n_pf * 3, 2), 0.015, dtype=np.float32)
+
+    base_idx = len(verts)
+    verts = np.vstack([verts, verts_p]).astype(np.float32)
+    uvs = np.vstack([uvs, uvs_p]).astype(np.float32)
+    faces = faces.copy()
+    faces[is_plinth_face] = (np.arange(n_pf * 3, dtype=np.uint32).reshape(n_pf, 3) + base_idx)
 
     # Gzip-compress binary buffers for compact mobile-friendly single-file payload
     verts_gz = base64.b64encode(gzip.compress(verts.tobytes(), compresslevel=9)).decode("ascii")
     uvs_gz = base64.b64encode(gzip.compress(uvs.tobytes(), compresslevel=9)).decode("ascii")
     faces_gz = base64.b64encode(gzip.compress(faces.tobytes(), compresslevel=9)).decode("ascii")
 
-    diff_uri, diff_sz = encode_img_b64(os.path.join(OUT_DIR, "catan_mountain_diffuse_2k.png"), fmt="JPEG", quality=92)
-    norm_uri, norm_sz = encode_img_b64(os.path.join(SCRATCH_DIR, "catan_mountain_normal_2k.png"), fmt="JPEG", quality=92)
+    diff_uri, diff_sz = encode_img_b64(os.path.join(OUT_DIR, "catan_mountain_diffuse_2k.png"), fmt="JPEG", quality=90)
+    norm_uri, norm_sz = encode_img_b64(os.path.join(SCRATCH_DIR, "catan_mountain_normal_2k.png"), fmt="JPEG", quality=90)
+    rough_uri, rough_sz = encode_img_b64(os.path.join(SCRATCH_DIR, "catan_mountain_roughness_2k.png"), fmt="JPEG", quality=85)
 
     m = metrics["master"]
     cov = metrics["coverage"]
@@ -82,7 +99,7 @@ def build_viewer():
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Loseta Montaña Catan 3D (V2) — {m['F']:,} Triángulos Master</title>
+  <title>Cordillera Montaña Catan 3D (V3) — {m['F']:,} Triángulos Master</title>
   <style>
     :root {{
       --bg: #080c12;
@@ -96,7 +113,7 @@ def build_viewer():
     * {{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }}
     html, body {{
       margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
-      background: radial-gradient(circle at 50% 35%, #162032 0%, #080c12 75%);
+      background: radial-gradient(circle at 46% 38%, #1e293b 0%, #0f172a 55%, #070b11 100%);
       color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }}
     #canvas-wrap {{
@@ -124,10 +141,10 @@ def build_viewer():
     }}
     #drawer-toggle:active {{ transform: scale(0.97); }}
     #drawer {{
-      position: fixed; top: 60px; right: 12px; z-index: 25;
-      width: 310px; max-width: calc(100vw - 24px); max-height: calc(100vh - 80px);
+      position: fixed; top: 56px; right: 12px; z-index: 25;
+      width: 268px; max-width: calc(100vw - 24px); max-height: calc(100vh - 88px);
       overflow-y: auto; background: var(--panel); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-      border: 1px solid var(--border); border-radius: 14px; padding: 14px;
+      border: 1px solid var(--border); border-radius: 14px; padding: 12px;
       box-shadow: 0 12px 32px rgba(0,0,0,0.6); transition: transform 0.22s ease, opacity 0.22s ease;
     }}
     #drawer.collapsed {{
@@ -192,8 +209,8 @@ def build_viewer():
   <div id="canvas-wrap"></div>
 
   <div class="top-pill">
-    <h1>🏔️ Loseta Montaña Catan 3D · V2 Master</h1>
-    <p>{m['F']:,} tris (χ={m['chi']}) · R=64mm · Z=83mm · 45G/15V</p>
+    <h1>🏔️ Cordillera Montaña Catan 3D · V3 PBR</h1>
+    <p>{m['F']:,} tris (χ={m['chi']}) · R=64mm · Z=83mm · HDR + Sombras</p>
   </div>
 
   <button id="drawer-toggle" aria-label="Mostrar u ocultar controles">⚙️ Controles</button>
@@ -201,24 +218,31 @@ def build_viewer():
   <aside id="drawer">
     <div class="sec-title">Modo de Renderizado</div>
     <div class="btn-grid">
-      <button class="ctrl-btn active" data-mode="pbr">Full Color PBR</button>
+      <button class="ctrl-btn active" data-mode="pbr">Hiperreal PBR</button>
       <button class="ctrl-btn" data-mode="clay">Arcilla CAD</button>
       <button class="ctrl-btn" data-mode="slope">Mapa Pendientes ≥44°</button>
       <button class="ctrl-btn" data-mode="wire">Malla + Relieve</button>
     </div>
 
+    <div class="sec-title">Atmósfera de Iluminación</div>
+    <div class="btn-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+      <button class="ctrl-btn active" data-atmo="alpine">Sol Alpino</button>
+      <button class="ctrl-btn" data-atmo="sunset">Atardecer</button>
+      <button class="ctrl-btn" data-atmo="overcast">Nublado</button>
+    </div>
+
     <div class="sec-title">Cotas CAD &amp; Tolerancias</div>
     <label class="row-toggle">
       <span>Cotas Hexágono (110.85×128×83)</span>
-      <input type="checkbox" id="chk-dims" checked />
+      <input type="checkbox" id="chk-dims" />
     </label>
     <label class="row-toggle">
       <span>6 Triángulos Equiláteros (64mm)</span>
-      <input type="checkbox" id="chk-tris" checked />
+      <input type="checkbox" id="chk-tris" />
     </label>
     <label class="row-toggle">
       <span>Carril 3.5mm, Bases Ø20 &amp; Imán Ø10.2</span>
-      <input type="checkbox" id="chk-tol" checked />
+      <input type="checkbox" id="chk-tol" />
     </label>
     <label class="row-toggle">
       <span>Rotación Turntable Suave</span>
@@ -251,13 +275,13 @@ def build_viewer():
       <button class="ctrl-btn" data-cam="eye">Mesa / Imán</button>
     </div>
 
-    <div class="sec-title">Auditoría Técnica Master V2</div>
+    <div class="sec-title">Auditoría Técnica Master V3</div>
     <div class="specs-grid">
       <div class="spec-item"><span>Malla Master</span><strong>{m['F']:,} Δ</strong></div>
       <div class="spec-item"><span>Visor WebGL</span><strong>{vm['F']:,} Δ</strong></div>
       <div class="spec-item"><span>Manifold Euler</span><strong>χ = {m['chi']} (Sólido)</strong></div>
       <div class="spec-item"><span>Volumen Total</span><strong>{m['volume_cm3']:.2f} cm³</strong></div>
-      <div class="spec-item"><span>Paleta Calibrada</span><strong>45G + 15V (100%)</strong></div>
+      <div class="spec-item"><span>Materiales PBR</span><strong>Diff + Norm + Rough</strong></div>
       <div class="spec-item"><span>Nieve en ≥44°</span><strong>{cov['max_snow_steep']:.6f} (0%)</strong></div>
     </div>
   </aside>
@@ -271,6 +295,7 @@ def build_viewer():
     const FACES_GZ = "{faces_gz}";
     const DIFF_URI = "{diff_uri}";
     const NORM_URI = "{norm_uri}";
+    const ROUGH_URI = "{rough_uri}";
 
     const R = 64.0;
     const APOTHEM = {APOTHEM:.8f};
@@ -280,9 +305,9 @@ def build_viewer():
     const PAD_R = 10.0;
     const MAG_R = 5.1;
 
-    // Collapse drawer automatically on mobile (< 768px)
+    // Collapse drawer automatically on mobile / narrow screens (< 900px) so the 3D mountain shines unobstructed
     const drawer = document.getElementById("drawer");
-    if (window.innerWidth <= 768) drawer.classList.add("collapsed");
+    if (window.innerWidth <= 900) drawer.classList.add("collapsed");
     document.getElementById("drawer-toggle").addEventListener("click", () => {{
       drawer.classList.toggle("collapsed");
     }});
@@ -336,12 +361,13 @@ def build_viewer():
 
     async function init() {{
       try {{
-        const [vBuf, uvBuf, fBuf, diffTex, normTex] = await Promise.all([
+        const [vBuf, uvBuf, fBuf, diffTex, normTex, roughTex] = await Promise.all([
           gunzipBase64(VERTS_GZ),
           gunzipBase64(UVS_GZ),
           gunzipBase64(FACES_GZ),
           loadTex(DIFF_URI, true),
           loadTex(NORM_URI, false),
+          loadTex(ROUGH_URI, false),
         ]);
 
         const posArr = new Float32Array(vBuf);
@@ -382,30 +408,82 @@ def build_viewer():
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.outputEncoding = THREE.sRGBEncoding;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.05;
+        renderer.toneMappingExposure = 0.96;
         renderer.localClippingEnabled = true;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
+
+        // Procedural Studio Alpine HDRI Environment Map (PMREM IBL — zero external URL needed)
+        (function buildStudioIBL() {{
+          const ew = 128, eh = 64;
+          const data = new Uint8Array(ew * eh * 4);
+          for (let y = 0; y < eh; y++) {{
+            const v = y / (eh - 1);
+            const theta = (1.0 - v) * Math.PI;
+            const sy = Math.cos(theta);
+            for (let x = 0; x < ew; x++) {{
+              const u = x / (ew - 1);
+              const phi = u * 2.0 * Math.PI;
+              const sx = Math.sin(theta) * Math.cos(phi);
+              const sz = Math.sin(theta) * Math.sin(phi);
+              const skyMix = Math.max(0, sy);
+              const groundMix = Math.max(0, -sy);
+              let r = 135 * skyMix + 28 * groundMix + 175 * (1.0 - Math.abs(sy));
+              let g = 175 * skyMix + 34 * groundMix + 200 * (1.0 - Math.abs(sy));
+              let b = 235 * skyMix + 44 * groundMix + 225 * (1.0 - Math.abs(sy));
+              const sunDot = Math.max(0, sx * 0.52 - sz * 0.44 + sy * 0.72);
+              const sunGlow = Math.pow(sunDot, 22) * 195 + Math.pow(sunDot, 3) * 32;
+              r += sunGlow * 1.04; g += sunGlow * 0.96; b += sunGlow * 0.84;
+              const idx = (y * ew + x) * 4;
+              data[idx] = Math.min(255, r); data[idx + 1] = Math.min(255, g);
+              data[idx + 2] = Math.min(255, b); data[idx + 3] = 255;
+            }}
+          }}
+          const equirect = new THREE.DataTexture(data, ew, eh, THREE.RGBAFormat);
+          equirect.mapping = THREE.EquirectangularReflectionMapping;
+          equirect.magFilter = THREE.LinearFilter;
+          equirect.minFilter = THREE.LinearFilter;
+          equirect.needsUpdate = true;
+          const pmrem = new THREE.PMREMGenerator(renderer);
+          pmrem.compileEquirectangularShader();
+          scene.environment = pmrem.fromEquirectangular(equirect).texture;
+          equirect.dispose();
+          pmrem.dispose();
+        }})();
+
         const camera = new THREE.PerspectiveCamera(36, container.clientWidth / container.clientHeight, 1.0, 1200.0);
         camera.up.set(0, 0, 1);
-        camera.position.set(140, -145, 118);
+        camera.position.set(168, -172, 130);
 
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.target.set(0, 0, 32);
+        controls.target.set(6, 0, 34);
         controls.enableDamping = true;
         controls.dampingFactor = 0.07;
         controls.maxDistance = 420;
         controls.minDistance = 45;
         controls.update();
 
-        // Studio Lights
-        scene.add(new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 0.78));
-        const sunLight = new THREE.DirectionalLight(0xfff7ed, 1.45);
-        sunLight.position.set(110, -90, 145);
+        // AAA 3-Point Alpine Lighting + 2048x2048 Soft Self-Shadows
+        const hemiLight = new THREE.HemisphereLight(0xdcebff, 0x1e293b, 0.48);
+        scene.add(hemiLight);
+        const sunLight = new THREE.DirectionalLight(0xfff7ea, 1.38);
+        sunLight.position.set(112, -96, 138);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.set(2048, 2048);
+        sunLight.shadow.camera.left = -74;
+        sunLight.shadow.camera.right = 74;
+        sunLight.shadow.camera.top = 74;
+        sunLight.shadow.camera.bottom = -74;
+        sunLight.shadow.camera.near = 25;
+        sunLight.shadow.camera.far = 360;
+        sunLight.shadow.bias = -0.0006;
+        sunLight.shadow.normalBias = 0.35;
         scene.add(sunLight);
-        const rimLight = new THREE.DirectionalLight(0x7dd3fc, 0.55);
-        rimLight.position.set(-120, 120, 80);
+        const rimLight = new THREE.DirectionalLight(0x7dd3fc, 0.36);
+        rimLight.position.set(-120, 120, 85);
         scene.add(rimLight);
 
         const clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 83.5);
@@ -414,23 +492,26 @@ def build_viewer():
         const matPBR = new THREE.MeshStandardMaterial({{
           map: diffTex,
           normalMap: normTex,
-          normalScale: new THREE.Vector2(0.85, 0.85),
-          roughness: 0.78,
-          metalness: 0.04,
+          normalScale: new THREE.Vector2(1.05, 1.05),
+          roughnessMap: roughTex,
+          roughness: 1.0,
+          metalness: 0.02,
+          envMapIntensity: 0.52,
           clippingPlanes: [clipPlane],
         }});
         const matClay = new THREE.MeshStandardMaterial({{
           color: 0xcbd5e1,
           normalMap: normTex,
-          normalScale: new THREE.Vector2(0.65, 0.65),
-          roughness: 0.55,
-          metalness: 0.05,
+          normalScale: new THREE.Vector2(0.75, 0.75),
+          roughness: 0.54,
+          metalness: 0.04,
+          envMapIntensity: 0.75,
           clippingPlanes: [clipPlane],
         }});
         const matSlope = new THREE.MeshStandardMaterial({{
           vertexColors: true,
-          roughness: 0.65,
-          metalness: 0.05,
+          roughness: 0.62,
+          metalness: 0.04,
           clippingPlanes: [clipPlane],
         }});
         const matWire = new THREE.MeshStandardMaterial({{
@@ -441,6 +522,8 @@ def build_viewer():
         }});
 
         const mainMesh = new THREE.Mesh(geom, matPBR);
+        mainMesh.castShadow = true;
+        mainMesh.receiveShadow = true;
         scene.add(mainMesh);
 
         // Stencil Solid Capping Group for Z Cross-Section Slider
@@ -479,15 +562,19 @@ def build_viewer():
         }});
         const capMesh = new THREE.Mesh(capPlaneGeom, capPlaneMat);
         capMesh.renderOrder = 3;
+        capMesh.receiveShadow = true;
         capMesh.position.z = 83.5;
         stencilGroup.add(backStencil, frontStencil, capMesh);
         stencilGroup.visible = false;
         scene.add(stencilGroup);
 
-        // Unobstructed Perimeter CAD Dimension Overlays
+        // Unobstructed Perimeter CAD Dimension Overlays (hidden initially for pure photoreal view)
         const dimGroup = new THREE.Group();
         const triGroup = new THREE.Group();
         const tolGroup = new THREE.Group();
+        dimGroup.visible = false;
+        triGroup.visible = false;
+        tolGroup.visible = false;
         scene.add(dimGroup, triGroup, tolGroup);
 
         const hexPts = [];
@@ -576,6 +663,32 @@ def build_viewer():
           else if (mName === "wire") mainMesh.material = matWire;
         }}));
 
+        let currentSunZ = 138;
+        const atmoBtns = document.querySelectorAll("[data-atmo]");
+        atmoBtns.forEach(btn => btn.addEventListener("click", () => {{
+          atmoBtns.forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          const aName = btn.dataset.atmo;
+          if (aName === "alpine") {{
+            sunLight.color.setHex(0xfff7ea); sunLight.intensity = 1.38;
+            hemiLight.color.setHex(0xdcebff); hemiLight.groundColor.setHex(0x1e293b); hemiLight.intensity = 0.48;
+            rimLight.color.setHex(0x7dd3fc); rimLight.intensity = 0.36;
+            renderer.toneMappingExposure = 0.96; currentSunZ = 138;
+          }} else if (aName === "sunset") {{
+            sunLight.color.setHex(0xffb469); sunLight.intensity = 1.68;
+            hemiLight.color.setHex(0x9ec5ff); hemiLight.groundColor.setHex(0x241928); hemiLight.intensity = 0.44;
+            rimLight.color.setHex(0x60a5fa); rimLight.intensity = 0.46;
+            renderer.toneMappingExposure = 1.02; currentSunZ = 74;
+          }} else {{
+            sunLight.color.setHex(0xeef4ff); sunLight.intensity = 0.96;
+            hemiLight.color.setHex(0xe2ecff); hemiLight.groundColor.setHex(0x334155); hemiLight.intensity = 0.85;
+            rimLight.color.setHex(0xbae6fd); rimLight.intensity = 0.36;
+            renderer.toneMappingExposure = 0.94; currentSunZ = 165;
+          }}
+          const az = parseFloat(document.getElementById("sun-slider").value) * Math.PI / 180;
+          sunLight.position.set(145 * Math.cos(az), 145 * Math.sin(az), currentSunZ);
+        }}));
+
         document.getElementById("chk-dims").addEventListener("change", e => dimGroup.visible = e.target.checked);
         document.getElementById("chk-tris").addEventListener("change", e => triGroup.visible = e.target.checked);
         document.getElementById("chk-tol").addEventListener("change", e => tolGroup.visible = e.target.checked);
@@ -598,13 +711,13 @@ def build_viewer():
         const sunVal = document.getElementById("sun-val");
         sunSlider.addEventListener("input", () => {{
           const az = parseFloat(sunSlider.value) * Math.PI / 180;
-          sunLight.position.set(140 * Math.cos(az), 140 * Math.sin(az), 145);
+          sunLight.position.set(145 * Math.cos(az), 145 * Math.sin(az), currentSunZ);
           sunVal.textContent = sunSlider.value + "°";
         }});
 
         document.querySelectorAll("[data-cam]").forEach(btn => btn.addEventListener("click", () => {{
           const c = btn.dataset.cam;
-          if (c === "iso") {{ camera.position.set(140, -145, 118); controls.target.set(0, 0, 32); }}
+          if (c === "iso") {{ camera.position.set(168, -172, 130); controls.target.set(6, 0, 34); }}
           else if (c === "top") {{ camera.position.set(0, -1.5, 225); controls.target.set(0, 0, 28); }}
           else if (c === "north") {{ camera.position.set(-22, 165, 92); controls.target.set(0, 0, 40); }}
           else if (c === "eye") {{ camera.position.set(125, -110, 12); controls.target.set(0, 0, 22); }}
@@ -650,7 +763,7 @@ def build_viewer():
         sz_mb = os.path.getsize(p) / (1024 * 1024)
         print(f"  Deployed viewer: {p} ({sz_mb:.2f} MB)")
 
-    print(f"[Viewer V2] Complete in {time.time()-t0:.2f}s (diff JPEG={diff_sz/1024:.0f}KB, norm JPEG={norm_sz/1024:.0f}KB)")
+    print(f"[Viewer V3] Complete in {time.time()-t0:.2f}s (diff={diff_sz/1024:.0f}KB, norm={norm_sz/1024:.0f}KB, rough={rough_sz/1024:.0f}KB)")
 
 
 if __name__ == "__main__":

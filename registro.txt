@@ -36,3 +36,20 @@ Resultados de validación observados:
 ================================================================================
 
 [Fix Visor WebGL - 13/11/2026 17:19] Corregido SyntaxError ('})();' sobrante al cerrar async function init()) en assemble_viewer_v2.py, regenerados los 5 visores HTML (3.40 MB) y verificado en Chromium sin caché: cero errores de consola, carga completa (<1.5s), renderizado WebGL PBR/Pendientes >=44° y cotas CAD operativas.
+
+================================================================================
+SESIÓN: 13/11/2026 - REDISEÑO CORDILLERA V3 + TEXTURIZADO HIPERREALISTA PINTADO + VISOR PBR HDR CON SOMBRAS
+Prompt usuario: Sustituir la forma abultada V2 por una cordillera alpina puntiaguda/estilizada y sustituir la textura tipo años 2000 por acabados hiperrealistas donde todos los colores se fundan de forma pictórica y natural.
+
+Decisiones técnicas y arquitectura:
+- Nuevo módulo escultórico y pictórico V3 (`Tableros-Catan/pipeline-montana/prototype_v3_cordillera.py`) integrado como fuente única en `build_catan_mountain_master_v2.py` con muestreo FFT canónico sobre `[-R, R]^2` para alineación matemática exacta entre mallas LOD y mapas UV 4K/2K.
+- Geometría V3: cordillera estilizada de 5 agujas alpinas esbeltas en S (`(-3.5, +4.5)` a `Z=83.00mm`, sub-picos `47.0 / 41.5 / 30.5 / 29.5mm`), aristas sinuosas con cornisas, 4 circos glaciares y transición gradual limpia sin escalones al carril plano `3.50mm` ni a las bases `Ø20.00mm`.
+- Texturizado pictórico continuo 4K: escorrentía `D-inf`, estriaciones advecidas por pendiente (`slope_advect_field`), 16 direcciones HBAO, liquen-musgo-pradera en hondonadas bajas y escarcha/glaciar suave arriba (`>=12mm`), manteniendo `0.000000` nieve en escarpes `>=44.0°`. Generado además `catan_mountain_roughness_4k.png` (+ 2K).
+- Visor HTML AAA PBR (`assemble_viewer_v2.py`, `4.56 MB`): malla interactiva `226,230 Δ` con normales planas arquitectónicas separadas en el zócalo hexagonal (sin artefactos ni estiramientos UV), mapa `roughnessMap` 2K, entorno HDR procedural `THREE.PMREMGenerator`, sombras suaves `PCFSoftShadowMap` (`2048×2048`), 3 atmósferas (`Sol Alpino`, `Atardecer`, `Nublado`), encuadre centrado y overlays CAD ocultos por defecto.
+
+Resultados de validación observados:
+- Malla maestra (`nx=1770, ny=2044`): `V=2,590,913 | E=7,772,733 | F=5,181,822 | chi=2 | watertight=True | Vol=438.72 cm³ | MaxSnow>=44°=0.000000`.
+- LODs estancos (`chi=2`): `lod1_1m` (`1,021,686 Δ`), `lod2_250k` (`256,934 Δ`), `lod3_50k` (`59,870 Δ`). Round-trip UV 4K verificado exacto (`1,000` vértices).
+- Verificación en vivo en Chromium headless (`http://127.0.0.1:8766/Visores-HTML/catan-loseta-montana.html`): `0` errores de consola, carga completa `<1.2s`, inspección visual de captura confirmando paredes de zócalo limpias y relieve PBR con sombras suaves.
+- Checksums SHA-256 regenerados (`27` archivos en `Tableros-Catan/Loseta_Montana_3D/checksums_sha256.txt`).
+================================================================================

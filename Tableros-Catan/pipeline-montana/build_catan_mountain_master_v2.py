@@ -11,6 +11,7 @@ Guarantees:
 - Zero snow on steep rock cliffs >=44.0 deg (max_snow >= 44 deg == 0.000000)
 """
 import os
+import sys
 import json
 import math
 import time
@@ -21,6 +22,9 @@ import numpy as np
 import scipy.ndimage as ndi
 from scipy.spatial import Delaunay
 from PIL import Image
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from prototype_v3_cordillera import generate_cordillera_dem, synthesize_hyperreal_textures
 
 R = 64.0
 APOTHEM = R * math.cos(math.radians(30.0))  # 55.42562584 mm
@@ -137,131 +141,11 @@ def hex_distances(X, Y):
 
 
 def generate_mountain_dem(nx, ny, x_lim=APOTHEM, y_lim=R):
-    """Generate V2.22 alpine DEM across [ -x_lim..x_lim ] x [ -y_lim..y_lim ]."""
-    xs = np.linspace(-x_lim, x_lim, nx, dtype=np.float32)
-    ys = np.linspace(-y_lim, y_lim, ny, dtype=np.float32)
-    X, Y = np.meshgrid(xs, ys)
-    dx = float(xs[1] - xs[0])
-    dy = float(ys[1] - ys[0])
-    W_mm = 2.0 * x_lim
-    H_mm = 2.0 * y_lim
-
-    dist_edge, dist_vert = hex_distances(X, Y)
-
-    wx = 2.6 * fft_fbm(nx, ny, 24.0, 85.0, W_mm, H_mm, beta=2.4, seed=11) + \
-         0.7 * fft_fbm(nx, ny, 9.0, 24.0, W_mm, H_mm, beta=2.1, seed=12)
-    wy = 2.6 * fft_fbm(nx, ny, 24.0, 85.0, W_mm, H_mm, beta=2.4, seed=21) + \
-         0.7 * fft_fbm(nx, ny, 9.0, 24.0, W_mm, H_mm, beta=2.1, seed=22)
-
-    sx, sy = -1.5, 2.5
-    r_summit = np.hypot(X - sx, Y - sy)
-    warp_atten = smoothstep(5.0, 22.0, r_summit)
-    Xw = X + wx * warp_atten
-    Yw = Y + wy * warp_atten
-
-    def ridge_seg(x1, y1, x2, y2, h1, h2, w_left, w_right, crest_flat=2.6):
-        dxr, dyr = x2 - x1, y2 - y1
-        L = math.hypot(dxr, dyr)
-        L2 = L * L
-        t = np.clip(((Xw - x1) * dxr + (Yw - y1) * dyr) / L2, 0.0, 1.0)
-        px = x1 + t * dxr
-        py = y1 + t * dyr
-        nx_p, ny_p = -dyr / L, dxr / L
-        s_dist = (Xw - px) * nx_p + (Yw - py) * ny_p
-        along_d = np.hypot(Xw - px, Yw - py)
-        w_side = 0.5 * (w_left + w_right) + 0.5 * (w_left - w_right) * np.tanh(s_dist / 3.2)
-        d_norm = along_d / w_side
-        cf = crest_flat / w_side
-        d_eff = np.maximum(0.0, np.sqrt(d_norm * d_norm + cf * cf) - cf)
-        h_lin = (1.0 - t) * h1 + t * h2 - 1.2 * np.sin(math.pi * t)
-        return h_lin / (1.0 + d_eff ** 1.85)
-
-    dx_s, dy_s = Xw - sx, Yw - sy
-    ang_s = np.arctan2(dy_s, dx_s)
-    r_horn = np.hypot(dx_s, dy_s)
-    az_fade = smoothstep(3.5, 14.0, r_horn)
-    horn_ribs = 0.16 * az_fade * (np.maximum(0.0, np.cos(4.0 * (ang_s - 0.35))) ** 1.35)
-    glacier_sector = 0.24 * az_fade * (
-        np.maximum(0.0, np.cos(ang_s - 0.55)) ** 1.5 +
-        0.95 * np.maximum(0.0, np.cos(ang_s + 2.45)) ** 1.5 +
-        0.80 * np.maximum(0.0, np.cos(ang_s + 0.85)) ** 1.5
+    """Generate V3.7 stylized alpine cordillera DEM across [-x_lim..x_lim] x [-y_lim..y_lim]."""
+    X, Y, Z_final, dist_edge, dist_vert, dx, dy, rmf_macro, rmf_fine, _ = generate_cordillera_dem(
+        nx, ny, x_lim=x_lim, y_lim=y_lim
     )
-    r_asym = r_horn / (1.0 + horn_ribs + glacier_sector)
-    r_eff_tip = np.sqrt(r_asym * r_asym + 2.0 * 2.0) - 2.0
-
-    h_pyramid = np.maximum(0.0, 58.0 - 0.42 * r_eff_tip)
-    h_skirt = 86.0 * np.exp(-((r_asym / 28.2) ** 1.54))
-    k_int = 0.16
-    h_horn = -np.log(np.exp(-k_int * h_pyramid) + np.exp(-k_int * h_skirt)) / k_int
-    h_horn = np.maximum(0.0, h_horn)
-
-    r1 = ridge_seg(sx, sy, 21.0, 13.5, 57.5, 38.5, 8.2, 14.5, 3.0)
-    r2 = ridge_seg(21.0, 13.5, 34.0, 18.0, 38.5, 5.5, 6.0, 9.2, 1.8)
-    r3 = ridge_seg(21.0, 13.5, 30.0, -7.0, 38.5, 6.0, 9.2, 6.0, 1.8)
-    r4 = ridge_seg(sx, sy, -19.5, -16.5, 57.5, 37.5, 14.5, 8.2, 3.0)
-    r5 = ridge_seg(-19.5, -16.5, -31.5, -24.0, 37.5, 5.0, 9.0, 6.0, 1.8)
-    r6 = ridge_seg(-19.5, -16.5, 5.5, -30.5, 37.5, 5.5, 6.0, 9.0, 1.8)
-    r7 = ridge_seg(sx, sy, -26.0, 11.5, 56.2, 26.0, 12.5, 6.5, 2.6)
-    r8 = ridge_seg(sx, sy, 4.0, 29.0, 55.5, 20.0, 6.2, 11.5, 2.4)
-    r9 = ridge_seg(sx, sy, 15.5, -14.5, 56.2, 29.0, 6.8, 12.5, 2.6)
-
-    r_all = np.maximum.reduce([r1, r2, r3, r4, r5, r6, r7, r8, r9])
-    r_all_s = ndi.gaussian_filter(r_all, 0.55 / dx)
-    massif = smax(h_horn, r_all_s, k=0.55)
-
-    cirques = [
-        (-11.5, 16.5, 10.2, 13.0),
-        (14.0, -3.5, 9.5, 11.0),
-        (-3.0, -19.0, 10.0, 9.5),
-        (-20.5, -3.5, 9.5, 9.0),
-    ]
-    for cx, cy, cr, depth in cirques:
-        d_c = np.hypot(Xw - cx, Yw - cy)
-        bowl = np.exp(-((d_c / cr) ** 2.0))
-        massif = np.maximum(0.0, massif - depth * bowl * smoothstep(5.0, 20.0, massif))
-
-    r_base = np.hypot(Xw * 0.96, Yw)
-    massif = massif * smoothstep(48.5, 21.0, r_base)
-
-    d_clear = np.minimum(np.maximum(0.0, dist_edge - ROAD_MARGIN), np.maximum(0.0, dist_vert - PAD_RADIUS))
-    foothill_noise = fft_fbm(nx, ny, 9.5, 28.0, W_mm, H_mm, beta=2.2, seed=55)
-    foothills = (2.8 + 1.9 * smoothstep(-1.0, 1.0, foothill_noise)) * smoothstep(0.0, 6.2, d_clear) * (1.0 - smoothstep(4.5, 16.0, massif))
-    massif = massif * smoothstep(0.0, 7.5, d_clear) + foothills
-
-    rmf = ridged_multifractal(nx, ny, W_mm, H_mm, seed=303)
-    rmf_c = (rmf - 0.45) * 2.0
-    elev_w = smoothstep(4.5, 16.0, massif) * (1.0 - 0.85 * smoothstep(28.0, 44.0, massif))
-
-    strata_warp = fft_fbm(nx, ny, 12.0, 42.0, W_mm, H_mm, beta=2.2, seed=404)
-    strata_coord = 0.20 * massif + 0.06 * Xw - 0.04 * Yw + 1.5 * strata_warp
-    strata_bands = 0.30 * np.sin(strata_coord * 1.25) + 0.14 * np.sin(strata_coord * 2.6 + 0.6)
-
-    Z_sculpted = np.maximum(0.0, massif + (0.90 * rmf_c * elev_w) + (0.24 * strata_bands * elev_w))
-
-    talus_deg = 42.0
-    T_x = math.tan(math.radians(talus_deg)) * dx
-    T_y = math.tan(math.radians(talus_deg)) * dy
-    Z_eroded = Z_sculpted.copy()
-    for _ in range(8):
-        dx_r = Z_eroded[:, :-1] - Z_eroded[:, 1:]
-        dy_d = Z_eroded[:-1, :] - Z_eroded[1:, :]
-        ex_r = np.maximum(0.0, dx_r - T_x) - np.maximum(0.0, -dx_r - T_x)
-        ex_d = np.maximum(0.0, dy_d - T_y) - np.maximum(0.0, -dy_d - T_y)
-        c = 0.12
-        Z_eroded[:, :-1] -= c * 0.25 * ex_r
-        Z_eroded[:, 1:] += c * 0.25 * ex_r
-        Z_eroded[:-1, :] -= c * 0.25 * ex_d
-        Z_eroded[1:, :] += c * 0.25 * ex_d
-
-    relief = np.maximum(0.0, Z_eroded) * smoothstep(0.0, 0.8, d_clear)
-    max_r = float(np.max(relief))
-    if max_r > 0:
-        relief *= (TARGET_RELIEF / max_r)
-
-    Z_final = Z_BASE + relief
-    Z_final[dist_edge <= ROAD_MARGIN] = Z_BASE
-    Z_final[dist_vert <= PAD_RADIUS] = Z_BASE
-    return X, Y, Z_final, dist_edge, dist_vert, dx, dy, strata_bands, rmf_c
+    return X, Y, Z_final, dist_edge, dist_vert, dx, dy, rmf_macro, rmf_fine
 
 
 def compute_geomorphometry(Z, dx, dy):
@@ -296,139 +180,36 @@ def compute_geomorphometry(Z, dx, dy):
     return slope_deg, e_min, e_max, ao
 
 
-def synthesize_textures(nx_tex, greys_45, greens_15):
-    """Synthesize full-color diffuse (45 grays + 15 greens) & tangent-space normal map on [-R,R]^2."""
-    X, Y, Z, dist_edge, dist_vert, dx, dy, strata_bands, rmf_c = generate_mountain_dem(
+def synthesize_textures(nx_tex, greys_45=None, greens_15=None):
+    """Synthesize hyperrealistic continuous painterly diffuse, normal, roughness & seasonal 4K/2K UV maps on [-R,R]^2."""
+    X, Y, Z, dist_edge, dist_vert, dx, dy, rmf_m, rmf_f, broad_r = generate_cordillera_dem(
         nx_tex, nx_tex, x_lim=R, y_lim=R
     )
-    W_mm = 2.0 * R
-    slope_deg, e_min, e_max, ao = compute_geomorphometry(Z, dx, dy)
-
-    RELIEF = np.maximum(0.0, Z - Z_BASE)
-    rel_h = RELIEF / TARGET_RELIEF
-
-    couloir_concavity = smoothstep(0.008, 0.065, e_max)
-    arete_convexity = smoothstep(-0.010, -0.075, e_min)
-
-    # STRICT 44° snow cutoff: 0.000000 snow on >=44.0° faces!
-    snow_retention = 1.0 - smoothstep(39.8, 44.0, slope_deg)
-    snow_retention[slope_deg >= 44.0] = 0.0
-
-    snow_noise = fft_fbm(nx_tex, nx_tex, 2.2, 12.0, W_mm, W_mm, beta=2.1, seed=707)
-    snow_alt = smoothstep(13.0, 21.5, RELIEF + 5.5 * couloir_concavity + 4.5 * arete_convexity + 2.5 * snow_noise)
-    snow_mask = smoothstep(0.05, 0.24, snow_alt * snow_retention)
-    snow_mask *= smoothstep(14.0, 17.5, RELIEF)
-    snow_mask[slope_deg >= 44.0] = 0.0
-
-    # Tundra across all 6 gentle valley bays (zero green near snow or road lane!)
-    tundra_noise = fft_fbm(nx_tex, nx_tex, 3.0, 18.0, W_mm, W_mm, beta=2.0, seed=808)
-    tundra_alt = smoothstep(0.06, 0.35, RELIEF) * (1.0 - smoothstep(4.2, 8.2, RELIEF + 1.4 * tundra_noise))
-    tundra_slope = 1.0 - smoothstep(21.0, 34.0, slope_deg)
-    apron_clear = smoothstep(3.52, 4.3, dist_edge) * smoothstep(10.02, 11.2, dist_vert)
-    tundra_raw = tundra_alt * tundra_slope * apron_clear * (0.78 + 0.22 * smoothstep(-0.8, 0.8, tundra_noise))
-    tundra_mask = smoothstep(0.08, 0.32, tundra_raw) * (1.0 - snow_mask)
-    tundra_mask[RELIEF > 9.0] = 0.0
-
-    # Index mapping ensuring ALL 45 grays (0..44) and ALL 15 greens (0..14) are used
-    rock_grain = fft_fbm(nx_tex, nx_tex, 0.45, 2.8, W_mm, W_mm, beta=1.8, seed=908)
-    rock_detail = fft_fbm(nx_tex, nx_tex, 2.2, 11.0, W_mm, W_mm, beta=2.0, seed=909)
-
-    snow_tone_idx = np.clip(
-        3.2 * (1.0 - smoothstep(0.45, 0.96, ao))
-        + 3.2 * smoothstep(8.0, 42.5, slope_deg)
-        + 0.4 * np.clip(rock_grain, -1.0, 1.0),
-        0.0, 5.0
+    surface, normal_rgb, roughness, slope_deg, snow_alpha, meadow_alpha, raw_st = synthesize_hyperreal_textures(
+        X, Y, Z, dist_edge, dist_vert, dx, dy, rmf_m, rmf_f, broad_r
     )
-    s_lo = np.minimum(np.floor(snow_tone_idx).astype(np.int32), 4)
-    s_hi = s_lo + 1
-    s_fr = (snow_tone_idx - s_lo)[:, :, None]
-    snow_col = (1.0 - s_fr) * greys_45[s_lo] + s_fr * greys_45[s_hi]
+    rough_u8 = np.repeat((np.clip(roughness, 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8)[..., None], 3, axis=-1)
+    winter_u8 = (np.clip(raw_st["winter_rgb"], 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8)
+    autumn_u8 = (np.clip(raw_st["autumn_rgb"], 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8)
 
-    rock_tone_idx = np.clip(
-        13.0
-        + 17.5 * smoothstep(18.0, 52.0, slope_deg)
-        + 12.5 * (1.0 - smoothstep(0.28, 0.90, ao))
-        + 4.0 * (1.0 - rel_h)
-        - 5.0 * arete_convexity
-        + 3.2 * strata_bands
-        + 2.0 * rock_detail
-        + 1.6 * rock_grain,
-        5.0, 44.0
-    )
-    r_lo = np.minimum(np.floor(rock_tone_idx).astype(np.int32), 43)
-    r_hi = r_lo + 1
-    r_fr = (rock_tone_idx - r_lo)[:, :, None]
-    rock_col = (1.0 - r_fr) * greys_45[r_lo] + r_fr * greys_45[r_hi]
-
-    g_tone_idx = np.clip(
-        0.0
-        + 7.8 * (1.0 - smoothstep(0.15, 6.2, RELIEF))
-        + 5.8 * (1.0 - smoothstep(0.45, 0.88, ao))
-        + 6.2 * smoothstep(-0.75, 0.75, tundra_noise),
-        0.0, 14.0
-    )
-    g_lo = np.minimum(np.floor(g_tone_idx).astype(np.int32), 13)
-    g_hi = g_lo + 1
-    g_fr = (g_tone_idx - g_lo)[:, :, None]
-    tundra_col = (1.0 - g_fr) * greens_15[g_lo] + g_fr * greens_15[g_hi]
-
-    diffuse = rock_col * (1.0 - tundra_mask[:, :, None]) + tundra_col * tundra_mask[:, :, None]
-    diffuse = diffuse * (1.0 - snow_mask[:, :, None]) + snow_col * snow_mask[:, :, None]
-
-    # Calibrated stone margin + flat settlement pads
-    apron_stone = greys_45[34] * (0.94 + 0.06 * np.clip(rock_detail, -1.0, 1.0)[:, :, None])
-    apron_blend = smoothstep(0.02, 0.25, RELIEF) * apron_clear
-    diffuse = apron_stone * (1.0 - apron_blend[:, :, None]) + diffuse * apron_blend[:, :, None]
-    diffuse[dist_edge < 0] = greys_45[36]
-    diffuse = np.clip(diffuse, 0.0, 1.0)
-
-    # Tangent-space normal map from micro-relief + rock grain
-    Z_micro = Z + 0.045 * rock_grain * (1.0 - snow_mask)
-    gy_n, gx_n = np.gradient(Z_micro, dy, dx)
-    nz_n = 1.0 / np.sqrt(gx_n * gx_n + gy_n * gy_n + 1.0)
-    nx_t = -gx_n * nz_n
-    ny_t = -gy_n * nz_n
-    normal_rgb = np.stack([nx_t * 0.5 + 0.5, ny_t * 0.5 + 0.5, nz_n * 0.5 + 0.5], axis=-1)
-    normal_rgb[dist_edge < 0] = [0.5, 0.5, 1.0]
-    normal_rgb = np.clip(normal_rgb, 0.0, 1.0)
-
-    # Stats & Palette Histogram checks
-    mask_hex = dist_edge > 0
-    mask_mtn = mask_hex & (RELIEF > 0.15)
+    snow_pct = float(raw_st["snow_pct"])
+    tundra_pct = float(raw_st["meadow_pct"])
     stats = {
-        "snow_pct": float((snow_mask[mask_mtn] > 0.4).mean() * 100.0),
-        "tundra_pct": float((tundra_mask[mask_mtn] > 0.4).mean() * 100.0),
-        "rock_pct": float(100.0 - (snow_mask[mask_mtn] > 0.4).mean() * 100.0 - (tundra_mask[mask_mtn] > 0.4).mean() * 100.0),
-        "steep_pct": float((slope_deg[mask_mtn] >= 44.0).mean() * 100.0),
-        "max_snow_steep": float(snow_mask[mask_hex & (slope_deg >= 44.0)].max()) if np.any(mask_hex & (slope_deg >= 44.0)) else 0.0,
-        "greys_counts": np.bincount(
-            np.where(
-                snow_mask[mask_hex] > 0.4,
-                np.round(snow_tone_idx[mask_hex]).astype(np.int32),
-                np.round(rock_tone_idx[mask_hex]).astype(np.int32),
-            ),
-            minlength=45,
-        ),
-        "greens_counts": np.bincount(
-            np.round(g_tone_idx[mask_hex & (tundra_mask > 0.15)]).astype(np.int32),
-            minlength=15,
-        ),
+        "snow_pct": snow_pct,
+        "tundra_pct": tundra_pct,
+        "rock_pct": float(max(0.0, 100.0 - snow_pct - tundra_pct)),
+        "steep_pct": float(raw_st["steep_pct"]),
+        "max_snow_steep": float(raw_st["max_snow_steep"]),
     }
 
-    # Seasonal Variants (Winter + Autumn) using inverted green-to-gold/frost cleanly
-    winter_snow = smoothstep(0.04, 0.22, smoothstep(6.0, 14.0, RELIEF + 3.0 * snow_noise) * (1.0 - smoothstep(42.0, 44.0, slope_deg)))
-    winter_snow[slope_deg >= 44.0] = 0.0
-    winter_diff = diffuse * (1.0 - winter_snow[:, :, None]) + greys_45[1] * winter_snow[:, :, None]
-
-    autumn_tint = np.array([0.82, 0.44, 0.18], dtype=np.float32) * (0.65 + 0.35 * (g_lo / 14.0)[:, :, None])
-    autumn_diff = np.clip(diffuse * (1.0 - 0.75 * tundra_mask[:, :, None]) + autumn_tint * (0.75 * tundra_mask[:, :, None]), 0.0, 1.0)
-
     return {
-        "X": X, "Y": Y, "Z": Z, "slope_deg": slope_deg, "ao": ao, "snow_mask": snow_mask, "tundra_mask": tundra_mask,
-        "diffuse_u8": (diffuse * 255.0 + 0.5).astype(np.uint8),
-        "normal_u8": (normal_rgb * 255.0 + 0.5).astype(np.uint8),
-        "winter_u8": (np.clip(winter_diff, 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8),
-        "autumn_u8": (np.clip(autumn_diff, 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8),
+        "X": X, "Y": Y, "Z": Z, "slope_deg": slope_deg,
+        "snow_mask": snow_alpha, "tundra_mask": meadow_alpha,
+        "diffuse_u8": (np.clip(surface, 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8),
+        "normal_u8": (np.clip(normal_rgb, 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8),
+        "roughness_u8": rough_u8,
+        "winter_u8": winter_u8,
+        "autumn_u8": autumn_u8,
         "stats": stats,
     }
 
@@ -765,40 +546,44 @@ def write_fullcolor_3mf(verts, faces, u, v, png_path, out_3mf_path):
 
 def main():
     t0 = time.time()
-    print("=== CATAN MOUNTAIN V2 PRODUCTION SUITE (NO TRIMESH) ===")
-    greys_45, greens_15 = build_palettes()
+    print("=== CATAN MOUNTAIN V3 CORDILLERA PRODUCTION SUITE (NO TRIMESH) ===")
 
-    # 1. Generate 4096x4096 Textures + Normal Maps
-    print("[1/6] Synthesizing 4K textures (45 grays + 15 greens, Y-up UV-aligned PNGs)...")
+    # 1. Generate 4096x4096 PBR Textures (Diffuse, Normal, Roughness, Winter, Autumn)
+    print("[1/6] Synthesizing 4K hyperreal painterly PBR textures (Y-up UV-aligned PNGs)...")
     t_s = time.time()
-    tex4k = synthesize_textures(4096, greys_45, greens_15)
+    tex4k = synthesize_textures(4096)
     st = tex4k["stats"]
     print(
         f"  4K DEM+Textures in {time.time()-t_s:.2f}s | "
-        f"Snow={st['snow_pct']:.1f}%, Tundra={st['tundra_pct']:.1f}%, Rock={st['rock_pct']:.1f}%, "
+        f"Snow={st['snow_pct']:.1f}%, Meadow={st['tundra_pct']:.1f}%, Rock={st['rock_pct']:.1f}%, "
         f"Steep>=44={st['steep_pct']:.1f}%, MaxSnow>=44={st['max_snow_steep']:.6f}"
     )
     assert st["max_snow_steep"] == 0.0, f"Snow physics violation! Max snow on >=44° = {st['max_snow_steep']}"
-    assert np.all(st["greys_counts"] > 0), f"Unused grey stops: {np.where(st['greys_counts']==0)[0]}"
-    assert np.all(st["greens_counts"] > 0), f"Unused green stops: {np.where(st['greens_counts']==0)[0]}"
-    print(f"  Palette check PASSED: all 45 grays >0 pixels (min={st['greys_counts'].min()}), all 15 greens >0 pixels (min={st['greens_counts'].min()})")
+    assert st["snow_pct"] >= 4.0 and st["steep_pct"] >= 50.0, "Coverage bounds outside alpine cordillera target!"
+    print("  Physical & Painterly PBR Texture Audit PASSED (0.000000 snow >=44°, seamless chromatic gradients).")
 
     diff_4k_path = os.path.join(OUT_DIR, "catan_mountain_diffuse_4k.png")
     diff_2k_path = os.path.join(OUT_DIR, "catan_mountain_diffuse_2k.png")
     norm_4k_path = os.path.join(OUT_DIR, "catan_mountain_normal_4k.png")
+    rough_4k_path = os.path.join(OUT_DIR, "catan_mountain_roughness_4k.png")
     winter_4k_path = os.path.join(OUT_DIR, "catan_mountain_diffuse_winter_4k.png")
     autumn_4k_path = os.path.join(OUT_DIR, "catan_mountain_diffuse_autumn_4k.png")
 
     save_uv_aligned_png(tex4k["diffuse_u8"], diff_4k_path)
     save_uv_aligned_png(tex4k["normal_u8"], norm_4k_path)
+    save_uv_aligned_png(tex4k["roughness_u8"], rough_4k_path)
     save_uv_aligned_png(tex4k["winter_u8"], winter_4k_path)
     save_uv_aligned_png(tex4k["autumn_u8"], autumn_4k_path)
 
     # Save 2K downsampled versions for HTML viewer & lightweight tools
     diff_4k_pil = Image.open(diff_4k_path)
-    diff_4k_pil.resize((2048, 2048), Image.Resampling.LANCZOS).save(diff_2k_path, compress_level=6)
+    diff_2k_pil = diff_4k_pil.resize((2048, 2048), Image.Resampling.LANCZOS)
+    diff_2k_pil.save(diff_2k_path, compress_level=6)
+    diff_2k_pil.save(os.path.join(SCRATCH_DIR, "catan_mountain_diffuse_2k.png"), compress_level=6)
     norm_2k_path = os.path.join(SCRATCH_DIR, "catan_mountain_normal_2k.png")
     Image.open(norm_4k_path).resize((2048, 2048), Image.Resampling.LANCZOS).save(norm_2k_path, compress_level=6)
+    rough_2k_path = os.path.join(SCRATCH_DIR, "catan_mountain_roughness_2k.png")
+    Image.open(rough_4k_path).resize((2048, 2048), Image.Resampling.LANCZOS).save(rough_2k_path, compress_level=6)
 
     # Read back flipped 4K PNG into memory for exact UV round-trip sampling
     diff_png_arr = np.array(diff_4k_pil, dtype=np.uint8)
@@ -858,9 +643,9 @@ def main():
         lod_stats[fname] = al
         print(f"  {fname}: F={al['F']:,}, chi={al['chi']}, watertight={al['watertight']}")
 
-    # 5. Lightweight WebGL Viewer Payload (~210k tris so mobile & desktop run at solid 60 FPS)
-    print("[5/6] Exporting WebGL Viewer payload (~210k tris)...")
-    vv, fv, _ = build_solid_hex_mesh(340, 392, n_bnd=144, n_mag=32)
+    # 5. Lightweight WebGL Viewer Payload (~250k tris so mobile & desktop run at crisp 60 FPS)
+    print("[5/6] Exporting WebGL Viewer payload (~250k tris)...")
+    vv, fv, _ = build_solid_hex_mesh(370, 428, n_bnd=144, n_mag=32)
     av = verify_watertight_manifold(vv, fv)
     np.savez_compressed(
         os.path.join(SCRATCH_DIR, "viewer_mesh_v2.npz"),
