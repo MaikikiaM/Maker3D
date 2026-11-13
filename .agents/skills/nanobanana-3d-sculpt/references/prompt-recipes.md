@@ -6,19 +6,22 @@ Keep prompts concrete about projection (isometric vs strictly orthographic), lig
 
 ---
 
-## 1. Tabletop Hero Concept & Turnaround Sheet (Stage 1)
-> Ideal for exploring creative silhouettes before coding any geometry.
+## 1. Hexagonal 6-View Equidistant Concept Sheet (Stage 1 — Preferred for Catan & 360° Tiles)
+> Generates all 6 equidistant faces every 60° around the hexagon (`0°, 60°, 120°, 180°, 240°, 300°`)
+> so the sculpt reads monumentally from every seat around the tabletop with zero dead backface.
 
 ```text
-High-detail physical studio sculpture concept sheet for a 3D-printable tabletop
-miniature [ASSET TYPE: e.g., Catan mountain range hex tile / medieval wheat
-farmstead hex / stylized sci-fi helmet]. Clean neutral light-gray studio
-background. Left half: dramatic 3/4 isometric hero view showing bold sculpted
-silhouette, layered secondary details, overhangs <= 45 degrees suitable for
-3D printing, and rich natural hand-painted/photoreal material transitions.
-Right half: matching orthographic top-down plan view and side elevation profile
-at uniform scale. Matte miniature paint finish, crisp readable forms at tabletop
-viewing distance.
+Studio miniature turnaround presentation sheet arranged in a clean 3x2 grid on a
+soft neutral light-gray studio backdrop, showing 6 equidistant elevated 3/4 views
+(0°, 60°, 120°, 180°, 240°, 300°—one camera facing each of the 6 hexagonal sides)
+of the EXACT SAME 3D-printable Catan tabletop miniature hex tile for [BIOME].
+Target vertical proportions: [RELIEF DESCRIPTION, e.g., balanced alpine peaks
+rising ~35-40% of the hex width / dense layered pine canopies / terraced clay
+mesas]. Ensure true 360-degree radial interest on EVERY view (zero flat back
+wall), crisp dark charcoal hexagonal architectural plinth with clean flat outer
+road lane and 6 circular corner settlement pads, museum-grade oil-painted
+photorealistic PBR surfaces where colors melt naturally into one another, and
+crisp readable forms suitable for FDM/full-color 3D printing.
 ```
 
 ---

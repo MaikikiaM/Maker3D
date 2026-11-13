@@ -26,15 +26,17 @@ visual blueprint unlocks cohesive silhouette and painterly transitions.
 
 ## 4-Stage Production Workflow
 
-### Stage 1: Concept & Proportion Blueprint
+### Stage 1: Hexagonal 6-View Concept & Proportion Blueprint
 Before writing geometry code for a new asset (terrain tile, miniature, helmet,
 building, diorama prop):
-1. Call `invoke_subagent` with `TypeName="image-generator"` using the prompt
-   templates in [prompt-recipes.md](./references/prompt-recipes.md) to generate a
-   **multi-view concept sheet** (isometric hero + orthographic front/side/top on a
-   clean neutral studio backdrop).
-2. Inspect the returned PNG path(s) via `read_file` to verify silhouette clarity,
-   3D printability (avoid fragile floating overhangs), and color harmony.
+1. Call `invoke_subagent` with `TypeName="image-generator"` using the **6-View
+   Hexagonal Turnaround** prompt template in [prompt-recipes.md](./references/prompt-recipes.md)
+   to generate a clean **3×2 equidistant 6-angle studio sheet** (`0°, 60°, 120°,
+   180°, 240°, 300°`—one elevated 3/4 view facing each of the 6 hexagonal sides)
+   for true 360-degree tabletop readability with zero "backstage" dead wall.
+2. Inspect the returned image via `read_file` to verify silhouette clarity across
+   all 6 faces, 3D printability (avoid fragile floating overhangs), realistic
+   biome relief ratio, and color harmony.
 
 ### Stage 2: Orthographic Relief & Geometry-Locked Albedo
 Choose the branch matching the geometry class:
@@ -80,9 +82,11 @@ Verify script invariants:
 - Bottom magnet pocket (`Ø10.20 × 5.20 mm`) remains open downward while closing `chi=2`.
 - Output directory stays clean: `watertight=True`, `chi=2`, zero degenerate triangles.
 
-### Stage 4: Visual Side-by-Side Audit
-Always render a multi-angle preview (`matplotlib` / `PIL` / headless WebGL) from the
-actual compiled STL/3MF + PNG textures and view it alongside the Stage 1 Nano Banana
-concept sheet using `read_file`. Iterate either silhouette scaling, micro-detail
-amplitude, or a targeted `image-generator` paint-over until the 3D render matches
-the artistic standard of the concept.
+### Stage 4: Hexagonal 6-View Visual Audit
+Always render a **6-view equidistant hexagonal turnaround** (`0°, 60°, 120°, 180°,
+240°, 300°` in a 3×2 studio panel) from the actual compiled STL/DEM + PBR textures
+AND verify the live WebGL viewer in Chromium (`0` console errors), comparing all
+6 angles side-by-side against the Stage 1 Nano Banana concept sheet via `read_file`.
+Refine slope opening (`slope_gamma`), snow/moisture altitude masks (`0%` snow on
+`>=44°`), or run a targeted `image-generator` paint-over until every hexagonal
+face matches the artistic standard of the concept.
