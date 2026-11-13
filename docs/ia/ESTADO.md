@@ -17,6 +17,10 @@ Suite CAD/Mesh profesional de modelado procedimental e impresión 3D avanzada (F
   - 11 renders/animaciones regenerados con especular PBR (`render_audit_suite_v2.py`) y espectro tonal continuo verificado.
   - Visor WebGL Three.js (`226,230 Δ`, zócalo hexagonal con normales planas limpias, Diffuse+Normal+Roughness 2K, HDR IBL por `PMREMGenerator`, sombras suaves `PCFSoftShadowMap`, 3 atmósferas, corte sólido stencil Z y drawer responsive móvil) desplegado en las 5 rutas HTML y verificado en Chromium (`0` errores de consola, `<1.2s`).
 
+## Skills y Workflows del Workspace
+- **`nanobanana-3d-sculpt` (`.agents/skills/nanobanana-3d-sculpt/SKILL.md`):** Integra generación imaginativa de Nano Banana (`image-generator`) —turnarounds conceptuales, mapas de altura cenitales y texturizado pictórico alineado al DEM— con el puente CAD puro NumPy/SciPy `scripts/nanobanana_to_catan_hex.py` (`watertight=True`, $\chi=2$, cotas Catan exactas).
+
 ## Próximas Tareas Prioritarias
-1. Validar corte de impresión multicolor real (`infimech_cmykwog_mountain_slicing_guide.md`) con `catan_mountain_fullcolor.3mf` V2 o derivados LOD en OrcaSlicer/PrusaSlicer.
-2. Continuar con el resto de losetas modulares del tablero Catan 127 losetas siguiendo la arquitectura V2 pure NumPy/SciPy.
+1. Probar la nueva skill `nanobanana-3d-sculpt` (p. ej. nueva loseta Catan o refinamiento imaginativo Montaña V4 / otro bioma).
+2. Validar corte de impresión multicolor real (`infimech_cmykwog_mountain_slicing_guide.md`) con `catan_mountain_fullcolor.3mf` V2 o derivados LOD en OrcaSlicer/PrusaSlicer.
+3. Continuar con el resto de losetas modulares del tablero Catan 127 losetas siguiendo la arquitectura V2 pure NumPy/SciPy.

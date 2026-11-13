@@ -53,3 +53,21 @@ Resultados de validación observados:
 - Verificación en vivo en Chromium headless (`http://127.0.0.1:8766/Visores-HTML/catan-loseta-montana.html`): `0` errores de consola, carga completa `<1.2s`, inspección visual de captura confirmando paredes de zócalo limpias y relieve PBR con sombras suaves.
 - Checksums SHA-256 regenerados (`27` archivos en `Tableros-Catan/Loseta_Montana_3D/checksums_sha256.txt`).
 ================================================================================
+
+================================================================================
+SESIÓN: 13/11/2026 - CREACIÓN DE SKILL NANOBANANA 3D SCULPT (.agents/skills/nanobanana-3d-sculpt)
+Prompt usuario: Crear una skill para recurrir a Nano Banana y dotar de mayor capacidad imaginativa/conceptual a la creación de modelos 3D cuando toque en cada momento.
+
+Decisiones técnicas y arquitectura:
+- Creada la skill oficial del workspace en `.agents/skills/nanobanana-3d-sculpt/SKILL.md` siguiendo la especificación de `agy-customizations/docs/skills.md`.
+- Flujo en 4 fases apoyado en el subagente integrado `image-generator` (Nano Banana):
+  1. Turnaround conceptual (isométrica + ortogonales) antes de programar geometría.
+  2. Síntesis de heightmap cenital ortográfico y/o pasadas pictóricas bloqueadas píxel a píxel sobre una vista clay cenital real del DEM (evitando desalineación entre relieve y pintura).
+  3. Proyección CAD y refuerzo estanco en NumPy/SciPy puro (`scripts/nanobanana_to_catan_hex.py`) garantizando hexágono Catan exacto (`R=64.00mm`, carril plano `3.50mm`, pads `Ø20.00mm`, bolsillo magnético `Ø10.20×5.20mm`), micro-detalle físico FFT, mapas Y-up Diffuse/Normal/Roughness y cierre topológico `watertight=True` (`chi=2`).
+  4. Auditoría visual lado a lado entre render real de malla y concepto Nano Banana.
+- Plantillas de prompts desacopladas en `.agents/skills/nanobanana-3d-sculpt/references/prompt-recipes.md`.
+
+Resultados de validación observados:
+- `python -m py_compile .agents/skills/nanobanana-3d-sculpt/scripts/nanobanana_to_catan_hex.py`: salida 0.
+- `python .agents/skills/nanobanana-3d-sculpt/scripts/nanobanana_to_catan_hex.py --self-test`: `[OK] self_test_tile: V=7789 E=23361 F=15574 chi=2 watertight=True vol=384.41cm3`.
+================================================================================
