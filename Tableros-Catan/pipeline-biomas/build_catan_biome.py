@@ -88,7 +88,7 @@ def render_6_equidistant_views(hm_arr, diffuse_flip_u8, relief_mm, out_path, tit
     X, Y, Z, de, dv, dx, dy = nb.synthesize_dem_from_heightmap(
         hm_arr, N, N, relief_mm=relief_mm, micro_detail_mm=0.0, x_lim=nb.R, y_lim=nb.R
     )
-    Z = apply_smooth_hex_apron(X, Y, Z, de, dv, relief_mm, apron_mm=16.5)
+    Z = apply_smooth_hex_apron(X, Y, Z, de, dv, relief_mm, apron_mm=9.0)
     diff = np.flipud(diffuse_flip_u8)
     col = np.clip((X + nb.R) / (2.0 * nb.R) * (diff.shape[1] - 1), 0, diff.shape[1] - 1).astype(np.int32)
     row = np.clip((Y + nb.R) / (2.0 * nb.R) * (diff.shape[0] - 1), 0, diff.shape[0] - 1).astype(np.int32)
@@ -210,7 +210,7 @@ def main():
     Xt, Yt, Zt, dist_t, dist_vt, dxt, dyt = nb.synthesize_dem_from_heightmap(
         hm_arr, args.tex_size, args.tex_size, relief_mm=args.relief_mm, micro_detail_mm=args.micro_detail, x_lim=nb.R, y_lim=nb.R
     )
-    Zt = apply_smooth_hex_apron(Xt, Yt, Zt, dist_t, dist_vt, args.relief_mm, apron_mm=16.5)
+    Zt = apply_smooth_hex_apron(Xt, Yt, Zt, dist_t, dist_vt, args.relief_mm, apron_mm=9.0)
     clay_rgb = nb.render_shaded_clay_rgb(Zt, dist_t, dxt, dyt)
     clay_path = os.path.join(out_dir, f"{args.slug}_clay_overhead.png")
     nb.save_uv_aligned_png(clay_rgb, clay_path)
@@ -230,19 +230,16 @@ def main():
         d_f32, _, _, slope_s, _, _, shader_stats = pv3.synthesize_hyperreal_textures(
             Xt, Yt, z_scaled, dist_t, dist_vt, dxt, dyt, rmf_m, rmf_f, broad
         )
-        # Enhance natural warm ochre valley scree & alpine olive foothill meadows so Nano Banana terrain pops warmly
+        # Mild warm alpine sunlit boost + natural moss valley tint without flat opaque paint-over
         rel = np.maximum(0.0, Zt - nb.Z_BASE)
-        z_mac = ndi.gaussian_filter(Zt, 3.2 / dxt)
-        concav = np.clip((z_mac - Zt) / 2.6, 0.0, 1.0)  # + inside gullies & valley floors
-        in_area = nb.smoothstep(nb.ROAD_MARGIN + 0.6, nb.ROAD_MARGIN + 4.5, dist_t) * nb.smoothstep(nb.PAD_RADIUS + 0.6, nb.PAD_RADIUS + 4.5, dist_vt)
-        scree_w = np.clip(concav * (1.0 - nb.smoothstep(args.relief_mm * 0.45, args.relief_mm * 0.75, rel)) * in_area * 0.85, 0.0, 0.72)[..., None]
-        meadow_w = np.clip((1.0 - nb.smoothstep(5.0, args.relief_mm * 0.34, rel)) * (1.0 - nb.smoothstep(28.0, 48.0, slope_s)) * in_area * 0.90, 0.0, 0.80)[..., None]
-        ochre_col = np.array([0.62, 0.42, 0.24], dtype=np.float32)
-        meadow_col = np.array([0.31, 0.40, 0.19], dtype=np.float32)
-        d_mix = np.clip(d_f32 * (1.0 - scree_w * 0.65) + ochre_col * (scree_w * 0.65), 0.0, 1.0)
-        d_mix = np.clip(d_mix * (1.0 - meadow_w * 0.70) + meadow_col * (meadow_w * 0.70), 0.0, 1.0)
+        in_area = nb.smoothstep(nb.ROAD_MARGIN + 0.4, nb.ROAD_MARGIN + 3.2, dist_t) * nb.smoothstep(nb.PAD_RADIUS + 0.4, nb.PAD_RADIUS + 3.2, dist_vt)
+        meadow_tint = np.clip((1.0 - nb.smoothstep(3.0, args.relief_mm * 0.28, rel)) * (1.0 - nb.smoothstep(26.0, 44.0, slope_s)) * in_area, 0.0, 0.55)[..., None]
+        warm_boost = np.array([1.08, 1.04, 0.96], dtype=np.float32)
+        moss_col = np.array([0.28, 0.37, 0.17], dtype=np.float32)
+        d_mix = np.clip(d_f32 * warm_boost, 0.0, 1.0)
+        d_mix = np.clip(d_mix * (1.0 - meadow_tint * 0.48) + moss_col * (meadow_tint * 0.48), 0.0, 1.0)
         d_u8 = np.clip(d_mix * 255.0, 0, 255).astype(np.uint8)
-        diff_rgb, max_snow_phys = refine_biome_albedo(d_u8, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=True, snowline_mm=args.relief_mm * 0.42)
+        diff_rgb, max_snow_phys = refine_biome_albedo(d_u8, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=True, snowline_mm=args.relief_mm * 0.38)
         max_snow = max(float(shader_stats.get("max_snow_steep", 0.0)), max_snow_phys)
         norm_u8, rough_u8 = nb.compute_pbr_maps(Zt, diff_rgb, dxt, dyt)
     else:
@@ -259,7 +256,7 @@ def main():
     Xm, Ym, Zm, dist_m, dist_vm, _, _ = nb.synthesize_dem_from_heightmap(
         hm_arr, args.nx, ny, relief_mm=args.relief_mm, micro_detail_mm=args.micro_detail, x_lim=nb.APOTHEM, y_lim=nb.R
     )
-    Zm = apply_smooth_hex_apron(Xm, Ym, Zm, dist_m, dist_vm, args.relief_mm, apron_mm=16.5)
+    Zm = apply_smooth_hex_apron(Xm, Ym, Zm, dist_m, dist_vm, args.relief_mm, apron_mm=9.0)
     verts, faces = nb.build_solid_hex_mesh(Xm, Ym, Zm, dist_m, include_magnet=True)
     stats = nb.verify_watertight(verts, faces)
     if not stats["watertight"]:

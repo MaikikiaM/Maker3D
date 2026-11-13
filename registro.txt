@@ -103,3 +103,5 @@ Decisiones técnicas y avance real:
   - Completado **Bioma 1** aplicando el shader mineral-HBAO-scree sobre el DEM de Nano Banana (`V=95,697 | F=191,390 | chi=2 | watertight=True | Vol=438.93->402.16 cm³`) y desplegado en `Visores-HTML/catan-bioma-montana.html` (`3.24 MB`), `preview-montana-v4-nanobanana.html` y `Visores-HTML/index.html`.
 - **Pendiente (Biomas 2–8):** Bosque, Colinas, Pastos, Campos, Desierto, Río de Oro y Océano quedan detenidos limpiamente hasta restablecimiento de cuota de `image-generator` (~23:17 CET) para respetar la petición de construirlos con Nano Banana.
 ================================================================================
+
+[Pulido Bioma 1 - 13/11/2026 19:09] Recompilado Bioma 1 Montaña con faldón `9.0mm` y albedo mineral cálido sin manchas ocres planas (`V=95,697 | F=191,390 | chi=2 | Vol=427.51 cm³ | 3.43 MB`) sincronizado en `catan-bioma-montana.html` y `preview-montana-v4-nanobanana.html`.

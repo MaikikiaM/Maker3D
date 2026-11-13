@@ -20,7 +20,7 @@ Suite CAD/Mesh profesional de modelado procedimental e impresión 3D avanzada (F
 ## Skills y Workflows del Workspace
 - **`nanobanana-3d-sculpt` (`.agents/skills/nanobanana-3d-sculpt/SKILL.md`):** Actualizada a **6 vistas equidistantes hexagonales (`0°–300°`)** cada 60°, combinando conceptos y *heightmaps* cenitales de `image-generator` con [build_catan_biome.py](../../Tableros-Catan/pipeline-biomas/build_catan_biome.py) (`watertight=True`, $\chi=2$, faldón suavizado `16.5mm`).
 - **Avance Biomas Catan 3D (`1/8` completado — bloqueo por cuota `image-generator`):**
-  - **Bioma 1 (Montaña equilibrada):** `Z=65.0mm` (`relief=40mm`), `V=95,697 / F=191,390 Δ` ($\chi=2$, `402.16 cm³`), hoja conceptual 6 vistas + *heightmap* Nano Banana + albedo mineral HBAO-scree-pradera + visor `Visores-HTML/catan-bioma-montana.html` (`3.24 MB`).
+  - **Bioma 1 (Montaña equilibrada):** `Z=65.0mm` (`relief=40mm`), `V=95,697 / F=191,390 Δ` ($\chi=2$, `427.51 cm³`), faldón `9.0mm`, hoja conceptual 6 vistas + *heightmap* Nano Banana + albedo mineral HBAO-pradera + visor `Visores-HTML/catan-bioma-montana.html` (`3.43 MB`).
   - **Biomas 2–8 pendientes** (`Bosque`, `Colinas`, `Pastos`, `Campos`, `Desierto`, `Río de Oro`, `Océano`): bloqueados temporalmente por `429 RESOURCE_EXHAUSTED` de `gemini-3.1-flash-image` hasta ~`22:17:43Z` (`23:17:43` CET).
 
 ## Próximas Tareas Prioritarias
