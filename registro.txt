@@ -150,3 +150,15 @@ Decisiones técnicas y avance:
   - Al lanzar la extracción de *heightmap* cenital para `campo`, `gemini-3.1-flash-image` devolvió `429 RESOURCE_EXHAUSTED` con reinicio programado a `2026-11-14T03:17:43Z` (`04:17:43 CET`, ~4h46m).
   - Quedan **Biomas 5–8** (`Campos`, `Desierto`, `Río de Oro`, `Océano`) pendientes de reanudar con Nano Banana tras el reseteo.
 ================================================================================
+
+================================================================================
+SESIÓN: 13/11/2026 - MEJORA ESTRUCTURAL Y PBR DE BIOMAS 1–4 (`nx=420`, `291,546 Δ`)
+Prompt usuario: "Luego los continuas. Ahora tira a mejorar los biomas anteriores"
+
+Auditoría visual previa sobre WebGL y mejoras implementadas en `build_catan_biome.py`:
+- **Eliminación de banda negra perimetral:** Restringido el collar arquitectónico pizarra en `refine_biome_albedo` únicamente a zonas planas (`Z - Z_BASE < 0.55 mm` y `ROAD_MARGIN + 0.40 mm` / `PAD_RADIUS + 0.45 mm`), y suavizado el arranque de `apply_smooth_hex_apron` desde `d_clear = 0.35 mm`.
+- **Cavity AO + Micro-Normal PBR (`compute_enhanced_pbr_maps`):** Inyectado micro-relieve de alta frecuencia derivado de la luminancia pintada del albedo sobre el normal map tangente 2K y rugosidad diferenciada por pendiente y material.
+- **Upgrade completo Bioma 1 (`montana`):** Eliminado aspecto estalagmítico/oscuro mediante soldado morfológico (`--ridge-clean 0.85`), faldón amplio (`--apron-mm 17.5`) y `synthesize_alpine_v3_albedo` (granito cálido, pradera verde en faldas bajas, cascajo ocre y nieve blanca en rellanos `<44°`, `V=145,775 | F=291,546 | chi=2 | Vol=383.29 cm³ | 4.92 MB`).
+- **Recompilación y verificación Chromium (`0` errores consola/página) de Biomas 1–4:**
+  - `catan-bioma-montana.html` (`4.92 MB`), `catan-bioma-bosque.html` (`4.65 MB`), `catan-bioma-colina.html` (`4.36 MB`), `catan-bioma-pasto.html` (`4.30 MB`), todos `V=145,775 / F=291,546 Δ / chi=2`.
+================================================================================

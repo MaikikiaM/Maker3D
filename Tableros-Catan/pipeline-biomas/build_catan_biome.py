@@ -22,17 +22,22 @@ import assemble_viewer_v2 as av2
 import prototype_v3_cordillera as pv3
 
 
-def refine_heightmap(hm_u8, gamma=0.80, blur_px=1.0):
-    """Smooth JPEG step quantization and open steep slopes cleanly via power curve."""
+def refine_heightmap(hm_u8, gamma=0.80, blur_px=1.0, ridge_clean=0.0):
+    """Smooth JPEG step quantization, optionally bridge noisy micro-crevasses, and shape slopes."""
     norm = hm_u8.astype(np.float32) / 255.0
+    if ridge_clean > 0.0:
+        # Bridge thin dark crevasse noise in diffusion heightmaps so peaks become broad alpine facets
+        k = 9 if ridge_clean >= 0.70 else 5
+        closed = ndi.grey_closing(norm, size=k)
+        norm = (1.0 - ridge_clean) * norm + ridge_clean * ndi.gaussian_filter(closed, sigma=2.2)
     if blur_px > 0.0:
         norm = ndi.gaussian_filter(norm, sigma=blur_px)
     opened = np.power(np.clip(norm, 0.0, 1.0), gamma)
     return np.clip(opened * 255.0, 0.0, 255.0).astype(np.uint8)
 
 
-def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filter=False, snowline_mm=16.0):
-    """Enforce shadow readability, clean dark slate road collar, and optional physical snow clamp."""
+def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filter=False, snowline_mm=15.0):
+    """Enforce cavity readability, zero perimeter-skirt creep, clean slate collar, and optional physical snow."""
     rgb = diffuse_rgb.astype(np.float32) / 255.0
     gy, gx = np.gradient(ndi.gaussian_filter(Z, 0.35 / dx), dy, dx)
     slope_deg = np.degrees(np.arctan(np.hypot(gx, gy)))
@@ -41,24 +46,24 @@ def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filte
     cmax = np.max(rgb, axis=-1)
     cmin = np.min(rgb, axis=-1)
     lum = 0.2126 * rgb[:, :, 0] + 0.7152 * rgb[:, :, 1] + 0.0722 * rgb[:, :, 2]
-    sat = cmax - cmin
     max_snow_steep = 0.0
 
     if snow_filter:
+        sat = cmax - cmin
         snow_prob = nb.smoothstep(0.46, 0.72, lum) * (1.0 - nb.smoothstep(0.07, 0.20, sat))
         snow_allowed = (1.0 - nb.smoothstep(38.0, 44.0, slope_deg)) * nb.smoothstep(snowline_mm - 3.0, snowline_mm + 4.0, relief)
-        forbidden = np.clip(ndi.gaussian_filter(snow_prob * (1.0 - snow_allowed), sigma=2.5) * 1.15, 0.0, 1.0)
+        forbidden = np.clip(ndi.gaussian_filter(snow_prob * (1.0 - snow_allowed), sigma=2.2) * 1.15, 0.0, 1.0)
         if np.any(forbidden > 0.01):
             in_terrain = ((dist_edge > nb.ROAD_MARGIN + 1.0) & (dist_vert > nb.PAD_RADIUS + 1.0)).astype(np.float32)
             rock_weight = in_terrain * np.maximum(0.0, 1.0 - snow_prob * 1.4)
-            w_sum = ndi.gaussian_filter(rock_weight, sigma=26.0) + 1e-4
-            rock_fill = np.stack([ndi.gaussian_filter(rgb[:, :, c] * rock_weight, sigma=26.0) / w_sum for c in range(3)], axis=-1)
+            w_sum = ndi.gaussian_filter(rock_weight, sigma=24.0) + 1e-4
+            rock_fill = np.stack([ndi.gaussian_filter(rgb[:, :, c] * rock_weight, sigma=24.0) / w_sum for c in range(3)], axis=-1)
             H, W = Z.shape
             g1 = nb.fft_fbm(W, H, 1.4, 5.5, 2.0 * nb.R, 2.0 * nb.R, beta=2.0, seed=71)
             g2 = nb.fft_fbm(W, H, 0.45, 1.4, 2.0 * nb.R, 2.0 * nb.R, beta=1.8, seed=72)
             cracks = 0.65 * (1.0 - np.abs(g1)) + 0.35 * g2
-            slope_shade = 0.86 + 0.20 * (1.0 - nb.smoothstep(20.0, 70.0, slope_deg))
-            clean_rock = np.clip(rock_fill * (0.94 + 0.18 * cracks)[..., None] * slope_shade[..., None], 0.14, 0.64)
+            slope_shade = 0.88 + 0.18 * (1.0 - nb.smoothstep(20.0, 70.0, slope_deg))
+            clean_rock = np.clip(rock_fill * (0.94 + 0.16 * cracks)[..., None] * slope_shade[..., None], 0.18, 0.68)
             rgb = rgb * (1.0 - forbidden[..., None]) + clean_rock * forbidden[..., None]
 
         cmax2 = np.max(rgb, axis=-1)
@@ -68,27 +73,115 @@ def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filte
     else:
         lum2 = lum
 
-    # Gentle shadow recovery on crushed dark terrain pixels without touching outer border
-    dark_t = (dist_edge > nb.ROAD_MARGIN + 0.8) & (lum2 < 0.22)
-    rgb = np.clip(rgb * np.where(dark_t, 1.14, 1.0)[..., None], 0.0, 1.0)
+    # Subtle geometric cavity AO + shadow recovery inside terrain (zero edge darkening)
+    z_smooth = ndi.gaussian_filter(Z, sigma=max(1.4 / dx, 2.0))
+    cavity = np.clip((Z - z_smooth) * 0.055, -0.14, 0.05)
+    terrain_core = nb.smoothstep(nb.ROAD_MARGIN + 0.25, nb.ROAD_MARGIN + 1.5, dist_edge) * nb.smoothstep(nb.PAD_RADIUS + 0.25, nb.PAD_RADIUS + 1.5, dist_vert)
+    rgb = np.clip(rgb * (1.0 + cavity * terrain_core)[..., None], 0.0, 1.0)
+    dark_t = (terrain_core > 0.5) & (lum2 < 0.22)
+    rgb = np.clip(rgb * np.where(dark_t, 1.12, 1.0)[..., None], 0.0, 1.0)
 
-    # Clean matte charcoal slate architectural plinth rim on 3.5mm road lane & Ø20mm pads
-    collar = np.maximum(
-        1.0 - nb.smoothstep(nb.ROAD_MARGIN - 0.3, nb.ROAD_MARGIN + 1.1, dist_edge),
-        1.0 - nb.smoothstep(nb.PAD_RADIUS - 0.3, nb.PAD_RADIUS + 1.1, dist_vert),
-    )[..., None]
-    slate = np.array([0.19, 0.21, 0.24], dtype=np.float32)
-    rgb = rgb * (1.0 - collar * 0.78) + slate * (collar * 0.78)
+    # Strictly clamp architectural dark slate collar to flat border / settlement sockets ONLY (never climb terrain skirt!)
+    on_border = np.maximum(
+        1.0 - nb.smoothstep(nb.ROAD_MARGIN - 0.15, nb.ROAD_MARGIN + 0.40, dist_edge),
+        1.0 - nb.smoothstep(nb.PAD_RADIUS - 0.15, nb.PAD_RADIUS + 0.45, dist_vert),
+    )
+    flat_mask = 1.0 - nb.smoothstep(0.10, 0.55, relief)
+    collar = (on_border * flat_mask)[..., None]
+    slate = np.array([0.21, 0.23, 0.26], dtype=np.float32)
+    rgb = rgb * (1.0 - collar * 0.92) + slate * (collar * 0.92)
     return np.clip(rgb * 255.0, 0.0, 255.0).astype(np.uint8), max_snow_steep
 
 
-def render_6_equidistant_views(hm_arr, diffuse_flip_u8, relief_mm, out_path, title):
+def compute_enhanced_pbr_maps(Z, diff_rgb, dx, dy, micro_norm_strength=0.32):
+    """Generate tangent-space normal map fusing DEM geometry + painted albedo micro-relief, and material roughness."""
+    gy, gx = np.gradient(Z, dy, dx)
+    rgb_f = diff_rgb.astype(np.float32) / 255.0
+    lum = 0.2126 * rgb_f[:, :, 0] + 0.7152 * rgb_f[:, :, 1] + 0.0722 * rgb_f[:, :, 2]
+
+    if micro_norm_strength > 0.0:
+        hp = lum - ndi.gaussian_filter(lum, sigma=2.2)
+        mgy, mgx = np.gradient(hp * (micro_norm_strength * 3.5), dy, dx)
+        gx_tot = gx + mgx
+        gy_tot = gy + mgy
+    else:
+        gx_tot, gy_tot = gx, gy
+
+    inv_len = 1.0 / np.sqrt(gx_tot * gx_tot + gy_tot * gy_tot + 1.0)
+    n_x = (-gx_tot * inv_len * 0.5 + 0.5) * 255.0
+    n_y = (-gy_tot * inv_len * 0.5 + 0.5) * 255.0
+    n_z = (inv_len * 0.5 + 0.5) * 255.0
+    normal_u8 = np.clip(np.stack([n_x, n_y, n_z], axis=-1), 0, 255).astype(np.uint8)
+
+    slope_deg = np.degrees(np.arctan(np.hypot(gx, gy)))
+    sat = np.max(rgb_f, axis=-1) - np.min(rgb_f, axis=-1)
+    # Matte foliage/soil (~0.84), rough sheer rock (~0.90), crisp sunlit limestone/snow/mineral crests (~0.56..0.68)
+    rough = 0.80 + 0.11 * nb.smoothstep(24.0, 58.0, slope_deg) + 0.06 * nb.smoothstep(0.15, 0.45, sat) - 0.24 * nb.smoothstep(0.68, 0.94, lum)
+    r_u8 = np.clip(rough * 255.0, 85, 245).astype(np.uint8)
+    rough_u8 = np.stack([r_u8, r_u8, r_u8], axis=-1)
+    return normal_u8, rough_u8
+
+
+def synthesize_alpine_v3_albedo(X, Y, Z, dist_edge, dist_vert, dx, dy, relief_mm):
+    """Warm alpine limestone/granite, emerald lower foothills, ochre scree gully, and >=44 deg snow-free caps matching V3 concept."""
+    H, W = Z.shape
+    rel = np.maximum(0.0, Z - nb.Z_BASE)
+    gy, gx = np.gradient(ndi.gaussian_filter(Z, 0.40 / dx), dy, dx)
+    slope_deg = np.degrees(np.arctan(np.hypot(gx, gy)))
+    z_smooth = ndi.gaussian_filter(Z, sigma=max(2.2 / dx, 3.0))
+    curv = Z - z_smooth
+
+    f_macro = nb.fft_fbm(W, H, 5.0, 18.0, 2.0 * nb.R, 2.0 * nb.R, beta=2.1, seed=301)
+    f_rock = nb.fft_fbm(W, H, 1.2, 4.5, 2.0 * nb.R, 2.0 * nb.R, beta=2.0, seed=302)
+    f_fine = nb.fft_fbm(W, H, 0.35, 1.3, 2.0 * nb.R, 2.0 * nb.R, beta=1.8, seed=303)
+    cracks = 0.60 * (1.0 - np.abs(f_rock)) + 0.40 * f_fine
+
+    # Warm sunlit sandstone/granite base (#8d7d68 -> #695b49 in fractures)
+    col_hi = np.array([0.59, 0.52, 0.43], dtype=np.float32)
+    col_lo = np.array([0.33, 0.29, 0.24], dtype=np.float32)
+    rock_t = np.clip(0.48 + 0.24 * f_macro + 0.22 * cracks - 0.16 * nb.smoothstep(42.0, 72.0, slope_deg), 0.0, 1.0)[..., None]
+    rgb = col_lo * (1.0 - rock_t) + col_hi * rock_t
+
+    # Warm alpine valley moss along lower foothills & gentle collars (slope < 38 deg, low rel)
+    in_area = nb.smoothstep(nb.ROAD_MARGIN + 0.2, nb.ROAD_MARGIN + 2.2, dist_edge) * nb.smoothstep(nb.PAD_RADIUS + 0.2, nb.PAD_RADIUS + 2.2, dist_vert)
+    meadow_mask = (
+        (1.0 - nb.smoothstep(4.5, relief_mm * 0.40, rel))
+        * (1.0 - nb.smoothstep(26.0, 42.0, slope_deg))
+        * np.clip(0.75 + 0.30 * f_macro, 0.2, 1.0)
+        * in_area
+    )[..., None]
+    moss_c = (np.array([0.33, 0.44, 0.20], dtype=np.float32) * (0.88 + 0.24 * f_fine[..., None]))
+    rgb = rgb * (1.0 - meadow_mask * 0.85) + moss_c * (meadow_mask * 0.85)
+
+    # Warm copper/ochre scree in concave central valley floors / gullies
+    gully_mask = (
+        nb.smoothstep(-0.3, -1.8, curv)
+        * nb.smoothstep(2.0, 8.0, rel)
+        * (1.0 - nb.smoothstep(12.0, 26.0, rel))
+        * (1.0 - nb.smoothstep(28.0, 46.0, slope_deg))
+        * in_area
+    )[..., None]
+    scree_c = np.array([0.62, 0.43, 0.26], dtype=np.float32) * (0.90 + 0.20 * f_fine[..., None])
+    rgb = rgb * (1.0 - gully_mask * 0.72) + scree_c * (gully_mask * 0.72)
+
+    # Crisp clean alpine snow on ridges & cirque benches STRICTLY < 44 deg slope
+    snow_mask = (
+        nb.smoothstep(relief_mm * 0.22, relief_mm * 0.44, rel + 2.4 * f_macro)
+        * (1.0 - nb.smoothstep(36.0, 43.4, slope_deg))
+        * in_area
+    )[..., None]
+    snow_c = np.array([0.95, 0.97, 0.99], dtype=np.float32)
+    rgb = rgb * (1.0 - snow_mask) + snow_c * snow_mask
+    return np.clip(rgb * 255.0, 0, 255).astype(np.uint8)
+
+
+def render_6_equidistant_views(hm_arr, diffuse_flip_u8, relief_mm, out_path, title, apron_mm=9.5):
     """Render gapless 3x2 studio turnaround every 60 deg (0, 60, 120, 180, 240, 300 deg)."""
     N = 900
     X, Y, Z, de, dv, dx, dy = nb.synthesize_dem_from_heightmap(
         hm_arr, N, N, relief_mm=relief_mm, micro_detail_mm=0.0, x_lim=nb.R, y_lim=nb.R
     )
-    Z = apply_smooth_hex_apron(X, Y, Z, de, dv, relief_mm, apron_mm=9.0)
+    Z = apply_smooth_hex_apron(X, Y, Z, de, dv, relief_mm, apron_mm=apron_mm)
     diff = np.flipud(diffuse_flip_u8)
     col = np.clip((X + nb.R) / (2.0 * nb.R) * (diff.shape[1] - 1), 0, diff.shape[1] - 1).astype(np.int32)
     row = np.clip((Y + nb.R) / (2.0 * nb.R) * (diff.shape[0] - 1), 0, diff.shape[0] - 1).astype(np.int32)
@@ -171,10 +264,10 @@ def render_6_equidistant_views(hm_arr, diffuse_flip_u8, relief_mm, out_path, tit
     return out_path
 
 
-def apply_smooth_hex_apron(X, Y, Z, dist_edge, dist_vert, relief_mm, apron_mm=16.0):
-    """Feather steep AI edge drops gradually over apron_mm so terrain flows naturally out of flat road margins."""
+def apply_smooth_hex_apron(X, Y, Z, dist_edge, dist_vert, relief_mm, apron_mm=10.0):
+    """Feather steep AI edge drops gradually over apron_mm starting slightly inside the flat road margin."""
     d_clear = np.minimum(dist_edge - nb.ROAD_MARGIN, dist_vert - nb.PAD_RADIUS)
-    taper = nb.smoothstep(0.0, apron_mm, d_clear)
+    taper = nb.smoothstep(0.35, apron_mm, d_clear)
     rel = np.maximum(0.0, Z - nb.Z_BASE) * taper
     rmax = float(np.max(rel))
     if rmax > 1e-5:
@@ -192,10 +285,14 @@ def main():
     p.add_argument("--relief-mm", type=float, required=True)
     p.add_argument("--slope-gamma", type=float, default=0.80)
     p.add_argument("--blur-px", type=float, default=1.2)
-    p.add_argument("--micro-detail", type=float, default=0.18)
-    p.add_argument("--nx", type=int, default=340)
+    p.add_argument("--ridge-clean", type=float, default=0.0, help="Morphological ridge weld factor (0..1) to turn thin dark crevasses into broad rock facets.")
+    p.add_argument("--apron-mm", type=float, default=9.5)
+    p.add_argument("--micro-detail", type=float, default=0.14)
+    p.add_argument("--micro-norm", type=float, default=0.32, help="PBR normal map luminance high-pass infusion strength.")
+    p.add_argument("--nx", type=int, default=420)
     p.add_argument("--tex-size", type=int, default=2048)
     p.add_argument("--snow-filter", action="store_true")
+    p.add_argument("--alpine-v3-palette", action="store_true", help="Warm limestone granite, green valley moss, copper scree & <44 deg snow palette.")
     p.add_argument("--auto-mineral-albedo", action="store_true", help="Fallback: paint Nano Banana DEM with V3 hyperreal mineral-runoff PBR shader.")
     p.add_argument("--viewer-html", default=None, help="Output HTML path relative to repo root")
     args = p.parse_args()
@@ -205,12 +302,12 @@ def main():
     viewer_html = args.viewer_html or os.path.join("Visores-HTML", f"catan-bioma-{args.slug}.html")
 
     hm_raw = np.asarray(Image.open(args.heightmap).convert("L"))
-    hm_arr = refine_heightmap(hm_raw, gamma=args.slope_gamma, blur_px=args.blur_px)
+    hm_arr = refine_heightmap(hm_raw, gamma=args.slope_gamma, blur_px=args.blur_px, ridge_clean=args.ridge_clean)
 
     Xt, Yt, Zt, dist_t, dist_vt, dxt, dyt = nb.synthesize_dem_from_heightmap(
         hm_arr, args.tex_size, args.tex_size, relief_mm=args.relief_mm, micro_detail_mm=args.micro_detail, x_lim=nb.R, y_lim=nb.R
     )
-    Zt = apply_smooth_hex_apron(Xt, Yt, Zt, dist_t, dist_vt, args.relief_mm, apron_mm=9.0)
+    Zt = apply_smooth_hex_apron(Xt, Yt, Zt, dist_t, dist_vt, args.relief_mm, apron_mm=args.apron_mm)
     clay_rgb = nb.render_shaded_clay_rgb(Zt, dist_t, dxt, dyt)
     clay_path = os.path.join(out_dir, f"{args.slug}_clay_overhead.png")
     nb.save_uv_aligned_png(clay_rgb, clay_path)
@@ -219,10 +316,14 @@ def main():
         print(f"[Clay Ready] {args.slug} (Z_PEAK={nb.Z_BASE + args.relief_mm:.1f}mm) -> {clay_path}")
         return
 
-    if not args.albedo and not args.auto_mineral_albedo:
-        p.error("--albedo or --auto-mineral-albedo is required in --mode build")
+    if not args.albedo and not args.auto_mineral_albedo and not args.alpine_v3_palette:
+        p.error("--albedo, --alpine-v3-palette, or --auto-mineral-albedo is required in --mode build")
 
-    if args.auto_mineral_albedo:
+    if args.alpine_v3_palette:
+        d_u8 = synthesize_alpine_v3_albedo(Xt, Yt, Zt, dist_t, dist_vt, dxt, dyt, args.relief_mm)
+        diff_rgb, max_snow = refine_biome_albedo(d_u8, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=True, snowline_mm=args.relief_mm * 0.30)
+        norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm)
+    elif args.auto_mineral_albedo:
         rmf_m = pv3.ridged_multifractal_xy(Xt, Yt, seed=401)
         rmf_f = pv3.ridged_multifractal_xy(Xt, Yt, seed=402)
         broad = pv3.fft_fbm_canonical(Xt, Yt, 7.0, 24.0, beta=2.15, seed=404)
@@ -230,7 +331,6 @@ def main():
         d_f32, _, _, slope_s, _, _, shader_stats = pv3.synthesize_hyperreal_textures(
             Xt, Yt, z_scaled, dist_t, dist_vt, dxt, dyt, rmf_m, rmf_f, broad
         )
-        # Mild warm alpine sunlit boost + natural moss valley tint without flat opaque paint-over
         rel = np.maximum(0.0, Zt - nb.Z_BASE)
         in_area = nb.smoothstep(nb.ROAD_MARGIN + 0.4, nb.ROAD_MARGIN + 3.2, dist_t) * nb.smoothstep(nb.PAD_RADIUS + 0.4, nb.PAD_RADIUS + 3.2, dist_vt)
         meadow_tint = np.clip((1.0 - nb.smoothstep(3.0, args.relief_mm * 0.28, rel)) * (1.0 - nb.smoothstep(26.0, 44.0, slope_s)) * in_area, 0.0, 0.55)[..., None]
@@ -241,12 +341,12 @@ def main():
         d_u8 = np.clip(d_mix * 255.0, 0, 255).astype(np.uint8)
         diff_rgb, max_snow_phys = refine_biome_albedo(d_u8, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=True, snowline_mm=args.relief_mm * 0.38)
         max_snow = max(float(shader_stats.get("max_snow_steep", 0.0)), max_snow_phys)
-        norm_u8, rough_u8 = nb.compute_pbr_maps(Zt, diff_rgb, dxt, dyt)
+        norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm)
     else:
         alb_arr = np.asarray(Image.open(args.albedo).convert("RGB"))
         diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
         diff_rgb, max_snow = refine_biome_albedo(diff_raw, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=args.snow_filter)
-        norm_u8, rough_u8 = nb.compute_pbr_maps(Zt, diff_rgb, dxt, dyt)
+        norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm)
 
     nb.save_uv_aligned_png(diff_rgb, os.path.join(out_dir, "catan_mountain_diffuse_2k.png"))
     nb.save_uv_aligned_png(norm_u8, os.path.join(out_dir, "catan_mountain_normal_2k.png"))
@@ -256,7 +356,7 @@ def main():
     Xm, Ym, Zm, dist_m, dist_vm, _, _ = nb.synthesize_dem_from_heightmap(
         hm_arr, args.nx, ny, relief_mm=args.relief_mm, micro_detail_mm=args.micro_detail, x_lim=nb.APOTHEM, y_lim=nb.R
     )
-    Zm = apply_smooth_hex_apron(Xm, Ym, Zm, dist_m, dist_vm, args.relief_mm, apron_mm=9.0)
+    Zm = apply_smooth_hex_apron(Xm, Ym, Zm, dist_m, dist_vm, args.relief_mm, apron_mm=args.apron_mm)
     verts, faces = nb.build_solid_hex_mesh(Xm, Ym, Zm, dist_m, include_magnet=True)
     stats = nb.verify_watertight(verts, faces)
     if not stats["watertight"]:
@@ -267,7 +367,7 @@ def main():
     np.savez_compressed(os.path.join(out_dir, "viewer_mesh_v2.npz"), verts=verts, faces=faces)
 
     audit_path = os.path.join(out_dir, f"{args.slug}_6views_audit.png")
-    render_6_equidistant_views(hm_arr, np.flipud(diff_rgb), args.relief_mm, audit_path, args.title)
+    render_6_equidistant_views(hm_arr, np.flipud(diff_rgb), args.relief_mm, audit_path, args.title, apron_mm=args.apron_mm)
 
     z_peak = nb.Z_BASE + args.relief_mm
     metrics = {
@@ -291,8 +391,10 @@ def main():
     html = html.replace(">83.0 mm<", f">{z_peak:.1f} mm<")
     html = html.replace('max="83.5" step="0.5" value="83.5"', f'max="{z_peak + 0.5:.1f}" step="0.5" value="{z_peak + 0.5:.1f}"')
     html = html.replace("Z=83mm", f"Z={z_peak:.0f}mm")
-    if not args.snow_filter:
+    if not args.snow_filter and not args.alpine_v3_palette:
         html = html.replace("<span>Nieve en ≥44°</span><strong>0.000000 (0%)</strong>", f"<span>Relieve Máx</span><strong>+{args.relief_mm:.1f} mm</strong>")
+    else:
+        html = html.replace("<span>Nieve en ≥44°</span><strong>0.000000 (0%)</strong>", f"<span>Nieve en ≥44°</span><strong>{max_snow:.6f} ({max_snow:.2f}%)</strong>")
     with open(viewer_html, "w", encoding="utf-8") as hf:
         hf.write(html)
 
