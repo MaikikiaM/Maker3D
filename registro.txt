@@ -34,3 +34,5 @@ Resultados de validación observados:
 - Cobertura: Snow=10.66%, Tundra=10.21%, Rock=79.13%, Steep>=44°=56.59%, MaxSnow>=44°=0.000000. Paleta 45/45 grises (min=84 px) y 15/15 verdes (min=20,014 px).
 - Regenerado checksums_sha256.txt (26 archivos) y dossier técnico actualizado.
 ================================================================================
+
+[Fix Visor WebGL - 13/11/2026 17:19] Corregido SyntaxError ('})();' sobrante al cerrar async function init()) en assemble_viewer_v2.py, regenerados los 5 visores HTML (3.40 MB) y verificado en Chromium sin caché: cero errores de consola, carga completa (<1.5s), renderizado WebGL PBR/Pendientes >=44° y cotas CAD operativas.

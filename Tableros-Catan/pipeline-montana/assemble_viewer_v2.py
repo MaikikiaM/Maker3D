@@ -635,7 +635,8 @@ def build_viewer():
       }} catch (err) {{
         document.getElementById("load-msg").textContent = "Error al inicializar WebGL/GZip: " + err.message;
       }}
-    }})();
+    }}
+    init();
   }})();
   </script>
 </body>
