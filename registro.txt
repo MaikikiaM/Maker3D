@@ -162,3 +162,24 @@ Auditoría visual previa sobre WebGL y mejoras implementadas en `build_catan_bio
 - **Recompilación y verificación Chromium (`0` errores consola/página) de Biomas 1–4:**
   - `catan-bioma-montana.html` (`4.92 MB`), `catan-bioma-bosque.html` (`4.65 MB`), `catan-bioma-colina.html` (`4.36 MB`), `catan-bioma-pasto.html` (`4.30 MB`), todos `V=145,775 / F=291,546 Δ / chi=2`.
 ================================================================================
+
+================================================================================
+SESIÓN: 14/11/2026 - RECONSTRUCCIÓN 3D BOSQUE (`manifold3d`) Y REPARACIÓN MALLADO COLINAS (`V3`)
+Prompt usuario (01:24:33 CET): "El bosque se ve fatal, parece que los arboles se derriten. Dedica al menos una hora a repararlo... El bioma de arcilla se ve bien pero muchos triangulos quedan mal por falta de calidad. Dedica al menos 30 minutos a arreglar ese problema... Pon un timer despues de todo esto para empezar a trabajar en 4:15 horas desde la escritura de este mensaje en los proximos biomas con nanobanana"
+
+1. Utilidad Compartida (`Tableros-Catan/pipeline-biomas/terrain_mesh_utils.py`):
+   - Creado módulo puro NumPy/SciPy con `resample_canonical_xy` (sin inversión vertical accidental sobre mallas canónicas), `cap_extreme_slopes`, `warp_grid_to_slopes`, `contour_aligned_edge_flip` (flips diagonales estrictamente convexos que minimizan `|ΔZ|`) y `build_contour_aligned_hex_solid`.
+
+2. Bioma 2 — Bosque 3D Real (`Tableros-Catan/pipeline-biomas/build_bosque_3d.py` | Commit `690164d`):
+   - Abandonado el heightmap 2.5D derretido; suelo ondulado limpio libre de árboles + peñas graníticas biseladas con interpolación hermite (`nx=440`) + textura musgo/hojarasca inpainted con transición limpia (`resample_canonical_xy`).
+   - Esculpidas 15 coníferas 3D auténticas multicapa (tronco curvado expuesto con corteza acanalada + 5 contrafuertes radiculares + 9–11 coronas festoneadas salientes) unidas mediante booleana exacta `manifold3d.Manifold.batch_boolean` (`V=281,229 | F=416,246 | genus=41 | chi=-80 | Error.NoError | Vol=299.55 cm³ | Z=57.46 mm`).
+   - Auditado en Chromium (`058d067d`) sin errores de consola/WebGL, troncos/raíces visibles bajo las ramas y cero estrías verticales (`Visores-HTML/catan-bioma-bosque.html`, `10.46 MB`).
+
+3. Bioma 3 — Colinas / Arcilla V3 (`build_catan_biome.py` + `assemble_viewer_v2.py`):
+   - Eliminado el escalonamiento de cuantización 8-bit (`float32` en `refine_heightmap`), restringido `bad_slate` para no manchar las esquinas planas de poblado, reforzado el bisel/collar pizarra en los 6 vértices y añadido sombreado GLSL triplanar sedimentario (`--triplanar-mode clay`) en `assemble_viewer_v2.py`.
+   - Compilada Iteración 3 de alta densidad (`--nx 740 --contour-align --slope-cap-grad 1.44 --warp-strength 0.34 --blur-px 1.7 --ridge-clean 0.35`): `V=451,953 | F=903,902 | chi=2 | watertight=True | Vol=385.88 cm³ | Z=53.0 mm`, `1,145,189` flips de arista alineados a curvas de nivel.
+   - Verificado en Chromium (`061a53ce`) en vista héroe, trasera (`180°-240°`), macro PBR, Arcilla CAD blanca, Wireframe (`Malla + Relieve`) y sección transversal Z (`Visores-HTML/catan-bioma-colina.html`, `15.27 MB`, `0` errores WebGL/consola).
+
+4. Timer Programado:
+   - Temporizador único programado hasta las `05:39:33 CET` (`4h15m` exactas desde `01:24:33 CET`) para reanudar **Biomas 5–8** (`campo`, `desierto`, `oro`, `oceano`) con Nano Banana.
+================================================================================

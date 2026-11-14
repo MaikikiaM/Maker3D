@@ -15,12 +15,26 @@ from pathlib import Path
 import sys
 import numpy as np
 from scipy.spatial import Delaunay
+import scipy.ndimage as ndi
 
 SKILL_SCRIPTS = Path(__file__).resolve().parents[2] / ".agents" / "skills" / "nanobanana-3d-sculpt" / "scripts"
 if str(SKILL_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SKILL_SCRIPTS))
 
 import nanobanana_to_catan_hex as nb  # noqa: E402
+
+
+def resample_canonical_xy(arr, X, Y, lim=nb.R):
+    """Bilinearly resamples a canonical (row 0 = -lim, row H-1 = +lim) array without Y-flipping."""
+    H, W = arr.shape[:2]
+    ix = np.clip((X + lim) / (2.0 * lim), 0.0, 1.0) * (W - 1)
+    iy = np.clip((Y + lim) / (2.0 * lim), 0.0, 1.0) * (H - 1)
+    if arr.ndim == 2:
+        return ndi.map_coordinates(arr.astype(np.float32), [iy, ix], order=1, mode="nearest")
+    return np.stack([
+        ndi.map_coordinates(arr[:, :, c].astype(np.float32), [iy, ix], order=1, mode="nearest")
+        for c in range(arr.shape[2])
+    ], axis=-1)
 
 
 def cap_extreme_slopes(Z, dist_edge, min_step_dx=0.25, max_grad=1.85, passes=2):

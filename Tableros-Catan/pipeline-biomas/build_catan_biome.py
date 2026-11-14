@@ -14,12 +14,15 @@ from PIL import Image, ImageDraw, ImageFont
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SKILL_SCRIPTS = os.path.join(REPO_ROOT, ".agents", "skills", "nanobanana-3d-sculpt", "scripts")
 MONTANA_PIPE = os.path.join(REPO_ROOT, "Tableros-Catan", "pipeline-montana")
+BIOMAS_PIPE = os.path.dirname(__file__)
 sys.path.insert(0, SKILL_SCRIPTS)
 sys.path.insert(0, MONTANA_PIPE)
+sys.path.insert(0, BIOMAS_PIPE)
 
 import nanobanana_to_catan_hex as nb
 import assemble_viewer_v2 as av2
 import prototype_v3_cordillera as pv3
+import terrain_mesh_utils as tmu
 
 
 def refine_heightmap(hm_u8, gamma=0.80, blur_px=1.0, ridge_clean=0.0):
@@ -33,7 +36,8 @@ def refine_heightmap(hm_u8, gamma=0.80, blur_px=1.0, ridge_clean=0.0):
     if blur_px > 0.0:
         norm = ndi.gaussian_filter(norm, sigma=blur_px)
     opened = np.power(np.clip(norm, 0.0, 1.0), gamma)
-    return np.clip(opened * 255.0, 0.0, 255.0).astype(np.uint8)
+    # Keep float32 precision in [0..255] so gentle slopes never exhibit 8-bit stair-stepping rings
+    return np.clip(opened * 255.0, 0.0, 255.0).astype(np.float32)
 
 
 def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filter=False, snowline_mm=15.0):
@@ -81,15 +85,31 @@ def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filte
     dark_t = (terrain_core > 0.5) & (lum2 < 0.22)
     rgb = np.clip(rgb * np.where(dark_t, 1.12, 1.0)[..., None], 0.0, 1.0)
 
-    # Strictly clamp architectural dark slate collar to flat border / settlement sockets ONLY (never climb terrain skirt!)
+    # Remove accidental grey slate road-border bleed climbing up outer sculpted banks (ONLY on raised/sloped terrain!)
+    sat_pre = np.max(rgb, axis=-1) - np.min(rgb, axis=-1)
+    near_rim = (dist_edge < nb.ROAD_MARGIN + 5.8) | (dist_vert < nb.PAD_RADIUS + 5.8)
+    in_sculpt = (dist_edge > nb.ROAD_MARGIN + 0.15) & (dist_vert > nb.PAD_RADIUS + 0.15) & ((relief > 0.65) | (slope_deg > 16.0))
+    bad_slate = in_sculpt & near_rim & (sat_pre < 0.105) & (lum2 < 0.44)
+    if np.any(bad_slate):
+        good_src = ((dist_edge > nb.ROAD_MARGIN + 2.2) & (dist_vert > nb.PAD_RADIUS + 2.2) & (sat_pre >= 0.11) & (relief > 0.65)).astype(np.float32)
+        gw = ndi.gaussian_filter(good_src, sigma=max(4.5 / dx, 4.0)) + 1e-5
+        warm_fill = np.stack([ndi.gaussian_filter(rgb[:, :, c] * good_src, sigma=max(4.5 / dx, 4.0)) / gw for c in range(3)], axis=-1)
+        slate_m = np.clip(ndi.gaussian_filter(bad_slate.astype(np.float32), sigma=max(0.8 / dx, 1.5)) * 1.25, 0.0, 1.0)[..., None]
+        rgb = rgb * (1.0 - slate_m) + warm_fill * slate_m
+
+    # Strictly clamp architectural dark slate collar across the entire flat hex bezel & settlement pads (never climb raised terrain!)
     on_border = np.maximum(
-        1.0 - nb.smoothstep(nb.ROAD_MARGIN - 0.15, nb.ROAD_MARGIN + 0.40, dist_edge),
-        1.0 - nb.smoothstep(nb.PAD_RADIUS - 0.15, nb.PAD_RADIUS + 0.45, dist_vert),
+        1.0 - nb.smoothstep(nb.ROAD_MARGIN + 0.40, nb.ROAD_MARGIN + 5.50, dist_edge),
+        1.0 - nb.smoothstep(nb.PAD_RADIUS + 0.40, nb.PAD_RADIUS + 4.50, dist_vert),
     )
-    flat_mask = 1.0 - nb.smoothstep(0.10, 0.55, relief)
-    collar = (on_border * flat_mask)[..., None]
+    flat_mask = 1.0 - nb.smoothstep(0.12, 0.68, relief)
+    hard_rim = np.maximum(
+        1.0 - nb.smoothstep(nb.ROAD_MARGIN - 0.15, nb.ROAD_MARGIN + 0.35, dist_edge),
+        1.0 - nb.smoothstep(nb.PAD_RADIUS - 0.15, nb.PAD_RADIUS + 0.40, dist_vert),
+    ) * (1.0 - nb.smoothstep(0.15, 0.85, relief))
+    collar = np.clip(np.maximum(on_border * flat_mask, hard_rim), 0.0, 1.0)[..., None]
     slate = np.array([0.21, 0.23, 0.26], dtype=np.float32)
-    rgb = rgb * (1.0 - collar * 0.92) + slate * (collar * 0.92)
+    rgb = rgb * (1.0 - collar) + slate * collar
     return np.clip(rgb * 255.0, 0.0, 255.0).astype(np.uint8), max_snow_steep
 
 
@@ -291,6 +311,10 @@ def main():
     p.add_argument("--micro-norm", type=float, default=0.32, help="PBR normal map luminance high-pass infusion strength.")
     p.add_argument("--nx", type=int, default=420)
     p.add_argument("--tex-size", type=int, default=2048)
+    p.add_argument("--contour-align", action="store_true", help="Concentrate grid toward steep walls & flip Delaunay diagonals along height contours.")
+    p.add_argument("--slope-cap-grad", type=float, default=0.0, help="If >0, gently cap near-vertical cliffs to max dZ/dX gradient (e.g. 1.45 -> ~55 deg scarp).")
+    p.add_argument("--warp-strength", type=float, default=0.42, help="Grid slope attraction strength when --contour-align is active.")
+    p.add_argument("--triplanar-mode", choices=["none", "clay", "forest"], default="none")
     p.add_argument("--snow-filter", action="store_true")
     p.add_argument("--alpine-v3-palette", action="store_true", help="Warm limestone granite, green valley moss, copper scree & <44 deg snow palette.")
     p.add_argument("--auto-mineral-albedo", action="store_true", help="Fallback: paint Nano Banana DEM with V3 hyperreal mineral-runoff PBR shader.")
@@ -308,6 +332,9 @@ def main():
         hm_arr, args.tex_size, args.tex_size, relief_mm=args.relief_mm, micro_detail_mm=args.micro_detail, x_lim=nb.R, y_lim=nb.R
     )
     Zt = apply_smooth_hex_apron(Xt, Yt, Zt, dist_t, dist_vt, args.relief_mm, apron_mm=args.apron_mm)
+    if args.slope_cap_grad > 0.0:
+        n_cap_t = max(6, int(round(1.5 / dxt)))
+        Zt = tmu.cap_extreme_slopes(Zt, dist_t, min_step_dx=dxt, max_grad=args.slope_cap_grad, passes=n_cap_t)
     clay_rgb = nb.render_shaded_clay_rgb(Zt, dist_t, dxt, dyt)
     clay_path = os.path.join(out_dir, f"{args.slug}_clay_overhead.png")
     nb.save_uv_aligned_png(clay_rgb, clay_path)
@@ -353,11 +380,23 @@ def main():
     nb.save_uv_aligned_png(rough_u8, os.path.join(out_dir, "catan_mountain_roughness_2k.png"))
 
     ny = int(round(args.nx * (nb.R / nb.APOTHEM)))
-    Xm, Ym, Zm, dist_m, dist_vm, _, _ = nb.synthesize_dem_from_heightmap(
+    Xm, Ym, Zm, dist_m, dist_vm, dxm, _ = nb.synthesize_dem_from_heightmap(
         hm_arr, args.nx, ny, relief_mm=args.relief_mm, micro_detail_mm=args.micro_detail, x_lim=nb.APOTHEM, y_lim=nb.R
     )
     Zm = apply_smooth_hex_apron(Xm, Ym, Zm, dist_m, dist_vm, args.relief_mm, apron_mm=args.apron_mm)
-    verts, faces = nb.build_solid_hex_mesh(Xm, Ym, Zm, dist_m, include_magnet=True)
+    if args.slope_cap_grad > 0.0:
+        n_cap_m = max(4, int(round(1.5 / dxm)))
+        Zm = tmu.cap_extreme_slopes(Zm, dist_m, min_step_dx=dxm, max_grad=args.slope_cap_grad, passes=n_cap_m)
+    if args.contour_align:
+        Xw, Yw = tmu.warp_grid_to_slopes(Xm, Ym, Zm, dist_m, dist_vm, iters=4, strength=args.warp_strength)
+        dist_w, _ = nb.hex_distances(Xw, Yw)
+        Zw = tmu.resample_canonical_xy(Zt, Xw, Yw, lim=nb.R)
+        verts, faces, n_flips = tmu.build_contour_aligned_hex_solid(
+            Xw, Yw, Zw, dist_w, n_bnd=168, n_mag=32, include_magnet=True, flip_passes=6
+        )
+        print(f"[Contour-Aligned Mesh] nx={args.nx} ny={ny} flips={n_flips} V={len(verts)} F={len(faces)}")
+    else:
+        verts, faces = nb.build_solid_hex_mesh(Xm, Ym, Zm, dist_m, include_magnet=True)
     stats = nb.verify_watertight(verts, faces)
     if not stats["watertight"]:
         raise RuntimeError(f"{args.slug} mesh failed watertight check: {stats}")
@@ -381,6 +420,7 @@ def main():
     av2.OUT_DIR = out_dir
     av2.SCRATCH_DIR = out_dir
     av2.TARGET_PATHS = [viewer_html]
+    av2.TRIPLANAR_MODE = args.triplanar_mode
     av2.build_viewer()
 
     with open(viewer_html, "r", encoding="utf-8") as hf:

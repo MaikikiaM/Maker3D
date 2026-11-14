@@ -574,22 +574,26 @@ def build_viewer():
                 "#include <map_fragment>",
                 `#include <map_fragment>
                 float treeMix = ${{hasTreeVCol ? "clamp(vTreeVCol.a, 0.0, 1.0)" : "0.0"}};
-                float steepWall = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.68, 0.25, abs(normalize(vObjNrm).z)) : 0.0;
+                float steepWall = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.68, 0.24, abs(normalize(vObjNrm).z)) : 0.0;
                 if (steepWall > 0.01 && treeMix < 0.5) {{
-                  float du = 0.0042;
+                  float du = 0.0075;
                   vec3 s1 = mapTexelToLinear(texture2D(map, vUv + vec2(du, 0.0))).rgb;
                   vec3 s2 = mapTexelToLinear(texture2D(map, vUv - vec2(du, 0.0))).rgb;
                   vec3 s3 = mapTexelToLinear(texture2D(map, vUv + vec2(0.0, du))).rgb;
                   vec3 s4 = mapTexelToLinear(texture2D(map, vUv - vec2(0.0, du))).rgb;
-                  vec3 avgCol = (diffuseColor.rgb + s1 + s2 + s3 + s4) * 0.2;
+                  vec3 s5 = mapTexelToLinear(texture2D(map, vUv + vec2(du * 0.7, du * 0.7))).rgb;
+                  vec3 s6 = mapTexelToLinear(texture2D(map, vUv - vec2(du * 0.7, du * 0.7))).rgb;
+                  vec3 avgCol = (diffuseColor.rgb + s1 + s2 + s3 + s4 + s5 + s6) / 7.0;
                   if (uTriMode < 1.5) {{
                     // Terracotta & ochre 3D horizontal sedimentary clay strata (zero vertical UV streak)
-                    float warp = fbm3D(vObjPos * 0.14) * 3.6;
-                    float strata = sin(vObjPos.z * 2.8 + warp);
-                    float fine = fbm3D(vObjPos * 1.10) - 0.5;
-                    vec3 bandTint = mix(vec3(0.82, 0.72, 0.66), vec3(1.18, 1.08, 0.94), smoothstep(-0.6, 0.7, strata));
-                    vec3 cliffCol = avgCol * bandTint * (0.95 + 0.22 * fine);
-                    diffuseColor.rgb = mix(diffuseColor.rgb, cliffCol, steepWall * 0.92);
+                    float warp = fbm3D(vObjPos * 0.16) * 2.8;
+                    float strata1 = sin(vObjPos.z * 3.1 + warp);
+                    float strata2 = sin(vObjPos.z * 8.4 + warp * 1.4);
+                    float fine = fbm3D(vObjPos * 1.25) - 0.5;
+                    vec3 bandTint = mix(vec3(0.76, 0.65, 0.59), vec3(1.22, 1.12, 0.96), smoothstep(-0.65, 0.72, strata1));
+                    bandTint *= (0.94 + 0.09 * strata2);
+                    vec3 cliffCol = avgCol * bandTint * (0.94 + 0.24 * fine);
+                    diffuseColor.rgb = mix(diffuseColor.rgb, cliffCol, steepWall * 0.95);
                   }} else {{
                     // Forest boulder / earth 3D granite stone & moss grain (zero vertical streak)
                     float duf = 0.0095;
