@@ -354,3 +354,23 @@ Solución aplicada:
   - Visor WebGL (`Visores-HTML/catan-bioma-oro.html`): `49,687,236 bytes` (`47.39 MiB` / `49.69 MB < 50 MB`), verificado en Chromium WebGL (`afa46ded-489a-4b02-91c8-fd8a031aad2c`, `0` errores) en vista hero limpia (`final_step_106.png`), macro 1:1 rasante de cantos/oro/arenisca (`step_89`) y cara norte basaltos (`final_step_100.png`).
   - Archivado local en `Tableros-Catan/pipeline-biomas/oro/versiones/v04_fotorreal_4k_3.03M/`.
 ================================================================================
+
+
+================================================================================
+SESIÓN: 14/11/2026 - BIOMA 7 (RÍO DE ORO) v05: RECONSTRUCCIÓN HIDRÁULICA FÍSICA DEL RÍO (CERO MUROS DE AGUA)
+Prompt usuario: "El agua del rio en la zona donde hay mas turbuulencia tiene 0 sentido... simplemente son muros de agua y punto. No tiene sentido fisicamente"
+Diagnóstico de causa raíz:
+- Al medir la sección hidráulica de `bioma7_gold_river_heightmap_v3_1794636645831.jpg`, la espuma blanca brillante había sido extruida como dos muros transversales (`hm=145..153`, +7 mm por encima de las pozas contiguas), el tramo sur subía cuesta arriba hasta `hm=86` mientras la barra de guijarros trepaba a `hm=120..135`.
+- Además, en `build_catan_biome.py`, `apply_smooth_hex_apron(apron_mm=12.0)` inclinaba el tramo norte cuesta arriba desde el bisel y `sculpt_albedo_microrelief` no reconocía la espuma blanca neutra dentro de `is_water`, tallando picos de roca sobre la turbulencia.
+Solución aplicada:
+- **Reconstrucción hidráulica (`oro_heightmap_v5_hydro.png` + `oro_water_mask_v5.png`):**
+  - Segmentación por inundación acotada (`seed` en eje del río) estrictamente dentro del cañón, respetando los dos pequeños cantos oscuros sumergidos y rebajando la barra de cantos aluvial a un banco natural (`+1.0–2.0 mm` sobre la lámina de agua, fundido suavemente hacia la orilla este).
+  - Perfil hidráulico estrictamente monótono descendente de norte a sur (`p50=37.9` poza norte -> `30.0` cascada 1 -> `24.5` poza intermedia -> `19.1` cascada 2 -> `13.5` meandro -> `10.5` laguna sur), con micro-ondulación orgánica de flujo (`<=0.03 mm`).
+- **Protección de agua en `build_catan_biome.py` (`--water-mask`):**
+  - `apply_smooth_hex_apron` aplica transición contenida (`3.6 mm`) solo en la desembocadura del cauce, `sculpt_albedo_microrelief` anula extrusión rocosa en espuma (`water_relief=0.0`) y `compute_enhanced_pbr_maps` suaviza rugosidad/micro-normal de río fluido.
+Resultados verificados y archivado (`v05`):
+- STL (`catan_oro.stl`): `V=1,496,012 | F=2,992,020 Δ | watertight=True | euler=2 | degen=0 | vol=364.03 cm³ | Z=51.0mm`.
+- Visor HTML (`Visores-HTML/catan-bioma-oro.html`): `48,680,212 bytes` (`46.43 MiB` / `48.68 MB < 50 MB`).
+- Verificación WebGL Chromium (`afa46ded`, `0` errores): Hero limpio (`step_114`), macro de cascadas y rápidos (`step_120`), y entrada norte mirando cañón abajo (`final_step_128.png`): agua descendente coherente en dos saltos naturales con cero muros verticales.
+- Archivado local en `Tableros-Catan/pipeline-biomas/oro/versiones/v05_hidraulica_4k_2.99M/`.
+================================================================================

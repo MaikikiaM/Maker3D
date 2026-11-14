@@ -114,13 +114,15 @@ def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filte
     return np.clip(rgb * 255.0, 0.0, 255.0).astype(np.uint8), max_snow_steep
 
 
-def sculpt_albedo_microrelief(Z, diff_rgb, dist_edge, dist_vert, dx, max_bump_mm=0.95, crown_smooth_mm=0.0):
+def sculpt_albedo_microrelief(Z, diff_rgb, dist_edge, dist_vert, dx, max_bump_mm=0.95, crown_smooth_mm=0.0, water_mask=None):
     """Carve physical 3D stone domes, mineral cracks, crystalline gold outcrops & wave ribs from high-res albedo."""
     rgb_f = diff_rgb.astype(np.float32) / 255.0
     r, g, b = rgb_f[..., 0], rgb_f[..., 1], rgb_f[..., 2]
     lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
 
     is_water = np.clip((g - r - 0.025) * 4.5, 0.0, 1.0) * np.clip((b - r - 0.02) * 4.0, 0.0, 1.0)
+    if water_mask is not None:
+        is_water = np.maximum(is_water, np.clip(ndi.gaussian_filter(water_mask.astype(np.float32), sigma=1.5), 0.0, 1.0))
     is_foam = is_water * nb.smoothstep(0.50, 0.85, lum)
     is_gold = nb.smoothstep(0.18, 0.42, (r + g) * 0.5 - b) * nb.smoothstep(0.45, 0.78, lum)
 
@@ -160,7 +162,7 @@ def sculpt_albedo_microrelief(Z, diff_rgb, dist_edge, dist_vert, dx, max_bump_mm
             - 0.82 * crevice_groove
             + 0.65 * gold_facets
         )
-    water_relief = max_bump_mm * 0.34 * is_foam
+    water_relief = 0.0 if water_mask is not None else (max_bump_mm * 0.34 * is_foam)
 
     bump = (1.0 - is_water) * rock_relief + is_water * water_relief
     if crown_smooth_mm > 0.0:
@@ -200,7 +202,7 @@ def deink_mineral_albedo(diff_rgb, dist_edge, dist_vert, dx):
     return np.clip(deinked * 255.0, 0, 255).astype(np.uint8)
 
 
-def compute_enhanced_pbr_maps(Z, diff_rgb, dx, dy, micro_norm_strength=0.32, tangent_residual=False, photoreal=False):
+def compute_enhanced_pbr_maps(Z, diff_rgb, dx, dy, micro_norm_strength=0.32, tangent_residual=False, photoreal=False, water_mask=None):
     """Generate tangent-space normal map (either macro+micro or pure high-freq residual) and material roughness."""
     gy, gx = np.gradient(Z, dy, dx)
     rgb_f = diff_rgb.astype(np.float32) / 255.0
@@ -211,6 +213,8 @@ def compute_enhanced_pbr_maps(Z, diff_rgb, dx, dy, micro_norm_strength=0.32, tan
         hp_sigma = max(1.2, 0.09 / dx) if photoreal else max(1.8, 0.14 / dx)
         hp_gain = 1.85 if photoreal else 1.4
         hp_lum = lum - ndi.gaussian_filter(lum, sigma=hp_sigma)
+        if water_mask is not None:
+            hp_lum = hp_lum * (1.0 - 0.58 * np.clip(water_mask, 0.0, 1.0))
         z_res = Z - ndi.gaussian_filter(Z, sigma=max(1.6, 0.18 / dx))
         lgy, lgx = np.gradient(hp_lum * (max(micro_norm_strength, 0.1) * hp_gain), dy, dx)
         zgy, zgx = np.gradient(z_res * (0.14 if photoreal else 0.12), dy, dx)
@@ -386,10 +390,14 @@ def render_6_equidistant_views(hm_arr, diffuse_flip_u8, relief_mm, out_path, tit
     return out_path
 
 
-def apply_smooth_hex_apron(X, Y, Z, dist_edge, dist_vert, relief_mm, apron_mm=10.0):
+def apply_smooth_hex_apron(X, Y, Z, dist_edge, dist_vert, relief_mm, apron_mm=10.0, water_mask=None):
     """Feather steep AI edge drops gradually over apron_mm starting slightly inside the flat road margin."""
     d_clear = np.minimum(dist_edge - nb.ROAD_MARGIN, dist_vert - nb.PAD_RADIUS)
     taper = nb.smoothstep(0.35, apron_mm, d_clear)
+    if water_mask is not None:
+        w_blur = np.clip(ndi.gaussian_filter(water_mask.astype(np.float32), sigma=3.0), 0.0, 1.0)
+        taper_water = nb.smoothstep(0.35, min(3.6, apron_mm), d_clear)
+        taper = taper * (1.0 - w_blur) + taper_water * w_blur
     rel = np.maximum(0.0, Z - nb.Z_BASE) * taper
     rmax = float(np.max(rel))
     if rmax > 1e-5:
@@ -422,6 +430,7 @@ def main():
     p.add_argument("--sculpt-crown-mm", type=float, default=0.0, help="Sub-pixel spire-crown rounding radius (mm) on sculpted pebbles/ridges.")
     p.add_argument("--tangent-norm", action="store_true", help="Emit pure residual tangent-space normalMap + analytic per-vertex tangents in Three.js (kills dFdx/dFdy wall facets).")
     p.add_argument("--photoreal", action="store_true", help="Preserve photorealistic Nano Banana 4K contrast/vibrancy (skip comic deink, boost specular & exposure).")
+    p.add_argument("--water-mask", default=None, help="Optional river water-channel mask PNG to prevent whitewater foam spikes & apron back-slope.")
     p.add_argument("--subdivide-passes", type=int, default=0, help="Conformal Red-Green 3D adaptive triangle refinement passes on steep walls & sculpted peaks.")
     p.add_argument("--edge-len-max", type=float, default=0.175, help="Max 3D edge length threshold (mm) for adaptive subdivision.")
     p.add_argument("--curv-thresh", type=float, default=0.0, help="Face-to-vertex normal curvature threshold (deg) to also subdivide curved ridge crests & pebbles.")
@@ -444,13 +453,17 @@ def main():
     Xt, Yt, Zt, dist_t, dist_vt, dxt, dyt = nb.synthesize_dem_from_heightmap(
         hm_arr, args.tex_size, args.tex_size, relief_mm=args.relief_mm, micro_detail_mm=args.micro_detail, x_lim=nb.R, y_lim=nb.R
     )
-    Zt = apply_smooth_hex_apron(Xt, Yt, Zt, dist_t, dist_vt, args.relief_mm, apron_mm=args.apron_mm)
+    wmask_t = None
+    if args.water_mask:
+        wm_arr = np.asarray(Image.open(args.water_mask).convert("L"), dtype=np.float32) / 255.0
+        wmask_t = np.clip(nb.sample_square_domain(wm_arr, Xt, Yt), 0.0, 1.0)
+    Zt = apply_smooth_hex_apron(Xt, Yt, Zt, dist_t, dist_vt, args.relief_mm, apron_mm=args.apron_mm, water_mask=wmask_t)
     diff_raw = None
     if args.albedo:
         alb_arr = np.asarray(Image.open(args.albedo).convert("RGB"))
         diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
         if args.sculpt_from_albedo > 0.0:
-            Zt = sculpt_albedo_microrelief(Zt, diff_raw, dist_t, dist_vt, dxt, max_bump_mm=args.sculpt_from_albedo, crown_smooth_mm=args.sculpt_crown_mm)
+            Zt = sculpt_albedo_microrelief(Zt, diff_raw, dist_t, dist_vt, dxt, max_bump_mm=args.sculpt_from_albedo, crown_smooth_mm=args.sculpt_crown_mm, water_mask=wmask_t)
             if not args.photoreal:
                 diff_raw = deink_mineral_albedo(diff_raw, dist_t, dist_vt, dxt)
     if args.slope_cap_grad > 0.0:
@@ -495,7 +508,7 @@ def main():
             alb_arr = np.asarray(Image.open(args.albedo).convert("RGB"))
             diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
         diff_rgb, max_snow = refine_biome_albedo(diff_raw, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=args.snow_filter, keep_dark_rock=args.keep_dark_rock, photoreal=args.photoreal)
-        norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm, tangent_residual=args.tangent_norm, photoreal=args.photoreal)
+        norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm, tangent_residual=args.tangent_norm, photoreal=args.photoreal, water_mask=wmask_t)
 
     nb.save_uv_aligned_png(diff_rgb, os.path.join(out_dir, "catan_mountain_diffuse_2k.png"))
     nb.save_uv_aligned_png(norm_u8, os.path.join(out_dir, "catan_mountain_normal_2k.png"))
@@ -505,7 +518,8 @@ def main():
     Xm, Ym, Zm, dist_m, dist_vm, dxm, _ = nb.synthesize_dem_from_heightmap(
         hm_arr, args.nx, ny, relief_mm=args.relief_mm, micro_detail_mm=args.micro_detail, x_lim=nb.APOTHEM, y_lim=nb.R
     )
-    Zm = apply_smooth_hex_apron(Xm, Ym, Zm, dist_m, dist_vm, args.relief_mm, apron_mm=args.apron_mm)
+    wmask_m = np.clip(nb.sample_square_domain(wm_arr, Xm, Ym), 0.0, 1.0) if args.water_mask else None
+    Zm = apply_smooth_hex_apron(Xm, Ym, Zm, dist_m, dist_vm, args.relief_mm, apron_mm=args.apron_mm, water_mask=wmask_m)
     if args.slope_cap_grad > 0.0:
         n_cap_m = max(4, int(round(1.5 / dxm)))
         Zm = tmu.cap_extreme_slopes(Zm, dist_m, min_step_dx=dxm, max_grad=args.slope_cap_grad, passes=n_cap_m)
