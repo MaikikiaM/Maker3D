@@ -24,17 +24,25 @@ if str(SKILL_SCRIPTS) not in sys.path:
 import nanobanana_to_catan_hex as nb  # noqa: E402
 
 
-def resample_canonical_xy(arr, X, Y, lim=nb.R):
-    """Bilinearly resamples a canonical (row 0 = -lim, row H-1 = +lim) array without Y-flipping."""
+def resample_canonical_xy(arr, X, Y, lim=nb.R, order=3, clip_bounds=True):
+    """Bicubic-spline (order=3 by default) resamples a canonical (row 0 = -lim, row H-1 = +lim) array without Y-flipping."""
     H, W = arr.shape[:2]
     ix = np.clip((X + lim) / (2.0 * lim), 0.0, 1.0) * (W - 1)
     iy = np.clip((Y + lim) / (2.0 * lim), 0.0, 1.0) * (H - 1)
     if arr.ndim == 2:
-        return ndi.map_coordinates(arr.astype(np.float32), [iy, ix], order=1, mode="nearest")
-    return np.stack([
-        ndi.map_coordinates(arr[:, :, c].astype(np.float32), [iy, ix], order=1, mode="nearest")
-        for c in range(arr.shape[2])
-    ], axis=-1)
+        a_f = arr.astype(np.float32)
+        out = ndi.map_coordinates(a_f, [iy, ix], order=order, mode="nearest")
+        if clip_bounds:
+            out = np.clip(out, float(np.min(a_f)), float(np.max(a_f)))
+        return out
+    chans = []
+    for c in range(arr.shape[2]):
+        cf = arr[:, :, c].astype(np.float32)
+        co = ndi.map_coordinates(cf, [iy, ix], order=order, mode="nearest")
+        if clip_bounds:
+            co = np.clip(co, float(np.min(cf)), float(np.max(cf)))
+        chans.append(co)
+    return np.stack(chans, axis=-1)
 
 
 def cap_extreme_slopes(Z, dist_edge, min_step_dx=0.25, max_grad=1.85, passes=2):
@@ -230,12 +238,207 @@ def contour_aligned_edge_flip(verts_xyz, tri_top, dist_top=None, passes=4, min_g
     return tris, total_flipped
 
 
+def subdivide_tri_top_adaptive(
+    all_top_verts, tri_top, top_dist, Z_dem, lim=nb.R,
+    edge_len_3d_max=0.175, slope_deg_thresh=38.0, min_bnd_dist=1.6, passes=2
+):
+    """
+    Conformal vectorized Red-Green 3D adaptive triangle refinement on the top terrain
+    surface, evaluating exact bicubic Z_dem(x,y) heights at new midpoints so steep walls
+    and small sculpted peaks obtain uniform near-equilateral 3D resolution while keeping
+    the outer chamfer/skirt boundary strictly invariant and watertight (zero T-junctions).
+    """
+    verts = all_top_verts.copy()
+    tris = tri_top.copy()
+    dist = top_dist.copy()
+
+    for p_idx in range(passes):
+        # Relax slightly on pass 2 so only the steepest cliffs / densest curvature split twice
+        cur_max_edge = float(edge_len_3d_max) * (1.0 if p_idx == 0 else 1.05)
+        n_v = len(verts)
+        p0 = verts[tris[:, 0]]
+        p1 = verts[tris[:, 1]]
+        p2 = verts[tris[:, 2]]
+
+        l01 = np.linalg.norm(p1 - p0, axis=1)
+        l12 = np.linalg.norm(p2 - p1, axis=1)
+        l20 = np.linalg.norm(p0 - p2, axis=1)
+        max_l = np.maximum(l01, np.maximum(l12, l20))
+
+        # Slope from XY area vs 3D normal length
+        cr = np.cross(p1 - p0, p2 - p0)
+        area3d_2 = np.linalg.norm(cr, axis=1) + 1e-12
+        nz = np.abs(cr[:, 2]) / area3d_2
+        slope_deg = np.degrees(np.arccos(np.clip(nz, 0.0, 1.0)))
+
+        # Mark triangles that are stretched in 3D on cliffs or exceed max 3D edge length
+        tri_mark = (max_l > cur_max_edge) | (
+            (slope_deg >= float(slope_deg_thresh)) & (max_l > cur_max_edge * 0.80)
+        )
+        # Never force refinement right next to outer rim
+        d_tri_min = np.minimum(dist[tris[:, 0]], np.minimum(dist[tris[:, 1]], dist[tris[:, 2]]))
+        tri_mark &= (d_tri_min >= float(min_bnd_dist))
+        print(f"  [Subdivide pass {p_idx+1}] marked {int(tri_mark.sum())}/{len(tris)} (max_l>{cur_max_edge:.3f})")
+        if not np.any(tri_mark):
+            break
+
+        # All 3 edges per triangle -> unique undirected edges
+        e_start = np.concatenate([tris[:, 0], tris[:, 1], tris[:, 2]])
+        e_end = np.concatenate([tris[:, 1], tris[:, 2], tris[:, 0]])
+        u = np.minimum(e_start, e_end).astype(np.int64)
+        v = np.maximum(e_start, e_end).astype(np.int64)
+        keys = u * np.int64(n_v) + v
+        uniq_keys, uniq_idx, edge_inv = np.unique(keys, return_index=True, return_inverse=True)
+
+        m_t = len(tris)
+        # Edge is marked if either incident triangle is marked
+        edge_marked = np.zeros(len(uniq_keys), dtype=bool)
+        half_mark = np.concatenate([tri_mark, tri_mark, tri_mark])
+        np.logical_or.at(edge_marked, edge_inv, half_mark)
+
+        uu = u[uniq_idx]
+        vv = v[uniq_idx]
+        edge_len_3d = np.linalg.norm(verts[vv] - verts[uu], axis=1)
+        # Keep edges touching the frozen boundary unsplit and skip ultra-tiny edges
+        edge_eligible = (
+            (dist[uu] >= float(min_bnd_dist))
+            & (dist[vv] >= float(min_bnd_dist))
+            & (edge_len_3d > 0.068)
+        )
+        split_mask = edge_marked & edge_eligible
+        if not np.any(split_mask):
+            break
+
+        split_edge_ids = np.flatnonzero(split_mask)
+        edge_to_mid = np.full(len(uniq_keys), -1, dtype=np.int32)
+        edge_to_mid[split_edge_ids] = np.arange(n_v, n_v + len(split_edge_ids), dtype=np.int32)
+
+        su = uu[split_edge_ids]
+        sv = vv[split_edge_ids]
+        mx = 0.5 * (verts[su, 0] + verts[sv, 0])
+        my = 0.5 * (verts[su, 1] + verts[sv, 1])
+        mz = resample_canonical_xy(Z_dem, mx, my, lim=lim, order=3, clip_bounds=True).astype(np.float64)
+        md = 0.5 * (dist[su] + dist[sv])
+
+        new_pts = np.column_stack([mx, my, mz])
+        verts = np.vstack([verts, new_pts])
+        dist = np.concatenate([dist, md])
+
+        m01 = edge_to_mid[edge_inv[0:m_t]]
+        m12 = edge_to_mid[edge_inv[m_t:2 * m_t]]
+        m20 = edge_to_mid[edge_inv[2 * m_t:3 * m_t]]
+        k_split = (m01 >= 0).astype(np.int32) + (m12 >= 0).astype(np.int32) + (m20 >= 0).astype(np.int32)
+
+        out_chunks = []
+
+        # Case 0: unchanged
+        k0 = k_split == 0
+        if np.any(k0):
+            out_chunks.append(tris[k0])
+
+        # Case 3: Red 1-to-4 split
+        k3 = k_split == 3
+        if np.any(k3):
+            t3 = tris[k3]
+            a0, a1, a2 = t3[:, 0], t3[:, 1], t3[:, 2]
+            x0, x1, x2 = m01[k3], m12[k3], m20[k3]
+            out_chunks.append(np.column_stack([a0, x0, x2]))
+            out_chunks.append(np.column_stack([x0, a1, x1]))
+            out_chunks.append(np.column_stack([x2, x1, a2]))
+            out_chunks.append(np.column_stack([x0, x1, x2]))
+
+        # Case 1: Green 1-to-2 split
+        k1 = k_split == 1
+        if np.any(k1):
+            t1 = tris[k1]
+            c0, c1, c2 = t1[:, 0], t1[:, 1], t1[:, 2]
+            e0, e1, e2 = m01[k1], m12[k1], m20[k1]
+            # Rotate cyclically so split midpoint sits on (r0, r1)
+            rot1 = e1 >= 0
+            rot2 = e2 >= 0
+            r0 = np.where(rot1, c1, np.where(rot2, c2, c0))
+            r1 = np.where(rot1, c2, np.where(rot2, c0, c1))
+            r2 = np.where(rot1, c0, np.where(rot2, c1, c2))
+            rm = np.where(rot1, e1, np.where(rot2, e2, e0))
+            out_chunks.append(np.column_stack([r0, rm, r2]))
+            out_chunks.append(np.column_stack([rm, r1, r2]))
+
+        # Case 2: Green 1-to-3 split along shorter 3D quad diagonal
+        k2 = k_split == 2
+        if np.any(k2):
+            t2 = tris[k2]
+            c0, c1, c2 = t2[:, 0], t2[:, 1], t2[:, 2]
+            e0, e1, e2 = m01[k2], m12[k2], m20[k2]
+            # Rotate cyclically so UNSPLIT edge (-1) sits on (r1, r2), making r0 the top corner
+            u0 = e0 < 0  # unsplit (c0,c1) -> corner is c2
+            u2 = e2 < 0  # unsplit (c2,c0) -> corner is c1
+            r0 = np.where(u0, c2, np.where(u2, c1, c0))
+            r1 = np.where(u0, c0, np.where(u2, c2, c1))
+            r2 = np.where(u0, c1, np.where(u2, c0, c2))
+            ma = np.where(u0, e2, np.where(u2, e1, e0))  # midpoint on (r0, r1)
+            mb = np.where(u0, e1, np.where(u2, e0, e2))  # midpoint on (r2, r0)
+
+            out_chunks.append(np.column_stack([r0, ma, mb]))
+            d_ma_r2 = np.sum((verts[ma] - verts[r2]) ** 2, axis=1)
+            d_mb_r1 = np.sum((verts[mb] - verts[r1]) ** 2, axis=1)
+            pick_a = d_ma_r2 <= d_mb_r1
+            q_tri1 = np.where(pick_a[:, None], np.column_stack([ma, r1, r2]), np.column_stack([ma, r1, mb]))
+            q_tri2 = np.where(pick_a[:, None], np.column_stack([ma, r2, mb]), np.column_stack([mb, r1, r2]))
+            out_chunks.append(q_tri1)
+            out_chunks.append(q_tri2)
+
+        tris = np.vstack(out_chunks).astype(np.int32)
+
+    return verts, tris, dist
+
+
+def taubin_smooth_interior_z(verts, tri_top, top_dist, min_dist=2.4, passes=4, lam=0.34, mu=-0.35):
+    """
+    Zero-shrinkage Taubin low-pass filter on interior Z heights ONLY (preserving XY Delaunay
+    planarity and perimeter heights), removing vertex-to-vertex triangular ridge zigzags
+    while retaining ~99% of sculpted pebble/cliff amplitude and solid volume.
+    """
+    if passes <= 0:
+        return verts
+    v_out = verts.copy()
+    n_v = len(v_out)
+    u = np.concatenate([tri_top[:, 0], tri_top[:, 1], tri_top[:, 2]])
+    v = np.concatenate([tri_top[:, 1], tri_top[:, 2], tri_top[:, 0]])
+    a = np.minimum(u, v).astype(np.int64)
+    b = np.maximum(u, v).astype(np.int64)
+    keys = np.unique(a * np.int64(n_v) + b)
+    ea = (keys // np.int64(n_v)).astype(np.int32)
+    eb = (keys % np.int64(n_v)).astype(np.int32)
+
+    deg = np.zeros(n_v, dtype=np.float64)
+    np.add.at(deg, ea, 1.0)
+    np.add.at(deg, eb, 1.0)
+    deg = np.maximum(deg, 1.0)
+
+    # Ramp smoothly inside the sculpted terrain (never disturb flat road margin or outer rim)
+    weight_mask = np.clip((top_dist - float(min_dist)) / 1.5, 0.0, 1.0)
+
+    z = v_out[:, 2].copy()
+    z_sum = np.zeros(n_v, dtype=np.float64)
+    for _ in range(passes):
+        for w in (float(lam), float(mu)):
+            z_sum.fill(0.0)
+            np.add.at(z_sum, ea, z[eb])
+            np.add.at(z_sum, eb, z[ea])
+            dz = (z_sum / deg) - z
+            z += (w * weight_mask) * dz
+    v_out[:, 2] = z
+    return v_out
+
+
 def build_contour_aligned_hex_solid(
-    X, Y, Z, dist_edge, n_bnd=144, n_mag=32, include_magnet=True, flip_passes=4
+    X, Y, Z, dist_edge, n_bnd=144, n_mag=32, include_magnet=True, flip_passes=4,
+    subdivide_passes=0, edge_len_3d_max=0.175, slope_deg_thresh=38.0, taubin_passes=0, Z_dem=None
 ):
     """
     Watertight hex prism solid builder matching `nanobanana_to_catan_hex.build_solid_hex_mesh`,
-    upgraded with contour-aligned Delaunay edge flipping to eliminate sawtooth cliffs.
+    upgraded with contour-aligned Delaunay edge flipping, optional conformal Red-Green
+    adaptive 3D subdivision, and zero-shrinkage Taubin smoothing.
     """
     mask_in = dist_edge >= 1.25
     pts_int = np.column_stack([X[mask_in], Y[mask_in], Z[mask_in]]).astype(np.float64)
@@ -256,10 +459,23 @@ def build_contour_aligned_hex_solid(
     all_top_verts = np.vstack([pts_int, pts_top_bnd])
     top_dist = np.concatenate([in_dist, bnd_dist])
     top_bnd_start = len(pts_int)
-    bot_bnd_start = len(all_top_verts)
 
     tri_top = Delaunay(all_top_verts[:, :2]).simplices.astype(np.int32)
     tri_top, n_flips = contour_aligned_edge_flip(all_top_verts, tri_top, dist_top=top_dist, passes=flip_passes)
+
+    if subdivide_passes > 0 and Z_dem is not None:
+        all_top_verts, tri_top, top_dist = subdivide_tri_top_adaptive(
+            all_top_verts, tri_top, top_dist, Z_dem,
+            edge_len_3d_max=edge_len_3d_max, slope_deg_thresh=slope_deg_thresh,
+            passes=subdivide_passes,
+        )
+        tri_top, n_flips2 = contour_aligned_edge_flip(all_top_verts, tri_top, dist_top=top_dist, passes=2)
+        n_flips += n_flips2
+
+    if taubin_passes > 0:
+        all_top_verts = taubin_smooth_interior_z(all_top_verts, tri_top, top_dist, passes=taubin_passes)
+
+    bot_bnd_start = len(all_top_verts)
 
     p0, p1, p2 = all_top_verts[tri_top[:, 0]], all_top_verts[tri_top[:, 1]], all_top_verts[tri_top[:, 2]]
     flip = ((p1[:, 0] - p0[:, 0]) * (p2[:, 1] - p0[:, 1]) - (p1[:, 1] - p0[:, 1]) * (p2[:, 0] - p0[:, 0])) < 0

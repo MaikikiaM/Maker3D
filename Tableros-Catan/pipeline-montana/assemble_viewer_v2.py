@@ -26,6 +26,9 @@ from PIL import Image
 OUT_DIR = "Tableros-Catan/Loseta_Montana_3D"
 SCRATCH_DIR = "Tableros-Catan/pipeline-montana/scratch_v2"
 TRIPLANAR_MODE = "none"  # "none" | "forest" | "clay"
+USE_SMOOTH_TANGENTS = False
+SHADOW_BIAS = -0.0006
+SHADOW_NORMAL_BIAS = 0.35
 
 TARGET_PATHS = [
     "Tableros-Catan/Loseta_Montana_3D/catan_mountain_viewer.html",
@@ -305,6 +308,7 @@ def build_viewer():
     const FACES_GZ = "{faces_gz}";
     const VCOLS_GZ = "{vcols_gz}";
     const TRIPLANAR_MODE = "{TRIPLANAR_MODE}";
+    const USE_SMOOTH_TANGENTS = {"true" if USE_SMOOTH_TANGENTS else "false"};
     const DIFF_URI = "{diff_uri}";
     const NORM_URI = "{norm_uri}";
     const ROUGH_URI = "{rough_uri}";
@@ -396,8 +400,24 @@ def build_viewer():
         geom.setIndex(new THREE.BufferAttribute(idxArr, 1));
         geom.computeVertexNormals();
 
-        // Precompute vertex slope color attribute for Slope Audit mode
+        // Precompute vertex slope color attribute for Slope Audit mode & smooth tangents
         const nrmAttr = geom.getAttribute("normal");
+        if (USE_SMOOTH_TANGENTS) {{
+          const tanArr = new Float32Array(nrmAttr.count * 4);
+          for (let i = 0; i < nrmAttr.count; i++) {{
+            const nx = nrmAttr.getX(i), ny = nrmAttr.getY(i), nz = nrmAttr.getZ(i);
+            const useY = Math.abs(nx) > 0.94;
+            const ax = useY ? 0.0 : 1.0, ay = useY ? 1.0 : 0.0;
+            const d = ax * nx + ay * ny;
+            let tx = ax - d * nx, ty = ay - d * ny, tz = -d * nz;
+            const tl = Math.hypot(tx, ty, tz) || 1.0;
+            tanArr[i * 4] = tx / tl;
+            tanArr[i * 4 + 1] = ty / tl;
+            tanArr[i * 4 + 2] = tz / tl;
+            tanArr[i * 4 + 3] = 1.0;
+          }}
+          geom.setAttribute("tangent", new THREE.BufferAttribute(tanArr, 4));
+        }}
         const slopeCols = new Float32Array(posArr.length);
         for (let i = 0; i < nrmAttr.count; i++) {{
           const nz = Math.abs(nrmAttr.getZ(i));
@@ -495,8 +515,8 @@ def build_viewer():
         sunLight.shadow.camera.bottom = -74;
         sunLight.shadow.camera.near = 25;
         sunLight.shadow.camera.far = 360;
-        sunLight.shadow.bias = -0.0006;
-        sunLight.shadow.normalBias = 0.35;
+        sunLight.shadow.bias = {SHADOW_BIAS};
+        sunLight.shadow.normalBias = {SHADOW_NORMAL_BIAS};
         scene.add(sunLight);
         const rimLight = new THREE.DirectionalLight(0x7dd3fc, 0.36);
         rimLight.position.set(-120, 120, 85);
@@ -507,6 +527,7 @@ def build_viewer():
         // Materials
         const hasTreeVCol = !!vcBuf;
         const useTriShader = (TRIPLANAR_MODE !== "none") || hasTreeVCol;
+        const tanOpt = USE_SMOOTH_TANGENTS ? {{ vertexTangents: true, defines: {{ USE_TANGENT: "" }} }} : {{}};
         const matPBR = new THREE.MeshStandardMaterial({{
           map: diffTex,
           normalMap: normTex,
@@ -516,6 +537,7 @@ def build_viewer():
           metalness: 0.02,
           envMapIntensity: 0.52,
           clippingPlanes: [clipPlane],
+          ...tanOpt,
         }});
         if (useTriShader) {{
           matPBR.onBeforeCompile = (shader) => {{
@@ -672,6 +694,7 @@ def build_viewer():
           metalness: 0.04,
           envMapIntensity: 0.75,
           clippingPlanes: [clipPlane],
+          ...tanOpt,
         }});
         if (useTriShader) {{
           matClay.onBeforeCompile = (shader) => {{

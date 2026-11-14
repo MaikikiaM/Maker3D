@@ -114,7 +114,7 @@ def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filte
     return np.clip(rgb * 255.0, 0.0, 255.0).astype(np.uint8), max_snow_steep
 
 
-def sculpt_albedo_microrelief(Z, diff_rgb, dist_edge, dist_vert, dx, max_bump_mm=0.95):
+def sculpt_albedo_microrelief(Z, diff_rgb, dist_edge, dist_vert, dx, max_bump_mm=0.95, crown_smooth_mm=0.0):
     """Carve physical 3D stone domes, mineral cracks, crystalline gold outcrops & wave ribs from high-res albedo."""
     rgb_f = diff_rgb.astype(np.float32) / 255.0
     r, g, b = rgb_f[..., 0], rgb_f[..., 1], rgb_f[..., 2]
@@ -132,6 +132,10 @@ def sculpt_albedo_microrelief(Z, diff_rgb, dist_edge, dist_vert, dx, max_bump_mm
     l_broad = ndi.gaussian_filter(lum, s_broad)
 
     stone_domes = np.clip((l_fine - l_meso) * 2.6 + (l_meso - l_broad) * 1.15, -0.60, 0.80)
+    if crown_smooth_mm > 0.0:
+        # Round sub-2-triangle sharp spire tips into natural convex pebble domes without flattening height
+        stone_domes = ndi.gaussian_filter(stone_domes, max(1.0, crown_smooth_mm / dx))
+        stone_domes = np.sign(stone_domes) * np.power(np.abs(stone_domes) / 0.80 + 1e-6, 0.82) * 0.80
     crevice_groove = np.clip((l_meso - l_fine) - 0.045, 0.0, 0.48) * 1.65
     gold_facets = is_gold * nb.smoothstep(0.38, 0.82, lum) * (0.65 + 0.70 * np.clip(l_fine - l_meso + 0.25, 0.0, 0.75))
 
@@ -143,6 +147,9 @@ def sculpt_albedo_microrelief(Z, diff_rgb, dist_edge, dist_vert, dx, max_bump_mm
     water_relief = max_bump_mm * 0.34 * is_foam
 
     bump = (1.0 - is_water) * rock_relief + is_water * water_relief
+    if crown_smooth_mm > 0.0:
+        # Ultra-light Nyquist anti-aliasing on vertex scale (< 0.09mm) so facets don't alias into needle spikes
+        bump = ndi.gaussian_filter(bump, max(0.85, (crown_smooth_mm * 0.75) / dx))
     core = nb.smoothstep(nb.ROAD_MARGIN + 0.65, nb.ROAD_MARGIN + 2.8, dist_edge) * nb.smoothstep(nb.PAD_RADIUS + 0.65, nb.PAD_RADIUS + 2.8, dist_vert)
     return (Z + bump * core).astype(np.float32)
 
@@ -177,13 +184,21 @@ def deink_mineral_albedo(diff_rgb, dist_edge, dist_vert, dx):
     return np.clip(deinked * 255.0, 0, 255).astype(np.uint8)
 
 
-def compute_enhanced_pbr_maps(Z, diff_rgb, dx, dy, micro_norm_strength=0.32):
-    """Generate tangent-space normal map fusing DEM geometry + painted albedo micro-relief, and material roughness."""
+def compute_enhanced_pbr_maps(Z, diff_rgb, dx, dy, micro_norm_strength=0.32, tangent_residual=False):
+    """Generate tangent-space normal map (either macro+micro or pure high-freq residual) and material roughness."""
     gy, gx = np.gradient(Z, dy, dx)
     rgb_f = diff_rgb.astype(np.float32) / 255.0
     lum = 0.2126 * rgb_f[:, :, 0] + 0.7152 * rgb_f[:, :, 1] + 0.0722 * rgb_f[:, :, 2]
 
-    if micro_norm_strength > 0.0:
+    if tangent_residual:
+        # Pure tangent-space micro-grain/crevice detail centered at (128,128,255); avoids double-tilting Z normals
+        hp_lum = lum - ndi.gaussian_filter(lum, sigma=max(1.8, 0.14 / dx))
+        z_res = Z - ndi.gaussian_filter(Z, sigma=max(1.6, 0.18 / dx))
+        lgy, lgx = np.gradient(hp_lum * (max(micro_norm_strength, 0.1) * 1.4), dy, dx)
+        zgy, zgx = np.gradient(z_res * 0.35, dy, dx)
+        gx_tot = np.clip(lgx + zgx, -1.25, 1.25)
+        gy_tot = np.clip(lgy + zgy, -1.25, 1.25)
+    elif micro_norm_strength > 0.0:
         hp = lum - ndi.gaussian_filter(lum, sigma=2.2)
         mgy, mgx = np.gradient(hp * (micro_norm_strength * 3.5), dy, dx)
         gx_tot = gx + mgx
@@ -381,6 +396,11 @@ def main():
     p.add_argument("--triplanar-mode", choices=["none", "clay", "forest", "rock"], default="none")
     p.add_argument("--keep-dark-rock", action="store_true", help="Preserve dark basalt/slate rock cliffs near the perimeter instead of painting warm fill.")
     p.add_argument("--sculpt-from-albedo", type=float, default=0.0, help="If >0, carve physical 3D rock fractures, cobble/pebble domes, gold clusters & wave ribs (max mm) directly into Z(x,y).")
+    p.add_argument("--sculpt-crown-mm", type=float, default=0.0, help="Sub-pixel spire-crown rounding radius (mm) on sculpted pebbles/ridges.")
+    p.add_argument("--tangent-norm", action="store_true", help="Emit pure residual tangent-space normalMap + analytic per-vertex tangents in Three.js (kills dFdx/dFdy wall facets).")
+    p.add_argument("--subdivide-passes", type=int, default=0, help="Conformal Red-Green 3D adaptive triangle refinement passes on steep walls & sculpted peaks.")
+    p.add_argument("--edge-len-max", type=float, default=0.175, help="Max 3D edge length threshold (mm) for adaptive subdivision.")
+    p.add_argument("--taubin-passes", type=int, default=0, help="Zero-shrinkage Taubin smoothing passes on interior terrain Z.")
     p.add_argument("--snow-filter", action="store_true")
     p.add_argument("--alpine-v3-palette", action="store_true", help="Warm limestone granite, green valley moss, copper scree & <44 deg snow palette.")
     p.add_argument("--auto-mineral-albedo", action="store_true", help="Fallback: paint Nano Banana DEM with V3 hyperreal mineral-runoff PBR shader.")
@@ -403,7 +423,7 @@ def main():
         alb_arr = np.asarray(Image.open(args.albedo).convert("RGB"))
         diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
         if args.sculpt_from_albedo > 0.0:
-            Zt = sculpt_albedo_microrelief(Zt, diff_raw, dist_t, dist_vt, dxt, max_bump_mm=args.sculpt_from_albedo)
+            Zt = sculpt_albedo_microrelief(Zt, diff_raw, dist_t, dist_vt, dxt, max_bump_mm=args.sculpt_from_albedo, crown_smooth_mm=args.sculpt_crown_mm)
             diff_raw = deink_mineral_albedo(diff_raw, dist_t, dist_vt, dxt)
     if args.slope_cap_grad > 0.0:
         n_cap_t = max(6, int(round(1.5 / dxt)))
@@ -422,7 +442,7 @@ def main():
     if args.alpine_v3_palette:
         d_u8 = synthesize_alpine_v3_albedo(Xt, Yt, Zt, dist_t, dist_vt, dxt, dyt, args.relief_mm)
         diff_rgb, max_snow = refine_biome_albedo(d_u8, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=True, snowline_mm=args.relief_mm * 0.30)
-        norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm)
+        norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm, tangent_residual=args.tangent_norm)
     elif args.auto_mineral_albedo:
         rmf_m = pv3.ridged_multifractal_xy(Xt, Yt, seed=401)
         rmf_f = pv3.ridged_multifractal_xy(Xt, Yt, seed=402)
@@ -441,13 +461,13 @@ def main():
         d_u8 = np.clip(d_mix * 255.0, 0, 255).astype(np.uint8)
         diff_rgb, max_snow_phys = refine_biome_albedo(d_u8, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=True, snowline_mm=args.relief_mm * 0.38)
         max_snow = max(float(shader_stats.get("max_snow_steep", 0.0)), max_snow_phys)
-        norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm)
+        norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm, tangent_residual=args.tangent_norm)
     else:
         if diff_raw is None:
             alb_arr = np.asarray(Image.open(args.albedo).convert("RGB"))
             diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
         diff_rgb, max_snow = refine_biome_albedo(diff_raw, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=args.snow_filter, keep_dark_rock=args.keep_dark_rock)
-        norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm)
+        norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm, tangent_residual=args.tangent_norm)
 
     nb.save_uv_aligned_png(diff_rgb, os.path.join(out_dir, "catan_mountain_diffuse_2k.png"))
     nb.save_uv_aligned_png(norm_u8, os.path.join(out_dir, "catan_mountain_normal_2k.png"))
@@ -466,9 +486,11 @@ def main():
         dist_w, _ = nb.hex_distances(Xw, Yw)
         Zw = tmu.resample_canonical_xy(Zt, Xw, Yw, lim=nb.R)
         verts, faces, n_flips = tmu.build_contour_aligned_hex_solid(
-            Xw, Yw, Zw, dist_w, n_bnd=168, n_mag=32, include_magnet=True, flip_passes=6
+            Xw, Yw, Zw, dist_w, n_bnd=168, n_mag=32, include_magnet=True, flip_passes=6,
+            subdivide_passes=args.subdivide_passes, edge_len_3d_max=args.edge_len_max,
+            taubin_passes=args.taubin_passes, Z_dem=Zt,
         )
-        print(f"[Contour-Aligned Mesh] nx={args.nx} ny={ny} flips={n_flips} V={len(verts)} F={len(faces)}")
+        print(f"[Contour-Aligned Mesh] nx={args.nx} ny={ny} flips={n_flips} subdiv={args.subdivide_passes} taubin={args.taubin_passes} V={len(verts)} F={len(faces)}")
     else:
         verts, faces = nb.build_solid_hex_mesh(Xm, Ym, Zm, dist_m, include_magnet=True)
     stats = nb.verify_watertight(verts, faces)
@@ -495,6 +517,10 @@ def main():
     av2.SCRATCH_DIR = out_dir
     av2.TARGET_PATHS = [viewer_html]
     av2.TRIPLANAR_MODE = args.triplanar_mode
+    av2.USE_SMOOTH_TANGENTS = args.tangent_norm
+    if args.tangent_norm:
+        av2.SHADOW_BIAS = -0.00025
+        av2.SHADOW_NORMAL_BIAS = 0.08
     av2.build_viewer()
 
     with open(viewer_html, "r", encoding="utf-8") as hf:
