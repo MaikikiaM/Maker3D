@@ -519,7 +519,7 @@ def build_viewer():
         }});
         if (useTriShader) {{
           matPBR.onBeforeCompile = (shader) => {{
-            shader.uniforms.uTriMode = {{ value: TRIPLANAR_MODE === "clay" ? 1.0 : (TRIPLANAR_MODE === "forest" ? 2.0 : 0.0) }};
+            shader.uniforms.uTriMode = {{ value: TRIPLANAR_MODE === "clay" ? 1.0 : (TRIPLANAR_MODE === "forest" ? 2.0 : (TRIPLANAR_MODE === "rock" ? 3.0 : 0.0)) }};
             shader.uniforms.uHasTree = {{ value: hasTreeVCol ? 1.0 : 0.0 }};
             shader.vertexShader = shader.vertexShader
               .replace(
@@ -594,7 +594,7 @@ def build_viewer():
                     bandTint *= (0.94 + 0.09 * strata2);
                     vec3 cliffCol = avgCol * bandTint * (0.94 + 0.24 * fine);
                     diffuseColor.rgb = mix(diffuseColor.rgb, cliffCol, steepWall * 0.95);
-                  }} else {{
+                  }} else if (uTriMode < 2.5) {{
                     // Forest boulder / earth 3D granite stone & moss grain (zero vertical streak)
                     float duf = 0.0095;
                     vec3 sf1 = mapTexelToLinear(texture2D(map, vUv + vec2(duf, duf))).rgb;
@@ -606,6 +606,14 @@ def build_viewer():
                     vec3 slateMix = mix(fBlur, vec3(0.18, 0.19, 0.18), isStone * 0.32);
                     vec3 rockCol = slateMix * (0.88 + 0.34 * gran) * (0.84 + 0.24 * frac);
                     diffuseColor.rgb = mix(diffuseColor.rgb, rockCol, steepWall * 0.90);
+                  }} else {{
+                    // Basalt / Gold Canyon 3D horizontal rock ledges & crystalline quartz detail (zero vertical streak)
+                    float warp = fbm3D(vObjPos * 0.18) * 2.2;
+                    float bed = sin(vObjPos.z * 3.8 + warp);
+                    float gran = fbm3D(vObjPos * 1.45) - 0.5;
+                    float crack = smoothstep(0.08, 0.55, abs(fbm3D(vObjPos * 0.55) * 2.0 - 1.0));
+                    vec3 rockCol = avgCol * (0.86 + 0.18 * bed) * (0.90 + 0.30 * gran) * (0.78 + 0.26 * crack);
+                    diffuseColor.rgb = mix(diffuseColor.rgb, rockCol, steepWall * 0.92);
                   }}
                 }}
                 ${{hasTreeVCol ? `

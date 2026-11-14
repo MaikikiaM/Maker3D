@@ -40,7 +40,7 @@ def refine_heightmap(hm_u8, gamma=0.80, blur_px=1.0, ridge_clean=0.0):
     return np.clip(opened * 255.0, 0.0, 255.0).astype(np.float32)
 
 
-def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filter=False, snowline_mm=15.0):
+def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filter=False, snowline_mm=15.0, keep_dark_rock=False):
     """Enforce cavity readability, zero perimeter-skirt creep, clean slate collar, and optional physical snow."""
     rgb = diffuse_rgb.astype(np.float32) / 255.0
     gy, gx = np.gradient(ndi.gaussian_filter(Z, 0.35 / dx), dy, dx)
@@ -85,17 +85,18 @@ def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filte
     dark_t = (terrain_core > 0.5) & (lum2 < 0.22)
     rgb = np.clip(rgb * np.where(dark_t, 1.12, 1.0)[..., None], 0.0, 1.0)
 
-    # Remove accidental grey slate road-border bleed climbing up outer sculpted banks (ONLY on raised/sloped terrain!)
-    sat_pre = np.max(rgb, axis=-1) - np.min(rgb, axis=-1)
-    near_rim = (dist_edge < nb.ROAD_MARGIN + 5.8) | (dist_vert < nb.PAD_RADIUS + 5.8)
-    in_sculpt = (dist_edge > nb.ROAD_MARGIN + 0.15) & (dist_vert > nb.PAD_RADIUS + 0.15) & ((relief > 0.65) | (slope_deg > 16.0))
-    bad_slate = in_sculpt & near_rim & (sat_pre < 0.105) & (lum2 < 0.44)
-    if np.any(bad_slate):
-        good_src = ((dist_edge > nb.ROAD_MARGIN + 2.2) & (dist_vert > nb.PAD_RADIUS + 2.2) & (sat_pre >= 0.11) & (relief > 0.65)).astype(np.float32)
-        gw = ndi.gaussian_filter(good_src, sigma=max(4.5 / dx, 4.0)) + 1e-5
-        warm_fill = np.stack([ndi.gaussian_filter(rgb[:, :, c] * good_src, sigma=max(4.5 / dx, 4.0)) / gw for c in range(3)], axis=-1)
-        slate_m = np.clip(ndi.gaussian_filter(bad_slate.astype(np.float32), sigma=max(0.8 / dx, 1.5)) * 1.25, 0.0, 1.0)[..., None]
-        rgb = rgb * (1.0 - slate_m) + warm_fill * slate_m
+    # Remove accidental grey slate road-border bleed climbing up outer sculpted banks (ONLY on non-basalt biomes!)
+    if not keep_dark_rock:
+        sat_pre = np.max(rgb, axis=-1) - np.min(rgb, axis=-1)
+        near_rim = (dist_edge < nb.ROAD_MARGIN + 5.8) | (dist_vert < nb.PAD_RADIUS + 5.8)
+        in_sculpt = (dist_edge > nb.ROAD_MARGIN + 0.15) & (dist_vert > nb.PAD_RADIUS + 0.15) & ((relief > 0.65) | (slope_deg > 16.0))
+        bad_slate = in_sculpt & near_rim & (sat_pre < 0.105) & (lum2 < 0.44)
+        if np.any(bad_slate):
+            good_src = ((dist_edge > nb.ROAD_MARGIN + 2.2) & (dist_vert > nb.PAD_RADIUS + 2.2) & (sat_pre >= 0.11) & (relief > 0.65)).astype(np.float32)
+            gw = ndi.gaussian_filter(good_src, sigma=max(4.5 / dx, 4.0)) + 1e-5
+            warm_fill = np.stack([ndi.gaussian_filter(rgb[:, :, c] * good_src, sigma=max(4.5 / dx, 4.0)) / gw for c in range(3)], axis=-1)
+            slate_m = np.clip(ndi.gaussian_filter(bad_slate.astype(np.float32), sigma=max(0.8 / dx, 1.5)) * 1.25, 0.0, 1.0)[..., None]
+            rgb = rgb * (1.0 - slate_m) + warm_fill * slate_m
 
     # Strictly clamp architectural dark slate collar across the entire flat hex bezel & settlement pads (never climb raised terrain!)
     on_border = np.maximum(
@@ -314,7 +315,8 @@ def main():
     p.add_argument("--contour-align", action="store_true", help="Concentrate grid toward steep walls & flip Delaunay diagonals along height contours.")
     p.add_argument("--slope-cap-grad", type=float, default=0.0, help="If >0, gently cap near-vertical cliffs to max dZ/dX gradient (e.g. 1.45 -> ~55 deg scarp).")
     p.add_argument("--warp-strength", type=float, default=0.42, help="Grid slope attraction strength when --contour-align is active.")
-    p.add_argument("--triplanar-mode", choices=["none", "clay", "forest"], default="none")
+    p.add_argument("--triplanar-mode", choices=["none", "clay", "forest", "rock"], default="none")
+    p.add_argument("--keep-dark-rock", action="store_true", help="Preserve dark basalt/slate rock cliffs near the perimeter instead of painting warm fill.")
     p.add_argument("--snow-filter", action="store_true")
     p.add_argument("--alpine-v3-palette", action="store_true", help="Warm limestone granite, green valley moss, copper scree & <44 deg snow palette.")
     p.add_argument("--auto-mineral-albedo", action="store_true", help="Fallback: paint Nano Banana DEM with V3 hyperreal mineral-runoff PBR shader.")
@@ -372,7 +374,7 @@ def main():
     else:
         alb_arr = np.asarray(Image.open(args.albedo).convert("RGB"))
         diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
-        diff_rgb, max_snow = refine_biome_albedo(diff_raw, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=args.snow_filter)
+        diff_rgb, max_snow = refine_biome_albedo(diff_raw, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=args.snow_filter, keep_dark_rock=args.keep_dark_rock)
         norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm)
 
     nb.save_uv_aligned_png(diff_rgb, os.path.join(out_dir, "catan_mountain_diffuse_2k.png"))
