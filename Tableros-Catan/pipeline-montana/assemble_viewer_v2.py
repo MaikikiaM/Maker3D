@@ -495,8 +495,8 @@ def build_viewer():
         sunLight.shadow.camera.bottom = -74;
         sunLight.shadow.camera.near = 25;
         sunLight.shadow.camera.far = 360;
-        sunLight.shadow.bias = -0.00025;
-        sunLight.shadow.normalBias = 0.08;
+        sunLight.shadow.bias = -0.0006;
+        sunLight.shadow.normalBias = 0.35;
         scene.add(sunLight);
         const rimLight = new THREE.DirectionalLight(0x7dd3fc, 0.36);
         rimLight.position.set(-120, 120, 85);

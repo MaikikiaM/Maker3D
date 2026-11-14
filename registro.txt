@@ -277,3 +277,12 @@ Decisiones técnicas y métricas:
 - **Compilación ultra-densa (`--nx 1120 --warp-strength 0.18 --sculpt-from-albedo 0.78 --micro-norm 0.36`):** `2,222,225` flips de arista alineados a contorno -> `V=1,036,503 | F=2,073,002 Δ | χ=2 | wt=True | wnd=True | degen=0 | Vol=376.3993 cm³ | Z=51.34 mm` (`Visores-HTML/catan-bioma-oro.html`, `37.29 MB < 50 MB`).
 - **Verificación:** Relieve 3D nítido confirmado en `oro_clay_overhead.png` y macro WebGL (`eb37e20d`, `0` errores, captura `final_step_110.png`).
 ================================================================================
+
+================================================================================
+SESIÓN: 14/11/2026 - RESTAURACIÓN EXACTA DEL ESCULPIDO 3D ORIGINAL (`task-2304`) A 2.30M Δ EN BIOMA 7 (`oro`)
+Prompt usuario: Recuperar exactamente el aspecto esculpido 3D original previo a `1ceedac`/`585bb34`/`9d12132` (foto #1 del usuario, `Vol=376.50 cm³`) y resolver únicamente la visibilidad de triángulos elevando la densidad de malla.
+Diagnóstico y decisiones técnicas (`build_catan_biome.py` + `assemble_viewer_v2.py`):
+- **Causa raíz confirmada:** La captura de referencia #1 provenía de `task-2304` (`--sculpt-from-albedo 0.95 --warp-strength 0.34 --micro-norm 0.34`, sin `wall_damp` ni `tanh`), anterior al suavizado introducido ya en `1ceedac` (`0.58`, `wall_damp`, `tanh`). Por ello `git checkout 1ceedac` seguía viéndose rebajado respecto a la foto #1.
+- **Restauración exacta + duplicación de resolución (`--nx 1180`):** Restaurado `sculpt_albedo_microrelief` de `task-2304` (`max_bump_mm=0.95`, `rock_relief = max_bump_mm * (1.05 * stone_domes - 0.82 * crevice_groove + 0.65 * gold_facets)`, sin `wall_damp` ni `tanh`) y `assemble_viewer_v2.py` limpio de `1ceedac` (`shadow.normalBias = 0.35`). Compilación resultante: `nx=1180 ny=1363 | flips=2,404,067 | V=1,150,765 | F=2,301,526 Δ | χ=2 | watertight=True | degen=0 | Vol=376.51 cm³ | Z=51.0 mm` (`Visores-HTML/catan-bioma-oro.html`, `39.22 MB < 50 MB`).
+- **Verificación visual WebGL + STL:** Auditoría `trimesh` sobre `Tableros-Catan/pipeline-biomas/oro/catan_oro.stl` (`watertight=True`, `chi=2`, `degen=0`, `vol_cm3=376.51`) y doble captura en Chromium (`e82fbbe7-c09d-412c-8013-95addddf64b4`, `0` errores): vista isométrica principal (`final_step_4.png`) y primer plano macro extremo (`final_step_36.png`) confirmando relieve 3D idéntico a la foto #1 con malla 2x más fina.
+================================================================================
