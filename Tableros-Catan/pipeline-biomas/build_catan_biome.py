@@ -40,7 +40,7 @@ def refine_heightmap(hm_u8, gamma=0.80, blur_px=1.0, ridge_clean=0.0):
     return np.clip(opened * 255.0, 0.0, 255.0).astype(np.float32)
 
 
-def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filter=False, snowline_mm=15.0, keep_dark_rock=False):
+def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filter=False, snowline_mm=15.0, keep_dark_rock=False, photoreal=False):
     """Enforce cavity readability, zero perimeter-skirt creep, clean slate collar, and optional physical snow."""
     rgb = diffuse_rgb.astype(np.float32) / 255.0
     gy, gx = np.gradient(ndi.gaussian_filter(Z, 0.35 / dx), dy, dx)
@@ -79,11 +79,11 @@ def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filte
 
     # Subtle geometric cavity AO + shadow recovery inside terrain (zero edge darkening)
     z_smooth = ndi.gaussian_filter(Z, sigma=max(1.4 / dx, 2.0))
-    cavity = np.clip((Z - z_smooth) * 0.055, -0.14, 0.05)
+    cavity = np.clip((Z - z_smooth) * (0.028 if photoreal else 0.055), -0.05 if photoreal else -0.14, 0.06 if photoreal else 0.05)
     terrain_core = nb.smoothstep(nb.ROAD_MARGIN + 0.25, nb.ROAD_MARGIN + 1.5, dist_edge) * nb.smoothstep(nb.PAD_RADIUS + 0.25, nb.PAD_RADIUS + 1.5, dist_vert)
     rgb = np.clip(rgb * (1.0 + cavity * terrain_core)[..., None], 0.0, 1.0)
     dark_t = (terrain_core > 0.5) & (lum2 < 0.22)
-    rgb = np.clip(rgb * np.where(dark_t, 1.12, 1.0)[..., None], 0.0, 1.0)
+    rgb = np.clip(rgb * np.where(dark_t, 1.15 if photoreal else 1.12, 1.0)[..., None], 0.0, 1.0)
 
     # Remove accidental grey slate road-border bleed climbing up outer sculpted banks (ONLY on non-basalt biomes!)
     if not keep_dark_rock:
@@ -200,7 +200,7 @@ def deink_mineral_albedo(diff_rgb, dist_edge, dist_vert, dx):
     return np.clip(deinked * 255.0, 0, 255).astype(np.uint8)
 
 
-def compute_enhanced_pbr_maps(Z, diff_rgb, dx, dy, micro_norm_strength=0.32, tangent_residual=False):
+def compute_enhanced_pbr_maps(Z, diff_rgb, dx, dy, micro_norm_strength=0.32, tangent_residual=False, photoreal=False):
     """Generate tangent-space normal map (either macro+micro or pure high-freq residual) and material roughness."""
     gy, gx = np.gradient(Z, dy, dx)
     rgb_f = diff_rgb.astype(np.float32) / 255.0
@@ -208,12 +208,14 @@ def compute_enhanced_pbr_maps(Z, diff_rgb, dx, dy, micro_norm_strength=0.32, tan
 
     if tangent_residual:
         # Pure tangent-space micro-grain/crevice detail centered at (128,128,255); avoids double-tilting Z normals
-        hp_lum = lum - ndi.gaussian_filter(lum, sigma=max(1.8, 0.14 / dx))
+        hp_sigma = max(1.2, 0.09 / dx) if photoreal else max(1.8, 0.14 / dx)
+        hp_gain = 1.85 if photoreal else 1.4
+        hp_lum = lum - ndi.gaussian_filter(lum, sigma=hp_sigma)
         z_res = Z - ndi.gaussian_filter(Z, sigma=max(1.6, 0.18 / dx))
-        lgy, lgx = np.gradient(hp_lum * (max(micro_norm_strength, 0.1) * 1.4), dy, dx)
-        zgy, zgx = np.gradient(z_res * 0.12, dy, dx)
-        gx_tot = np.clip(lgx + zgx, -1.05, 1.05)
-        gy_tot = np.clip(lgy + zgy, -1.05, 1.05)
+        lgy, lgx = np.gradient(hp_lum * (max(micro_norm_strength, 0.1) * hp_gain), dy, dx)
+        zgy, zgx = np.gradient(z_res * (0.14 if photoreal else 0.12), dy, dx)
+        gx_tot = np.clip(lgx + zgx, -1.15 if photoreal else -1.05, 1.15 if photoreal else 1.05)
+        gy_tot = np.clip(lgy + zgy, -1.15 if photoreal else -1.05, 1.15 if photoreal else 1.05)
     elif micro_norm_strength > 0.0:
         hp = lum - ndi.gaussian_filter(lum, sigma=2.2)
         mgy, mgx = np.gradient(hp * (micro_norm_strength * 3.5), dy, dx)
@@ -230,9 +232,14 @@ def compute_enhanced_pbr_maps(Z, diff_rgb, dx, dy, micro_norm_strength=0.32, tan
 
     slope_deg = np.degrees(np.arctan(np.hypot(gx, gy)))
     sat = np.max(rgb_f, axis=-1) - np.min(rgb_f, axis=-1)
-    # Matte foliage/soil (~0.84), rough sheer rock (~0.90), crisp sunlit limestone/snow/mineral crests (~0.56..0.68)
-    rough = 0.80 + 0.11 * nb.smoothstep(24.0, 58.0, slope_deg) + 0.06 * nb.smoothstep(0.15, 0.45, sat) - 0.24 * nb.smoothstep(0.68, 0.94, lum)
-    r_u8 = np.clip(rough * 255.0, 85, 245).astype(np.uint8)
+    if photoreal:
+        # Natural sunlit mineral response: crisp specular highlights on quartzite/wet pebbles (~0.40..0.68), zero chalkiness
+        rough = 0.62 + 0.10 * nb.smoothstep(24.0, 58.0, slope_deg) + 0.04 * nb.smoothstep(0.15, 0.45, sat) - 0.22 * nb.smoothstep(0.62, 0.90, lum)
+        r_u8 = np.clip(rough * 255.0, 65, 225).astype(np.uint8)
+    else:
+        # Matte foliage/soil (~0.84), rough sheer rock (~0.90), crisp sunlit limestone/snow/mineral crests (~0.56..0.68)
+        rough = 0.80 + 0.11 * nb.smoothstep(24.0, 58.0, slope_deg) + 0.06 * nb.smoothstep(0.15, 0.45, sat) - 0.24 * nb.smoothstep(0.68, 0.94, lum)
+        r_u8 = np.clip(rough * 255.0, 85, 245).astype(np.uint8)
     rough_u8 = np.stack([r_u8, r_u8, r_u8], axis=-1)
     return normal_u8, rough_u8
 
@@ -414,6 +421,7 @@ def main():
     p.add_argument("--sculpt-from-albedo", type=float, default=0.0, help="If >0, carve physical 3D rock fractures, cobble/pebble domes, gold clusters & wave ribs (max mm) directly into Z(x,y).")
     p.add_argument("--sculpt-crown-mm", type=float, default=0.0, help="Sub-pixel spire-crown rounding radius (mm) on sculpted pebbles/ridges.")
     p.add_argument("--tangent-norm", action="store_true", help="Emit pure residual tangent-space normalMap + analytic per-vertex tangents in Three.js (kills dFdx/dFdy wall facets).")
+    p.add_argument("--photoreal", action="store_true", help="Preserve photorealistic Nano Banana 4K contrast/vibrancy (skip comic deink, boost specular & exposure).")
     p.add_argument("--subdivide-passes", type=int, default=0, help="Conformal Red-Green 3D adaptive triangle refinement passes on steep walls & sculpted peaks.")
     p.add_argument("--edge-len-max", type=float, default=0.175, help="Max 3D edge length threshold (mm) for adaptive subdivision.")
     p.add_argument("--curv-thresh", type=float, default=0.0, help="Face-to-vertex normal curvature threshold (deg) to also subdivide curved ridge crests & pebbles.")
@@ -443,7 +451,8 @@ def main():
         diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
         if args.sculpt_from_albedo > 0.0:
             Zt = sculpt_albedo_microrelief(Zt, diff_raw, dist_t, dist_vt, dxt, max_bump_mm=args.sculpt_from_albedo, crown_smooth_mm=args.sculpt_crown_mm)
-            diff_raw = deink_mineral_albedo(diff_raw, dist_t, dist_vt, dxt)
+            if not args.photoreal:
+                diff_raw = deink_mineral_albedo(diff_raw, dist_t, dist_vt, dxt)
     if args.slope_cap_grad > 0.0:
         n_cap_t = max(16 if args.sculpt_crown_mm >= 0.13 else 6, int(round((3.8 if args.sculpt_crown_mm >= 0.13 else 1.5) / dxt)))
         Zt = tmu.cap_extreme_slopes(Zt, dist_t, min_step_dx=dxt, max_grad=args.slope_cap_grad, passes=n_cap_t)
@@ -485,8 +494,8 @@ def main():
         if diff_raw is None:
             alb_arr = np.asarray(Image.open(args.albedo).convert("RGB"))
             diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
-        diff_rgb, max_snow = refine_biome_albedo(diff_raw, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=args.snow_filter, keep_dark_rock=args.keep_dark_rock)
-        norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm, tangent_residual=args.tangent_norm)
+        diff_rgb, max_snow = refine_biome_albedo(diff_raw, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=args.snow_filter, keep_dark_rock=args.keep_dark_rock, photoreal=args.photoreal)
+        norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm, tangent_residual=args.tangent_norm, photoreal=args.photoreal)
 
     nb.save_uv_aligned_png(diff_rgb, os.path.join(out_dir, "catan_mountain_diffuse_2k.png"))
     nb.save_uv_aligned_png(norm_u8, os.path.join(out_dir, "catan_mountain_normal_2k.png"))
@@ -538,6 +547,10 @@ def main():
     av2.TARGET_PATHS = [viewer_html]
     av2.TRIPLANAR_MODE = args.triplanar_mode
     av2.USE_SMOOTH_TANGENTS = args.tangent_norm
+    av2.PHOTOREAL_GOLD = args.photoreal
+    if args.photoreal and args.tex_size >= 4096:
+        av2.DIFF_QUALITY = 91
+        av2.NORM_QUALITY = 85
     if args.tangent_norm:
         av2.SHADOW_BIAS = -0.00025
         av2.SHADOW_NORMAL_BIAS = 0.08

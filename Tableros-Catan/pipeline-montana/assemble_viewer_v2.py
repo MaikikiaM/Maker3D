@@ -27,6 +27,9 @@ OUT_DIR = "Tableros-Catan/Loseta_Montana_3D"
 SCRATCH_DIR = "Tableros-Catan/pipeline-montana/scratch_v2"
 TRIPLANAR_MODE = "none"  # "none" | "forest" | "clay"
 USE_SMOOTH_TANGENTS = False
+PHOTOREAL_GOLD = False
+DIFF_QUALITY = 96
+NORM_QUALITY = 94
 SHADOW_BIAS = -0.0006
 SHADOW_NORMAL_BIAS = 0.35
 
@@ -99,8 +102,8 @@ def build_viewer():
     uvs_gz = base64.b64encode(gzip.compress(uvs.tobytes(), compresslevel=9)).decode("ascii")
     faces_gz = base64.b64encode(gzip.compress(faces.tobytes(), compresslevel=9)).decode("ascii")
 
-    diff_uri, diff_sz = encode_img_b64(os.path.join(OUT_DIR, "catan_mountain_diffuse_2k.png"), fmt="WEBP", quality=96)
-    norm_uri, norm_sz = encode_img_b64(os.path.join(SCRATCH_DIR, "catan_mountain_normal_2k.png"), fmt="WEBP", quality=94)
+    diff_uri, diff_sz = encode_img_b64(os.path.join(OUT_DIR, "catan_mountain_diffuse_2k.png"), fmt="WEBP", quality=DIFF_QUALITY)
+    norm_uri, norm_sz = encode_img_b64(os.path.join(SCRATCH_DIR, "catan_mountain_normal_2k.png"), fmt="WEBP", quality=NORM_QUALITY)
     rough_uri, rough_sz = encode_img_b64(os.path.join(SCRATCH_DIR, "catan_mountain_roughness_2k.png"), fmt="JPEG", quality=88)
 
     m = metrics["master"]
@@ -444,7 +447,7 @@ def build_viewer():
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.outputEncoding = THREE.sRGBEncoding;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 0.96;
+        renderer.toneMappingExposure = {1.10 if PHOTOREAL_GOLD else 0.96};
         renderer.localClippingEnabled = true;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -503,9 +506,9 @@ def build_viewer():
         controls.update();
 
         // AAA 3-Point Alpine Lighting + 2048x2048 Soft Self-Shadows
-        const hemiLight = new THREE.HemisphereLight(0xdcebff, 0x1e293b, 0.48);
+        const hemiLight = new THREE.HemisphereLight(0xdcebff, 0x1e293b, {0.56 if PHOTOREAL_GOLD else 0.48});
         scene.add(hemiLight);
-        const sunLight = new THREE.DirectionalLight(0xfff7ea, 1.38);
+        const sunLight = new THREE.DirectionalLight(0xfff7ea, {1.48 if PHOTOREAL_GOLD else 1.38});
         sunLight.position.set(112, -96, 138);
         sunLight.castShadow = true;
         sunLight.shadow.mapSize.set(2048, 2048);
@@ -531,11 +534,11 @@ def build_viewer():
         const matPBR = new THREE.MeshStandardMaterial({{
           map: diffTex,
           normalMap: normTex,
-          normalScale: new THREE.Vector2(1.05, 1.05),
+          normalScale: new THREE.Vector2({1.25 if PHOTOREAL_GOLD else 1.05}, {1.25 if PHOTOREAL_GOLD else 1.05}),
           roughnessMap: roughTex,
           roughness: 1.0,
           metalness: 0.02,
-          envMapIntensity: 0.52,
+          envMapIntensity: {0.92 if PHOTOREAL_GOLD else 0.52},
           clippingPlanes: [clipPlane],
           ...tanOpt,
         }});
@@ -543,6 +546,7 @@ def build_viewer():
           matPBR.onBeforeCompile = (shader) => {{
             shader.uniforms.uTriMode = {{ value: TRIPLANAR_MODE === "clay" ? 1.0 : (TRIPLANAR_MODE === "forest" ? 2.0 : (TRIPLANAR_MODE === "rock" ? 3.0 : 0.0)) }};
             shader.uniforms.uHasTree = {{ value: hasTreeVCol ? 1.0 : 0.0 }};
+            shader.uniforms.uPhotoGold = {{ value: {1.0 if PHOTOREAL_GOLD else 0.0} }};
             shader.vertexShader = shader.vertexShader
               .replace(
                 "#include <common>",
@@ -564,6 +568,7 @@ def build_viewer():
                 `#include <common>
                 uniform float uTriMode;
                 uniform float uHasTree;
+                uniform float uPhotoGold;
                 varying vec3 vObjPos;
                 varying vec3 vObjNrm;
                 ${{hasTreeVCol ? "varying vec4 vTreeVCol;" : ""}}
@@ -630,16 +635,19 @@ def build_viewer():
                     diffuseColor.rgb = mix(diffuseColor.rgb, rockCol, steepWall * 0.90);
                   }} else {{
                     // Basalt / Gold Canyon 3D horizontal rock ledges & crisp crystalline quartz detail
-                    // Preserve sharp overhead UV texels everywhere except near-vertical UV-stretched scarps
-                    float sheer = smoothstep(0.42, 0.14, abs(normalize(vObjNrm).z));
-                    vec3 crispBase = mix(diffuseColor.rgb, avgCol, sheer * 0.65);
+                    float absNz = abs(normalize(vObjNrm).z);
+                    float sheer = smoothstep(uPhotoGold > 0.5 ? 0.28 : 0.42, uPhotoGold > 0.5 ? 0.09 : 0.14, absNz);
+                    vec3 crispBase = mix(diffuseColor.rgb, avgCol, sheer * (uPhotoGold > 0.5 ? 0.48 : 0.65));
                     float warp = fbm3D(vObjPos * 0.22) * 2.1;
                     float bed = sin(vObjPos.z * 4.4 + warp);
                     float fineGrain = fbm3D(vObjPos * 4.8) - 0.5;
                     float gran = fbm3D(vObjPos * 1.9) - 0.5;
                     float crack = smoothstep(0.06, 0.42, abs(fbm3D(vObjPos * 0.72) * 2.0 - 1.0));
-                    vec3 rockCol = crispBase * (0.90 + 0.14 * bed) * (0.94 + 0.22 * gran + 0.14 * fineGrain) * (0.82 + 0.22 * crack);
-                    diffuseColor.rgb = mix(diffuseColor.rgb, rockCol, smoothstep(0.56, 0.18, abs(normalize(vObjNrm).z)) * 0.88);
+                    vec3 rockCol = uPhotoGold > 0.5
+                      ? crispBase * (0.96 + 0.08 * bed) * (0.98 + 0.14 * gran + 0.10 * fineGrain) * (0.93 + 0.10 * crack)
+                      : crispBase * (0.90 + 0.14 * bed) * (0.94 + 0.22 * gran + 0.14 * fineGrain) * (0.82 + 0.22 * crack);
+                    float rockMix = uPhotoGold > 0.5 ? smoothstep(0.36, 0.10, absNz) * 0.62 : smoothstep(0.56, 0.18, absNz) * 0.88;
+                    diffuseColor.rgb = mix(diffuseColor.rgb, rockCol, rockMix);
                   }}
                 }}
                 ${{hasTreeVCol ? `
@@ -660,20 +668,23 @@ def build_viewer():
                 `#include <roughnessmap_fragment>
                 float rTreeMix = ${{hasTreeVCol ? "clamp(vTreeVCol.a, 0.0, 1.0)" : "0.0"}};
                 float rSteep = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.55, 0.20, abs(normalize(vObjNrm).z)) : 0.0;
-                roughnessFactor = mix(roughnessFactor, 0.88, max(rTreeMix, rSteep * 0.55));
+                float cliffRough = uPhotoGold > 0.5 ? 0.56 : 0.88;
+                roughnessFactor = mix(roughnessFactor, cliffRough, max(rTreeMix, rSteep * (uPhotoGold > 0.5 ? 0.40 : 0.55)));
                 if (uTriMode > 2.5 && vObjPos.z > 25.05) {{
-                  float gM = smoothstep(0.46, 0.72, (diffuseColor.r + diffuseColor.g) * 0.5 - diffuseColor.b) * smoothstep(0.30, 0.60, diffuseColor.r);
+                  float gHue = uPhotoGold > 0.5 ? smoothstep(0.55, 0.68, diffuseColor.g / max(diffuseColor.r, 0.01)) : 1.0;
+                  float gM = smoothstep(0.46, 0.72, (diffuseColor.r + diffuseColor.g) * 0.5 - diffuseColor.b) * smoothstep(0.30, 0.60, diffuseColor.r) * gHue;
                   float wM = smoothstep(0.03, 0.14, min(diffuseColor.g, diffuseColor.b) - diffuseColor.r) * (1.0 - smoothstep(0.32, 0.58, diffuseColor.r));
-                  roughnessFactor = mix(roughnessFactor, 0.22, gM * 0.88);
-                  roughnessFactor = mix(roughnessFactor, 0.14, wM * 0.85);
+                  roughnessFactor = mix(roughnessFactor, uPhotoGold > 0.5 ? 0.15 : 0.22, gM * 0.90);
+                  roughnessFactor = mix(roughnessFactor, uPhotoGold > 0.5 ? 0.09 : 0.14, wM * 0.88);
                 }}`
               )
               .replace(
                 "#include <metalnessmap_fragment>",
                 `#include <metalnessmap_fragment>
                 if (uTriMode > 2.5 && vObjPos.z > 25.05) {{
-                  float gMet = smoothstep(0.46, 0.72, (diffuseColor.r + diffuseColor.g) * 0.5 - diffuseColor.b) * smoothstep(0.30, 0.60, diffuseColor.r);
-                  metalnessFactor = mix(metalnessFactor, 0.82, gMet);
+                  float gHueM = uPhotoGold > 0.5 ? smoothstep(0.55, 0.68, diffuseColor.g / max(diffuseColor.r, 0.01)) : 1.0;
+                  float gMet = smoothstep(0.46, 0.72, (diffuseColor.r + diffuseColor.g) * 0.5 - diffuseColor.b) * smoothstep(0.30, 0.60, diffuseColor.r) * gHueM;
+                  metalnessFactor = mix(metalnessFactor, uPhotoGold > 0.5 ? 0.88 : 0.82, gMet);
                 }}`
               )
               .replace(
@@ -872,10 +883,10 @@ def build_viewer():
           btn.classList.add("active");
           const aName = btn.dataset.atmo;
           if (aName === "alpine") {{
-            sunLight.color.setHex(0xfff7ea); sunLight.intensity = 1.38;
-            hemiLight.color.setHex(0xdcebff); hemiLight.groundColor.setHex(0x1e293b); hemiLight.intensity = 0.48;
-            rimLight.color.setHex(0x7dd3fc); rimLight.intensity = 0.36;
-            renderer.toneMappingExposure = 0.96; currentSunZ = 138;
+            sunLight.color.setHex(0xfff7ea); sunLight.intensity = {1.48 if PHOTOREAL_GOLD else 1.38};
+            hemiLight.color.setHex(0xdcebff); hemiLight.groundColor.setHex(0x1e293b); hemiLight.intensity = {0.56 if PHOTOREAL_GOLD else 0.48};
+            rimLight.color.setHex(0x7dd3fc); rimLight.intensity = {0.42 if PHOTOREAL_GOLD else 0.36};
+            renderer.toneMappingExposure = {1.10 if PHOTOREAL_GOLD else 0.96}; currentSunZ = 138;
           }} else if (aName === "sunset") {{
             sunLight.color.setHex(0xffb469); sunLight.intensity = 1.68;
             hemiLight.color.setHex(0x9ec5ff); hemiLight.groundColor.setHex(0x241928); hemiLight.intensity = 0.44;

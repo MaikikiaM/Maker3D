@@ -334,3 +334,23 @@ Resultados verificados:
 - Tamaño HTML `Visores-HTML/catan-bioma-oro.html`: `48,736,798 bytes` (`46.48 MiB` / `48.74 MB < 50 MB`).
 - Auditoría WebGL Chromium (`528eb0bf`, `0` errores consola/página): Hero (`step_26`), Cara Norte basalto macro (`step_32`) y macros rasantes 1:1–3x sobre banco de guijarros y crestas (`final_step_59`, `step_66`, `final_step_68`): guijarros en cúpula convexa pulida, crestas suaves y superficie sin triángulos visibles.
 ================================================================================
+
+
+================================================================================
+SESIÓN: 14/11/2026 - BIOMA 7 (RÍO DE ORO) v04: TEXTURIZADO FOTORREALISTA 4K NATGEO CON NANO BANANA
+Prompt usuario: Mejorar drásticamente la calidad y fotorrealismo de textura con Nano Banana ("parecer algo de la vida real, no sacado de un juego de los 2000s") recuperando claridad, nitidez y color vivo, conservando la malla limpia sin triángulos.
+Diagnóstico de causa raíz:
+- La textura anterior (`2K` con trazos pictóricos y `deink_mineral_albedo`) diluía el micro-contraste; en `assemble_viewer_v2.py` el shader `gM` en espacio lineal sangraba `metalness` sobre acantilados naranja de arenisca cálida (apagando el difuso), mientras `steepWall` (`0.88` rugosidad y blur triplanar en taludes 40°-76°) más `toneMappingExposure=0.96` apagaban brillo y realismo.
+Solución aplicada:
+- **Generación Nano Banana 4K (`4096×4096`) por cuadrantes macro 1:1:**
+  - Nuevo ancla cenital 100% fotorrealista (`oro_photoreal_anchor_v2_1794675879697.jpg`, estilo fotografía de estudio National Geographic, sin contornos cómic).
+  - 6 mejoras macro 1:1 solapadas (`Q00_tl`, `Q01_tr`, `Q10_bl`, `Q11_br`, `C_spit`, `C_canyon`) cosidas con registro FFT subpíxel (`±0.07 px` máximo) y bloqueo de frecuencia baja cromática sin costuras (`oro_photoreal_master_4k.png`).
+- **Pipeline `--photoreal` (`build_catan_biome.py` + `assemble_viewer_v2.py`):**
+  - Omite `deink_mineral_albedo` para preservar micro-porosidad real, refina `compute_enhanced_pbr_maps(photoreal=True)` con micro-normal fino (`0.09mm`) y rugosidad mineral natural (`0.40..0.68` frente a `0.80..0.91` tiza).
+  - Aísla el oro metálico 24K (`metalness=0.88`, `roughness=0.15`) de la arenisca naranja mediante compuerta de tono lineal `G/R > 0.55` (`uPhotoGold`), reduce blur triplanar solo a escarpes casi verticales (`abs(nz)<0.28`) y eleva luz HDR/sol (`exposure=1.10`, `envMapIntensity=0.92`, `sun=1.48`).
+- **Compilación, auditoría y archivado (`v04`):**
+  - `--tex-size 4096 --photoreal --nx 490 --subdivide-passes 2 --edge-len-max 0.375 --curv-thresh 14.5 --relax-passes 1 --taubin-passes 6 --morton-sort --tangent-norm`.
+  - Malla STL (`catan_oro.stl`): `V=1,514,018 | F=3,028,032 Δ | watertight=True | euler=2 | degen=0 | vol=376.13 cm³ | Z=51.0mm`.
+  - Visor WebGL (`Visores-HTML/catan-bioma-oro.html`): `49,687,236 bytes` (`47.39 MiB` / `49.69 MB < 50 MB`), verificado en Chromium WebGL (`afa46ded-489a-4b02-91c8-fd8a031aad2c`, `0` errores) en vista hero limpia (`final_step_106.png`), macro 1:1 rasante de cantos/oro/arenisca (`step_89`) y cara norte basaltos (`final_step_100.png`).
+  - Archivado local en `Tableros-Catan/pipeline-biomas/oro/versiones/v04_fotorreal_4k_3.03M/`.
+================================================================================
