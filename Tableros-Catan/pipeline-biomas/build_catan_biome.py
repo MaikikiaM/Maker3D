@@ -124,7 +124,7 @@ def sculpt_albedo_microrelief(Z, diff_rgb, dist_edge, dist_vert, dx, max_bump_mm
     is_foam = is_water * nb.smoothstep(0.50, 0.85, lum)
     is_gold = nb.smoothstep(0.18, 0.42, (r + g) * 0.5 - b) * nb.smoothstep(0.45, 0.78, lum)
 
-    s_fine = max(0.85, 0.10 / dx)
+    s_fine = max(0.85, (crown_smooth_mm if crown_smooth_mm >= 0.13 else 0.10) / dx)
     s_meso = max(3.5, 0.70 / dx)
     s_broad = max(8.0, 1.65 / dx)
     l_fine = ndi.gaussian_filter(lum, s_fine)
@@ -132,24 +132,40 @@ def sculpt_albedo_microrelief(Z, diff_rgb, dist_edge, dist_vert, dx, max_bump_mm
     l_broad = ndi.gaussian_filter(lum, s_broad)
 
     stone_domes = np.clip((l_fine - l_meso) * 2.6 + (l_meso - l_broad) * 1.15, -0.60, 0.80)
-    if crown_smooth_mm > 0.0:
-        # Round sub-2-triangle sharp spire tips into natural convex pebble domes without flattening height
-        stone_domes = ndi.gaussian_filter(stone_domes, max(1.0, crown_smooth_mm / dx))
-        stone_domes = np.sign(stone_domes) * np.power(np.abs(stone_domes) / 0.80 + 1e-6, 0.82) * 0.80
     crevice_groove = np.clip((l_meso - l_fine) - 0.045, 0.0, 0.48) * 1.65
     gold_facets = is_gold * nb.smoothstep(0.38, 0.82, lum) * (0.65 + 0.70 * np.clip(l_fine - l_meso + 0.25, 0.0, 0.75))
 
-    rock_relief = max_bump_mm * (
-        1.05 * stone_domes
-        - 0.82 * crevice_groove
-        + 0.65 * gold_facets
-    )
+    if crown_smooth_mm >= 0.13:
+        # Polish peak profiles: calm choppy micro-warts along steep canyon ridge lips, round stone crowns
+        # into convex river-cobble domes (zero 80° shark teeth) while keeping rock crevices razor-deep.
+        gy_m, gx_m = np.gradient(ndi.gaussian_filter(Z, max(2.0, 0.35 / dx)), dx, dx)
+        macro_slope = np.hypot(gx_m, gy_m)
+        crest_calm = 1.0 - 0.46 * nb.smoothstep(0.52, 1.10, macro_slope)
+
+        pos_d = np.maximum(0.0, stone_domes) * crest_calm
+        neg_d = np.minimum(0.0, stone_domes)
+        domed_pos = 0.74 * np.tanh(pos_d / 0.56)
+        rock_pos = max_bump_mm * (1.02 * domed_pos + 0.38 * gold_facets * (0.65 + 0.35 * crest_calm))
+        # Smooth saturation cap (~0.88 * max_bump_mm) prevents cobblestone+gold double-stacking into needles
+        max_pos = 0.88 * max_bump_mm
+        rock_pos = max_pos * np.tanh(rock_pos / max_pos)
+        rock_neg = max_bump_mm * (1.02 * neg_d - 0.84 * crevice_groove)
+        rock_relief = rock_pos + rock_neg
+    else:
+        if crown_smooth_mm > 0.0:
+            stone_domes = ndi.gaussian_filter(stone_domes, max(1.0, crown_smooth_mm / dx))
+            stone_domes = np.sign(stone_domes) * np.power(np.abs(stone_domes) / 0.80 + 1e-6, 0.82) * 0.80
+        rock_relief = max_bump_mm * (
+            1.05 * stone_domes
+            - 0.82 * crevice_groove
+            + 0.65 * gold_facets
+        )
     water_relief = max_bump_mm * 0.34 * is_foam
 
     bump = (1.0 - is_water) * rock_relief + is_water * water_relief
     if crown_smooth_mm > 0.0:
-        # Ultra-light Nyquist anti-aliasing on vertex scale (< 0.09mm) so facets don't alias into needle spikes
-        bump = ndi.gaussian_filter(bump, max(0.85, (crown_smooth_mm * 0.75) / dx))
+        sig_post = crown_smooth_mm if crown_smooth_mm >= 0.13 else (crown_smooth_mm * 0.75)
+        bump = ndi.gaussian_filter(bump, max(0.85, sig_post / dx))
     core = nb.smoothstep(nb.ROAD_MARGIN + 0.65, nb.ROAD_MARGIN + 2.8, dist_edge) * nb.smoothstep(nb.PAD_RADIUS + 0.65, nb.PAD_RADIUS + 2.8, dist_vert)
     return (Z + bump * core).astype(np.float32)
 
@@ -195,9 +211,9 @@ def compute_enhanced_pbr_maps(Z, diff_rgb, dx, dy, micro_norm_strength=0.32, tan
         hp_lum = lum - ndi.gaussian_filter(lum, sigma=max(1.8, 0.14 / dx))
         z_res = Z - ndi.gaussian_filter(Z, sigma=max(1.6, 0.18 / dx))
         lgy, lgx = np.gradient(hp_lum * (max(micro_norm_strength, 0.1) * 1.4), dy, dx)
-        zgy, zgx = np.gradient(z_res * 0.35, dy, dx)
-        gx_tot = np.clip(lgx + zgx, -1.25, 1.25)
-        gy_tot = np.clip(lgy + zgy, -1.25, 1.25)
+        zgy, zgx = np.gradient(z_res * 0.12, dy, dx)
+        gx_tot = np.clip(lgx + zgx, -1.05, 1.05)
+        gy_tot = np.clip(lgy + zgy, -1.05, 1.05)
     elif micro_norm_strength > 0.0:
         hp = lum - ndi.gaussian_filter(lum, sigma=2.2)
         mgy, mgx = np.gradient(hp * (micro_norm_strength * 3.5), dy, dx)
@@ -400,7 +416,10 @@ def main():
     p.add_argument("--tangent-norm", action="store_true", help="Emit pure residual tangent-space normalMap + analytic per-vertex tangents in Three.js (kills dFdx/dFdy wall facets).")
     p.add_argument("--subdivide-passes", type=int, default=0, help="Conformal Red-Green 3D adaptive triangle refinement passes on steep walls & sculpted peaks.")
     p.add_argument("--edge-len-max", type=float, default=0.175, help="Max 3D edge length threshold (mm) for adaptive subdivision.")
+    p.add_argument("--curv-thresh", type=float, default=0.0, help="Face-to-vertex normal curvature threshold (deg) to also subdivide curved ridge crests & pebbles.")
+    p.add_argument("--relax-passes", type=int, default=0, help="Area-safe XY vertex relaxation passes after subdivision, re-projected onto bicubic DEM.")
     p.add_argument("--taubin-passes", type=int, default=0, help="Zero-shrinkage Taubin smoothing passes on interior terrain Z.")
+    p.add_argument("--morton-sort", action="store_true", help="Morton Z-order spatial reordering (~25% tighter gzip HTML compression).")
     p.add_argument("--snow-filter", action="store_true")
     p.add_argument("--alpine-v3-palette", action="store_true", help="Warm limestone granite, green valley moss, copper scree & <44 deg snow palette.")
     p.add_argument("--auto-mineral-albedo", action="store_true", help="Fallback: paint Nano Banana DEM with V3 hyperreal mineral-runoff PBR shader.")
@@ -426,7 +445,7 @@ def main():
             Zt = sculpt_albedo_microrelief(Zt, diff_raw, dist_t, dist_vt, dxt, max_bump_mm=args.sculpt_from_albedo, crown_smooth_mm=args.sculpt_crown_mm)
             diff_raw = deink_mineral_albedo(diff_raw, dist_t, dist_vt, dxt)
     if args.slope_cap_grad > 0.0:
-        n_cap_t = max(6, int(round(1.5 / dxt)))
+        n_cap_t = max(16 if args.sculpt_crown_mm >= 0.13 else 6, int(round((3.8 if args.sculpt_crown_mm >= 0.13 else 1.5) / dxt)))
         Zt = tmu.cap_extreme_slopes(Zt, dist_t, min_step_dx=dxt, max_grad=args.slope_cap_grad, passes=n_cap_t)
     clay_rgb = nb.render_shaded_clay_rgb(Zt, dist_t, dxt, dyt)
     clay_path = os.path.join(out_dir, f"{args.slug}_clay_overhead.png")
@@ -488,7 +507,8 @@ def main():
         verts, faces, n_flips = tmu.build_contour_aligned_hex_solid(
             Xw, Yw, Zw, dist_w, n_bnd=168, n_mag=32, include_magnet=True, flip_passes=6,
             subdivide_passes=args.subdivide_passes, edge_len_3d_max=args.edge_len_max,
-            taubin_passes=args.taubin_passes, Z_dem=Zt,
+            curv_deg_thresh=args.curv_thresh, relax_passes=args.relax_passes,
+            taubin_passes=args.taubin_passes, Z_dem=Zt, morton_sort=args.morton_sort,
         )
         print(f"[Contour-Aligned Mesh] nx={args.nx} ny={ny} flips={n_flips} subdiv={args.subdivide_passes} taubin={args.taubin_passes} V={len(verts)} F={len(faces)}")
     else:

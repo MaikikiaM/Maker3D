@@ -314,3 +314,23 @@ Cambios realizados:
   5. Criterio `2.5D` + triplanar (`rock`/`clay`) vs sólidos 3D booleanos (`manifold3d`).
   6. Archivado local numerado (`versiones/vNN/`) excluido de Git.
 ================================================================================
+
+================================================================================
+SESIÓN: 14/11/2026 - BIOMA 7 (RÍO DE ORO) v03: PULIDO DE PICOS Y ELIMINACIÓN DE TRIÁNGULOS RESIDUALES
+Prompt usuario: "Las formas de los picos no acaban de estar bien pulidas. Ademas, aun hay presencia de triangulos. No es tan vasta, pero existe. Arregla ambas coas /goal"
+Diagnóstico y solución técnica:
+- Causa raíz 1 (Picos en diente de tiburón / labio irregular): En guijarros de 0.6 mm el apilado de `stone_domes` + `gold_facets` alcanzaba +1.46 mm con p99=78.2° / max=82.8° y pocas pasadas `cap_extreme_slopes`.
+- Causa raíz 2 (Triángulos residuales): `contour_aligned_edge_flip` carecía de guarda de relación de aspecto geométrica (`q`), encadenando flips a través de 6 pasadas hasta crear triángulos-aguja XY de hasta 2.20 mm (p99).
+Cambios realizados:
+- `Tableros-Catan/pipeline-biomas/terrain_mesh_utils.py`:
+  - Añadida guarda de calidad triangular `q = 2*area/max_l² >= 0.29` en `contour_aligned_edge_flip`, reduciendo p99 XY de 2.20 mm a ~0.20 mm y eliminando agujas encadenadas.
+  - Criterio dual pendiente + curvatura normal (`--curv-thresh`) en `subdivide_tri_top_adaptive` (2 pases Red-Green), relajación XY segura con rollback (`relax_xy_interior_clean`, `0` inversiones) + 6 pasadas Taubin Z + orden espacial Morton (`sort_mesh_spatial_morton`, -26% en gzip de malla).
+- `Tableros-Catan/pipeline-biomas/build_catan_biome.py`:
+  - `sculpt_albedo_microrelief` (`sculpt_crown_mm=0.145`): suavizado `crest_calm` en crestas inclinadas, redondeo convexo con `tanh` y techo suave sin apilado de picos, + convergencia reforzada en `cap_extreme_slopes` (`1.38`).
+- `Visores-HTML/index.html` y `docs/ia/ESTADO.md`: Actualizada ficha Bioma 7 a `v03` (`3.15M Δ`).
+- Archivado local en `Tableros-Catan/pipeline-biomas/oro/versiones/v03_pulido_3.15M/` (no versionado en Git).
+Resultados verificados:
+- Compilación `v03`: `V=1,576,729 | F=3,153,454 Δ`, `chi=2`, `watertight=True`, `winding=True`, `degen=0`, `vol=376.18 cm³`, `Z_max=51.42 mm` (`51.0 mm` nominal).
+- Tamaño HTML `Visores-HTML/catan-bioma-oro.html`: `48,736,798 bytes` (`46.48 MiB` / `48.74 MB < 50 MB`).
+- Auditoría WebGL Chromium (`528eb0bf`, `0` errores consola/página): Hero (`step_26`), Cara Norte basalto macro (`step_32`) y macros rasantes 1:1–3x sobre banco de guijarros y crestas (`final_step_59`, `step_66`, `final_step_68`): guijarros en cúpula convexa pulida, crestas suaves y superficie sin triángulos visibles.
+================================================================================

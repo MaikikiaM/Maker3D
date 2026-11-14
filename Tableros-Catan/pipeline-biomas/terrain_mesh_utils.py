@@ -198,10 +198,17 @@ def contour_aligned_edge_flip(verts_xyz, tri_top, dist_top=None, passes=4, min_g
             break
 
         idx_cand = np.flatnonzero(mask)
-        # Filter strictly convex quads in XY: both (a,b,d) and (a,d,c_v) > min_area
-        area0 = _cross2(x[a[idx_cand]], y[a[idx_cand]], x[b[idx_cand]], y[b[idx_cand]], x[d[idx_cand]], y[d[idx_cand]])
-        area1 = _cross2(x[a[idx_cand]], y[a[idx_cand]], x[d[idx_cand]], y[d[idx_cand]], x[c_v[idx_cand]], y[c_v[idx_cand]])
-        convex = (area0 > 1e-6) & (area1 > 1e-6)
+        # Filter strictly convex quads in XY AND guard triangle aspect quality (prevents needle chaining)
+        ax_, ay_ = x[a[idx_cand]], y[a[idx_cand]]
+        bx_, by_ = x[b[idx_cand]], y[b[idx_cand]]
+        cx_, cy_ = x[c_v[idx_cand]], y[c_v[idx_cand]]
+        dx_, dy_ = x[d[idx_cand]], y[d[idx_cand]]
+        area0 = _cross2(ax_, ay_, bx_, by_, dx_, dy_)
+        area1 = _cross2(ax_, ay_, dx_, dy_, cx_, cy_)
+        da2 = (dx_ - ax_) ** 2 + (dy_ - ay_) ** 2
+        max_l0_sq = np.maximum((bx_ - ax_) ** 2 + (by_ - ay_) ** 2, np.maximum((dx_ - bx_) ** 2 + (dy_ - by_) ** 2, da2))
+        max_l1_sq = np.maximum(da2, np.maximum((cx_ - dx_) ** 2 + (cy_ - dy_) ** 2, (ax_ - cx_) ** 2 + (ay_ - cy_) ** 2))
+        convex = (area0 > 1e-6) & (area1 > 1e-6) & (area0 >= 0.29 * max_l0_sq) & (area1 >= 0.29 * max_l1_sq)
         idx_cand = idx_cand[convex]
         if len(idx_cand) == 0:
             break
@@ -240,21 +247,21 @@ def contour_aligned_edge_flip(verts_xyz, tri_top, dist_top=None, passes=4, min_g
 
 def subdivide_tri_top_adaptive(
     all_top_verts, tri_top, top_dist, Z_dem, lim=nb.R,
-    edge_len_3d_max=0.175, slope_deg_thresh=38.0, min_bnd_dist=1.6, passes=2
+    edge_len_3d_max=0.175, slope_deg_thresh=38.0, curv_deg_thresh=0.0,
+    min_bnd_dist=1.6, passes=2
 ):
     """
     Conformal vectorized Red-Green 3D adaptive triangle refinement on the top terrain
     surface, evaluating exact bicubic Z_dem(x,y) heights at new midpoints so steep walls
-    and small sculpted peaks obtain uniform near-equilateral 3D resolution while keeping
-    the outer chamfer/skirt boundary strictly invariant and watertight (zero T-junctions).
+    and high-curvature crests/cobbles obtain uniform near-equilateral 3D resolution while
+    keeping the outer chamfer/skirt boundary strictly invariant and watertight.
     """
     verts = all_top_verts.copy()
     tris = tri_top.copy()
     dist = top_dist.copy()
 
     for p_idx in range(passes):
-        # Relax slightly on pass 2 so only the steepest cliffs / densest curvature split twice
-        cur_max_edge = float(edge_len_3d_max) * (1.0 if p_idx == 0 else 1.05)
+        cur_max_edge = float(edge_len_3d_max) * (1.0 if p_idx == 0 else 0.92)
         n_v = len(verts)
         p0 = verts[tris[:, 0]]
         p1 = verts[tris[:, 1]]
@@ -271,14 +278,36 @@ def subdivide_tri_top_adaptive(
         nz = np.abs(cr[:, 2]) / area3d_2
         slope_deg = np.degrees(np.arccos(np.clip(nz, 0.0, 1.0)))
 
-        # Mark triangles that are stretched in 3D on cliffs or exceed max 3D edge length
-        tri_mark = (max_l > cur_max_edge) | (
-            (slope_deg >= float(slope_deg_thresh)) & (max_l > cur_max_edge * 0.80)
+        # Mark triangles that are stretched in 3D on cliffs, exceed max 3D edge length, or sit on curved peaks/ridges
+        slope_factor = 0.72 if p_idx == 0 else 0.72
+        m_len = max_l > cur_max_edge
+        m_slope = (
+            (slope_deg >= float(slope_deg_thresh) + (12.0 if p_idx > 0 else 0.0))
+            & (max_l > cur_max_edge * slope_factor)
         )
+        tri_mark = m_len | m_slope
+        n_curv = 0
+        if curv_deg_thresh > 0.0:
+            fn = cr / area3d_2[:, None]
+            vn = np.zeros((n_v, 3), dtype=np.float64)
+            np.add.at(vn, tris[:, 0], cr)
+            np.add.at(vn, tris[:, 1], cr)
+            np.add.at(vn, tris[:, 2], cr)
+            vn /= (np.linalg.norm(vn, axis=1, keepdims=True) + 1e-12)
+            d0 = np.sum(fn * vn[tris[:, 0]], axis=1)
+            d1 = np.sum(fn * vn[tris[:, 1]], axis=1)
+            d2 = np.sum(fn * vn[tris[:, 2]], axis=1)
+            curv_deg = np.degrees(np.arccos(np.clip(np.minimum(d0, np.minimum(d1, d2)), -1.0, 1.0)))
+            c_th = float(curv_deg_thresh) + (7.0 if p_idx > 0 else 0.0)
+            min_c_len = 0.145 if p_idx == 0 else 0.132
+            m_curv = (curv_deg >= c_th) & (max_l > min_c_len)
+            n_curv = int(m_curv.sum())
+            tri_mark |= m_curv
+
         # Never force refinement right next to outer rim
         d_tri_min = np.minimum(dist[tris[:, 0]], np.minimum(dist[tris[:, 1]], dist[tris[:, 2]]))
         tri_mark &= (d_tri_min >= float(min_bnd_dist))
-        print(f"  [Subdivide pass {p_idx+1}] marked {int(tri_mark.sum())}/{len(tris)} (max_l>{cur_max_edge:.3f})")
+        print(f"  [Subdivide pass {p_idx+1}] marked {int(tri_mark.sum())}/{len(tris)} (len={int(m_len.sum())} slope={int(m_slope.sum())} curv={n_curv} max_l>{cur_max_edge:.3f})")
         if not np.any(tri_mark):
             break
 
@@ -431,9 +460,98 @@ def taubin_smooth_interior_z(verts, tri_top, top_dist, min_dist=2.4, passes=4, l
     return v_out
 
 
+def relax_xy_interior_clean(verts, tri_top, top_dist, Z_dem, lim=nb.R, min_dist=2.8, step=0.20, passes=1):
+    """
+    Gently relaxes interior vertex XY positions toward 1-ring neighbor centroids (with strict
+    positive-area convexity preservation) and re-evaluates bicubic Z_dem heights, equalizing
+    Red-Green 1-to-2/1-to-3 triangle aspect ratios without inverting any planar triangle.
+    """
+    if passes <= 0 or Z_dem is None:
+        return verts
+    v_out = verts.copy()
+    n_v = len(v_out)
+    u = np.concatenate([tri_top[:, 0], tri_top[:, 1], tri_top[:, 2]])
+    v = np.concatenate([tri_top[:, 1], tri_top[:, 2], tri_top[:, 0]])
+    a = np.minimum(u, v).astype(np.int64)
+    b = np.maximum(u, v).astype(np.int64)
+    keys = np.unique(a * np.int64(n_v) + b)
+    ea = (keys // np.int64(n_v)).astype(np.int32)
+    eb = (keys % np.int64(n_v)).astype(np.int32)
+
+    deg = np.zeros(n_v, dtype=np.float64)
+    np.add.at(deg, ea, 1.0)
+    np.add.at(deg, eb, 1.0)
+    deg = np.maximum(deg, 1.0)
+    w_mask = np.clip((top_dist - float(min_dist)) / 1.5, 0.0, 1.0)
+
+    sx = np.zeros(n_v, dtype=np.float64)
+    sy = np.zeros(n_v, dtype=np.float64)
+    t0, t1, t2 = tri_top[:, 0], tri_top[:, 1], tri_top[:, 2]
+
+    for _ in range(passes):
+        old_xy = v_out[:, :2].copy()
+        old_area = _cross2(old_xy[t0, 0], old_xy[t0, 1], old_xy[t1, 0], old_xy[t1, 1], old_xy[t2, 0], old_xy[t2, 1])
+        sx.fill(0.0)
+        sy.fill(0.0)
+        np.add.at(sx, ea, old_xy[eb, 0])
+        np.add.at(sx, eb, old_xy[ea, 0])
+        np.add.at(sy, ea, old_xy[eb, 1])
+        np.add.at(sy, eb, old_xy[ea, 1])
+
+        cand_xy = old_xy.copy()
+        cand_xy[:, 0] += (float(step) * w_mask) * ((sx / deg) - old_xy[:, 0])
+        cand_xy[:, 1] += (float(step) * w_mask) * ((sy / deg) - old_xy[:, 1])
+
+        # Iteratively freeze any vertex touching a triangle whose area drops below 40% of original or 1e-5
+        for _chk in range(30):
+            na = _cross2(cand_xy[t0, 0], cand_xy[t0, 1], cand_xy[t1, 0], cand_xy[t1, 1], cand_xy[t2, 0], cand_xy[t2, 1])
+            bad = (na < np.maximum(1e-5, 0.40 * old_area))
+            if not np.any(bad):
+                break
+            bad_v = np.unique(tri_top[bad].ravel())
+            cand_xy[bad_v] = old_xy[bad_v]
+        na_final = _cross2(cand_xy[t0, 0], cand_xy[t0, 1], cand_xy[t1, 0], cand_xy[t1, 1], cand_xy[t2, 0], cand_xy[t2, 1])
+        if np.any(na_final <= 1e-6):
+            cand_xy = old_xy
+
+        v_out[:, :2] = cand_xy
+        moved = w_mask > 0.0
+        v_out[moved, 2] = resample_canonical_xy(
+            Z_dem, v_out[moved, 0], v_out[moved, 1], lim=lim, order=3, clip_bounds=True
+        ).astype(np.float64)
+    return v_out
+
+
+def sort_mesh_spatial_morton(verts, faces):
+    """
+    Reorders vertices by 10-bit 2D XY Morton Z-order curve and faces by min vertex index,
+    yielding ~25% tighter gzip compression on subdivided HTML viewers with zero geometry change.
+    """
+    def _part1by1(n):
+        n = (n ^ (n << 8)) & np.uint32(0x00FF00FF)
+        n = (n ^ (n << 4)) & np.uint32(0x0F0F0F0F)
+        n = (n ^ (n << 2)) & np.uint32(0x33333333)
+        n = (n ^ (n << 1)) & np.uint32(0x55555555)
+        return n
+
+    qx = np.clip(((verts[:, 0] + nb.R) / (2.0 * nb.R) * 1023.0).astype(np.uint32), 0, 1023)
+    qy = np.clip(((verts[:, 1] + nb.R) / (2.0 * nb.R) * 1023.0).astype(np.uint32), 0, 1023)
+    # Keep bottom/magnet vertices grouped cleanly with their XY buckets using subtle Z band
+    qz = np.clip(((verts[:, 2]) / 85.0 * 7.0).astype(np.uint32), 0, 7)
+    morton = (_part1by1(qx) | (_part1by1(qy) << np.uint32(1))) + (qz << np.uint32(20))
+    perm = np.argsort(morton, kind="mergesort")
+    inv = np.empty_like(perm)
+    inv[perm] = np.arange(len(perm), dtype=perm.dtype)
+    v_sorted = verts[perm].astype(np.float32)
+    f_sorted = inv[faces].astype(np.int32)
+    f_ord = np.argsort(f_sorted.min(axis=1), kind="mergesort")
+    return v_sorted, f_sorted[f_ord]
+
+
 def build_contour_aligned_hex_solid(
     X, Y, Z, dist_edge, n_bnd=144, n_mag=32, include_magnet=True, flip_passes=4,
-    subdivide_passes=0, edge_len_3d_max=0.175, slope_deg_thresh=38.0, taubin_passes=0, Z_dem=None
+    subdivide_passes=0, edge_len_3d_max=0.175, slope_deg_thresh=38.0, curv_deg_thresh=0.0,
+    relax_passes=0, taubin_passes=0, Z_dem=None, morton_sort=False
 ):
     """
     Watertight hex prism solid builder matching `nanobanana_to_catan_hex.build_solid_hex_mesh`,
@@ -467,13 +585,15 @@ def build_contour_aligned_hex_solid(
         all_top_verts, tri_top, top_dist = subdivide_tri_top_adaptive(
             all_top_verts, tri_top, top_dist, Z_dem,
             edge_len_3d_max=edge_len_3d_max, slope_deg_thresh=slope_deg_thresh,
-            passes=subdivide_passes,
+            curv_deg_thresh=curv_deg_thresh, passes=subdivide_passes,
         )
+        if relax_passes > 0:
+            all_top_verts = relax_xy_interior_clean(all_top_verts, tri_top, top_dist, Z_dem, passes=relax_passes)
         tri_top, n_flips2 = contour_aligned_edge_flip(all_top_verts, tri_top, dist_top=top_dist, passes=2)
         n_flips += n_flips2
 
     if taubin_passes > 0:
-        all_top_verts = taubin_smooth_interior_z(all_top_verts, tri_top, top_dist, passes=taubin_passes)
+        all_top_verts = taubin_smooth_interior_z(all_top_verts, tri_top, top_dist, passes=taubin_passes, lam=0.33, mu=-0.34)
 
     bot_bnd_start = len(all_top_verts)
 
@@ -527,5 +647,7 @@ def build_contour_aligned_hex_solid(
 
     verts = np.vstack([all_top_verts, pts_bot_bnd, pts_mag_bot, pts_mag_ceil, pt_mag_ctr]).astype(np.float32)
     faces = np.vstack([tri_top, tris_bot, tris_skirt, tris_mag_wall, tris_mag_ceil]).astype(np.int32)
+    if morton_sort:
+        verts, faces = sort_mesh_spatial_morton(verts, faces)
 
     return verts, faces, n_flips
