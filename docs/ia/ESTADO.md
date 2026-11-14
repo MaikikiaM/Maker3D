@@ -27,9 +27,9 @@ Suite CAD/Mesh profesional de modelado procedimental e impresión 3D avanzada (F
   - **Bioma 5 (Campos / Trigo V3):** `Z=40.0mm` (`relief=15mm`), `V=338,097 / F=676,190 Δ` ($\chi=2$, `watertight=True`, `331.86 cm³`), malla `--nx 640 --contour-align` (`760,307` flips), terrazas doradas de cultivo, muros de mampostería, era circular y dos almiares, visor `Visores-HTML/catan-bioma-campo.html` (`12.22 MB`).
   - **Bioma 6 (Desierto y Oasis V3):** `Z=47.0mm` (`relief=22mm`), `V=338,097 / F=676,190 Δ` ($\chi=2$, `watertight=True`, `364.47 cm³`), malla `--nx 640 --contour-align` (`803,843` flips), duna barján afilada con ondas eólicas, afloramiento de arenisca estratificada y poza turquesa con lajas calizas, visor `Visores-HTML/catan-bioma-desierto.html` (`12.10 MB`).
   - **Bioma 7 (Río de Oro V3):** `Z=51.0mm` (`relief=26mm`), `V=381,965 / F=763,926 Δ` ($\chi=2$, `watertight=True`, `374.53 cm³`), terrazas basálticas soldadas (`--ridge-clean 0.80`), shader triplanar mineral 3D (`--triplanar-mode rock`, `--keep-dark-rock`), vetas de cuarzo aurífero 24K y cascada turquesa, visor `Visores-HTML/catan-bioma-oro.html` (`13.63 MB`).
-  - **Bioma 8 (`Océano`):** último bioma pendiente en curso con Nano Banana.
+  - **Bioma 8 (`Océano`):** detenido limpiamente en Fase 1 (concepto 6 vistas) por agotamiento de cuota `429 RESOURCE_EXHAUSTED` en `gemini-3.1-flash-image` hasta **`2026-11-14T09:40:32Z` (`10:40:32 CET`)**. Total completado: **7/8 biomas Catan**.
 
 ## Próximas Tareas Prioritarias
-1. Completar **Bioma 8 (`oceano`)** con Nano Banana, verificar en Chromium + STL y sincronizar en GitHub para cerrar el set completo 8/8 biomas Catan.
+1. Reanudar **Bioma 8 (`oceano`)** a partir de las **`10:40:32 CET`** (`2026-11-14T09:40:32Z`) tras el reseteo de cuota de `gemini-3.1-flash-image` para cerrar 8/8 biomas Catan.
 2. Validar corte de impresión multicolor real (`infimech_cmykwog_mountain_slicing_guide.md`) con `catan_mountain_fullcolor.3mf` V2 o derivados LOD en OrcaSlicer/PrusaSlicer.
 3. Continuar con el resto de losetas modulares del tablero Catan 127 losetas siguiendo la arquitectura V2 pure NumPy/SciPy.
