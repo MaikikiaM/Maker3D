@@ -1,12 +1,12 @@
 """
 =============================================================================
-GENERADOR PARAMÉTRICO DE ESTUCHE DEFINITIVO (V8.1) PARA XIAOMI SMART PEN 2
+GENERADOR PARAMÉTRICO DE ESTUCHE DEFINITIVO (V8.2) PARA XIAOMI SMART PEN 2
 =============================================================================
 Diseño optimizado: Sistema de Suspensión Elástica por Patitas en T Rectas,
 Simetría Total respecto al Centro de la Holgura, Mecanismo Slide-to-Release Real,
-Uñero de TPU hasta el Suelo y Carcasa Blindada de PETG.
+Uñero de TPU hasta el Suelo y Carcasa Blindada de PETG con Imanes Hexagonales.
 
-Novedades clave de la versión V8.1:
+Novedades clave de la versión V8.2:
   1. Suspensión Elástica por 4 Patitas en T Rectas:
      - El cuerpo central de TPU (anchura h = 15.6 mm) ya no está constreñido por
        las paredes rígidas de PETG.
@@ -20,18 +20,18 @@ Novedades clave de la versión V8.1:
   3. Mecanismo Slide-to-Release Real (embocadura abierta hasta X = -92.0 mm):
      - Cono de transición suave sin estrangulamientos (-75 a -89 mm) hasta la
        cámara de punta (-95 mm, domo -98 mm).
-     - En reposo adelantado, ~4 mm de la punta quedan protegidos bajo la capucha.
-     - Al empujar hacia atrás contra +71.0 mm (163.0 mm abiertos), cualquier lápiz
-       de 152-158 mm libera completamente la punta para levantarlo sin obstáculos.
-  4. Suelo de TPU Ligero (2.00 mm):
-     - Eliminado el aumento macizo de suelo: suelo de 2.00 mm, altura TPU = 12.50 mm
-       y altura total cerrada = 18.60 mm.
-  5. Uñero de TPU hasta el Suelo con Curvatura Conservada (R = 32.0 mm):
-     - La muesca del TPU baja hasta Z = 2.00 mm (suelo del canal) aumentando la
-       circunferencia completa para conservar una curvatura suave.
-  6. Envolvencia Suavizada (garganta 7.20 mm) y Repuestos +15% Más Amplios.
-  7. Carcasa Blindada de PETG (39.20 x 18.60 mm cerrada, 8 imanes D6x3 mm).
-  8. 100% Libre de Soportes para Impresión 3D FDM.
+     - Al empujar hacia atrás contra +71.0 mm (163.0 mm abiertos), el lápiz
+       libera completamente la punta para levantarlo sin obstáculos.
+  4. Suelo de TPU Ligero (2.00 mm) y Uñero hasta el Suelo (R = 32.0 mm):
+     - Suelo de 2.00 mm, altura TPU = 12.50 mm (inserto rígido = 12.30 mm) y
+       altura cerrada = 18.60 mm.
+  5. Chasis Blindado de PETG (230.00 x 39.20 mm cerrada) y Cavidades Hexagonales:
+     - 8 cavidades hexagonales (6.20 mm entre caras planas) para imanes D6x3 mm
+       con escape de aire y pegamento por los 6 vértices.
+     - Paredes reforzadas (>= 1.52 mm a zanja/click y >= 1.92 mm al exterior),
+       labio de 1.70 mm en los 4 lados, click snap-fit hueco funcional y placa
+       de impresión con separación limpia entre las 3 piezas.
+  6. 100% Libre de Soportes para Impresión 3D FDM.
 =============================================================================
 """
 
@@ -89,7 +89,8 @@ LEG_PAD_LEN = 2 * (LEG_STEM_W / 2.0 + LEG_FLAT_PER_SIDE + LEG_WING_LEN) # 26.40 
 TOTAL_TPU_WIDTH = TPU_WIDTH + 2 * LEG_STEM_LEN    # 15.60 + 2 * 7.80 = 31.20 mm
 
 # Compresión elástica de la tapa sobre los hombros del TPU:
-COMPRESSION = 0.40             # 0.40 mm de apriete elástico
+COMPRESSION = 0.15             # 0.15 mm de apriete suave anti-vibración (compatible con los 8 imanes)
+RIGID_INSERT_CLEARANCE = 0.05  # Holgura extra para el inserto rígido (sin colisión al cerrar)
 
 # Dimensiones interiores de la cajera rígida de PETG:
 POCKET_WIDTH = TOTAL_TPU_WIDTH + 0.20             # 31.40 mm (aloja las patitas con holgura suave)
@@ -100,11 +101,11 @@ POCKET_R = 1.20
 BASE_FLOOR = 1.60              # Suelo rígido inferior (mm)
 BASE_BODY_H = 9.60             # Altura exterior de la base hasta la costura (9.60 mm)
 LIP_H = 5.40                   # Altura del labio vertical reforzado (5.40 mm)
-LIP_THICKNESS = 1.70           # Grosor macizo del labio (1.70 mm continuo)
+LIP_THICKNESS = 1.70           # Grosor macizo del labio en los 4 lados (1.70 mm continuo)
 
 # Dimensiones exteriores del labio:
 lip_width = POCKET_WIDTH + 2 * LIP_THICKNESS      # 31.40 + 3.40 = 34.80 mm
-lip_len = POCKET_LEN + 1.00                       # 205.40 mm
+lip_len = POCKET_LEN + 2 * LIP_THICKNESS          # 204.40 + 3.40 = 207.80 mm
 lip_corner_r = 1.00
 
 # Pieza 2: Tapa rígida (PLA / PETG) - 9.00 mm:
@@ -116,18 +117,18 @@ LID_WALL = 2.00                # Grosor de pared exterior de la tapa (2.00 mm ma
 SLIDE_TOL = 0.20               # Holgura radial de deslizamiento (mm)
 LIP_SETBACK = LID_WALL + SLIDE_TOL  # 2.20 mm de escalón
 
-# Cierre magnético por 8 imanes D6x3 mm en las 4 esquinas:
-MAG_DIA = 6.00                    # Diámetro nominal del imán (mm)
+# Cierre magnético por 8 imanes D6x3 mm en cavidad HEXAGONAL (escape de aire y pegamento por vértices):
+MAG_DIA = 6.00                    # Diámetro nominal del imán cilíndrico (mm)
 MAG_HEIGHT = 3.00                 # Altura nominal del imán (mm)
-MAG_HOLE_D = 6.20                 # Diámetro de cavidad con holgura (mm)
+MAG_HOLE_D = 6.20                 # Distancia entre caras planas del hexágono (mm, Ø6.0 + 0.20 holgura)
 MAG_HOLE_H = 3.40                 # Altura de cavidad (+0.40 mm sobre imán para holgura de boquilla)
 MAG_MEMBRANE = 0.40               # Membrana de plástico en la cara de contacto (0.40 mm = 2 capas de 0.20 mm)
-MAG_Y_OFFSET = (POCKET_WIDTH / 2.0) + LIP_THICKNESS - 1.20 # 16.20 mm (adaptado al nuevo ancho)
-MAG_X_OFFSET = 106.00             # Desplazamiento longitudinal X en esquinas (mm)
+MAG_Y_OFFSET = 14.40              # Desplazamiento Y (pared exterior >= 1.92 mm en esquina)
+MAG_X_OFFSET = 109.50             # Desplazamiento X más allá del labio (pared >= 1.52 mm a zanja/click)
 
 # Dimensiones exteriores totales del estuche blindado:
-CASE_WIDTH = lip_width + 2 * SLIDE_TOL + 2 * LID_WALL  # 39.20 mm ("armatoste" confortable y ergonómico)
-CASE_LEN = 2 * (MAG_X_OFFSET + MAG_HOLE_D / 2.0 + 2.75) # 223.70 mm
+CASE_WIDTH = lip_width + 2 * SLIDE_TOL + 2 * LID_WALL  # 39.20 mm
+CASE_LEN = 230.00                                      # 230.00 mm (pared exterior >= 1.92 mm en imanes)
 CORNER_R = 2.50                   # Radio de curvatura vertical exterior (mm)
 
 
@@ -262,6 +263,16 @@ def make_cone_x(length, r_left, r_right, segments=32):
     cone = m3d.Manifold.cylinder(length, r_left, r_right, circular_segments=segments, center=True)
     return cone.rotate([0, 90, 0])
 
+def make_hex_magnet_pocket(flat_dia=MAG_HOLE_D, height=MAG_HOLE_H):
+    """
+    Cavidad hexagonal regular con distancia entre caras planas `flat_dia`.
+    Los 6 vértices sobresalen ~0.58 mm respecto al imán cilíndrico D6x3 mm para
+    dejar escapar aire atrapado y exceso de pegamento sin presionar las paredes.
+    """
+    r_in = flat_dia / 2.0
+    r_out = r_in / np.cos(np.pi / 6.0)
+    return m3d.Manifold.cylinder(height, r_out, r_out, circular_segments=6, center=False)
+
 def rounded_slot_3d(length, height, depth, r=1.0):
     rx = max(0.1, length / 2.0 - r)
     rz = max(0.1, height / 2.0 - r)
@@ -319,23 +330,23 @@ def build_suspension_leg(stem_len=LEG_STEM_LEN, stem_w=LEG_STEM_W, flat_per_side
 # ---------------------------------------------------------------------------
 def build_tpu_insert(enveloping=True):
     """
-    Pieza 3: Inserto protector en TPU (TPU 85A a 20% infill) V8.
-    - 4 Patitas de suspensión amortiguadoras en X = ±34.0 mm con separación h/2 = 7.8 mm.
-    - Simetría 100% respecto al centro de la holgura (X = 0.00 mm):
-      * Distancia del centro a la culata: 102.0 mm.
-      * Distancia del centro a la punta: 102.0 mm (11.0 mm de parachoques macizo frontal).
-    - Mecanismo Slide-to-Release de 4.0 mm:
-      * El lápiz puede desplazarse 4.0 mm hacia atrás para liberar el plumín de la visera.
-    - Suelo macizo aumentado a 4.00 mm bajo el lápiz.
-    - Envolvencia suavizada al 10% (garganta 7.20 mm).
-    - 2 hendiduras de puntas de repuesto ampliadas un 15%.
+    Pieza 3: Inserto protector en TPU (TPU 85A a 20% infill) V8.2.
+    - 4 Patitas de suspensión en T totalmente rectas en X = ±51.0 mm (separación h/2 = 7.8 mm).
+      Nervio fino (2.40 mm) y barra de contacto recta reforzada (2.40 mm, sin rampitas).
+    - Simetría 100% respecto al centro de la holgura (X = 0.00 mm): 204.0 mm total.
+    - Mecanismo Slide-to-Release real: embocadura abierta 163.0 mm (+71.0 a -92.0 mm) y
+      transición cónica suave (-75.0 a -89.0 mm) hasta cámara de punta (-95.0 / -98.0 mm).
+    - Suelo ligero de 2.00 mm (altura TPU = 12.50 mm; versión rígida 12.30 mm sin colisión).
+    - Uñero hasta el suelo (Z = 2.00 mm) con circunferencia ampliada (R = 32.0 mm).
+    - Envolvencia suavizada (garganta 7.20 mm) y 2 hendiduras de repuestos +15%.
     """
-    body = rounded_box(TPU_LEN, TPU_WIDTH, TPU_H, TPU_CORNER_R)
+    insert_h = TPU_H if enveloping else (TPU_H - COMPRESSION - RIGID_INSERT_CLEARANCE)
+    body = rounded_box(TPU_LEN, TPU_WIDTH, insert_h, TPU_CORNER_R)
     
     # Adición de las 4 patitas elásticas de suspensión:
     for lx in LEG_X_OFFSETS:
-        leg_pos = build_suspension_leg().translate([lx, TPU_WIDTH / 2.0, 0])
-        leg_neg = build_suspension_leg().rotate([0, 0, 180]).translate([lx, -TPU_WIDTH / 2.0, 0])
+        leg_pos = build_suspension_leg(height=insert_h).translate([lx, TPU_WIDTH / 2.0, 0])
+        leg_neg = build_suspension_leg(height=insert_h).rotate([0, 0, 180]).translate([lx, -TPU_WIDTH / 2.0, 0])
         body = body + leg_pos + leg_neg
 
     pen_r = 4.50  # radio del canal cilíndrico (Ø 9.0 mm para lápiz de 8.8 mm)
@@ -481,11 +492,11 @@ def build_base():
     """
     base_body = rounded_box(CASE_LEN, CASE_WIDTH, BASE_BODY_H, CORNER_R)
     
-    # Labio de encaje superior (exterior 34.80 x 205.40 mm, pared maciza de 1.70 mm)
+    # Labio de encaje superior (exterior 34.80 x 207.80 mm, pared maciza de 1.70 mm en los 4 lados)
     lip = rounded_box(lip_len, lip_width, LIP_H, lip_corner_r).translate([0, 0, BASE_BODY_H])
     
-    # Micro-nervio táctil de retención (Snap-Fit click)
-    click_bead = rounded_box(lip_len + 0.35, lip_width + 0.35, 0.70, lip_corner_r).translate([0, 0, BASE_BODY_H + LIP_H - 1.80])
+    # Micro-nervio táctil de retención (Snap-Fit click: +0.05 mm sobre lip_trench para clic nítido)
+    click_bead = rounded_box(lip_len + 0.50, lip_width + 0.50, 0.70, lip_corner_r + 0.25).translate([0, 0, BASE_BODY_H + LIP_H - 1.80])
     solid_base = base_body + lip + click_bead
     
     # Cajera interior para el TPU (31.40 x 204.40 mm)
@@ -503,13 +514,12 @@ def build_base():
     slot_fb = rounded_slot_3d(PRY_NOTCH_LEN, PRY_NOTCH_H * 2, PRY_NOTCH_DEPTH, r=PRY_NOTCH_R).translate([0, -CASE_WIDTH / 2.0, scoop_z_bottom])
     slot_bb = rounded_slot_3d(PRY_NOTCH_LEN, PRY_NOTCH_H * 2, PRY_NOTCH_DEPTH, r=PRY_NOTCH_R).translate([0,  CASE_WIDTH / 2.0, scoop_z_bottom])
 
-    # 4 cavidades para imanes D6x3 mm ocultos en las 4 esquinas:
-    mag_r = MAG_HOLE_D / 2.0
+    # 4 cavidades hexagonales para imanes D6x3 mm ocultos en las 4 esquinas:
     base_mag_pockets = None
     for mx in [-MAG_X_OFFSET, +MAG_X_OFFSET]:
         for my in [-MAG_Y_OFFSET, +MAG_Y_OFFSET]:
-            p_cyl = m3d.Manifold.cylinder(MAG_HOLE_H, mag_r, mag_r, circular_segments=32, center=False).translate([mx, my, BASE_BODY_H - MAG_MEMBRANE - MAG_HOLE_H])
-            base_mag_pockets = p_cyl if base_mag_pockets is None else (base_mag_pockets + p_cyl)
+            p_hex = make_hex_magnet_pocket(MAG_HOLE_D, MAG_HOLE_H).translate([mx, my, BASE_BODY_H - MAG_MEMBRANE - MAG_HOLE_H])
+            base_mag_pockets = p_hex if base_mag_pockets is None else (base_mag_pockets + p_hex)
             
     return solid_base - pocket - base_mag_pockets - base_scoop - slot_fb - slot_bb
 
@@ -546,30 +556,31 @@ def build_lid(with_phone_number=True):
     lip_pocket_len = lip_len + 2 * SLIDE_TOL
     lip_pocket_width = lip_width + 2 * SLIDE_TOL
     lip_pocket_depth = LIP_H + 0.30
-    trench_outer = rounded_box(lip_pocket_len, lip_pocket_width, lip_pocket_depth + 1.0, 0.80).translate([0, 0, -0.5])
+    trench_outer = rounded_box(lip_pocket_len, lip_pocket_width, lip_pocket_depth + 1.0, lip_corner_r + SLIDE_TOL).translate([0, 0, -0.5])
     trench_inner = rounded_box(POCKET_LEN - 0.40, POCKET_WIDTH - 0.40, lip_pocket_depth + 2.0, 0.80).translate([0, 0, -1.0])
     lip_trench = trench_outer - trench_inner
     
-    # 2. Superficie interna de compresión sobre los hombros del TPU:
+    # 2. Superficie interna de compresión suave sobre los hombros del TPU (0.15 mm):
     tpu_protrusion = (BASE_FLOOR + TPU_H) - BASE_BODY_H   # 1.6 + 12.5 - 9.6 = 4.50 mm
-    tpu_comp_depth = tpu_protrusion - COMPRESSION         # 4.50 - 0.40 = 4.10 mm
+    tpu_comp_depth = tpu_protrusion - COMPRESSION         # 4.50 - 0.15 = 4.35 mm
     tpu_comp_pocket = rounded_box(POCKET_LEN + 0.40, POCKET_WIDTH + 0.40, tpu_comp_depth + 0.50, 0.80).translate([0, 0, -0.5])
     
     # 3. Canal de desahogo de seguridad para el lápiz y botones:
     pen_relief_depth = 6.00
     pen_relief = rounded_box(TPU_LEN + 1.0, 10.60, pen_relief_depth + 0.50, 1.20).translate([0, 0, -0.5])
     
-    # Detente interior para el clic de retención:
-    click_groove = rounded_box(lip_pocket_len + 0.35, lip_pocket_width + 0.35, 0.90, 0.80).translate([0, 0, LIP_H - 1.80])
+    # Detente interior perimetral (anillo hueco) para el clic de retención sin invadir techo ni imanes:
+    groove_outer = rounded_box(lip_pocket_len + 0.60, lip_pocket_width + 0.60, 0.90, lip_corner_r + SLIDE_TOL + 0.30).translate([0, 0, LIP_H - 1.80])
+    groove_inner = rounded_box(lip_pocket_len - 0.80, lip_pocket_width - 0.80, 1.20, 0.80).translate([0, 0, LIP_H - 1.95])
+    click_groove = groove_outer - groove_inner
     internal_cuts = lip_trench + tpu_comp_pocket + pen_relief + click_groove
     
-    # 4 cavidades para imanes D6x3 mm ocultos en las 4 esquinas:
-    mag_r = MAG_HOLE_D / 2.0
+    # 4 cavidades hexagonales para imanes D6x3 mm ocultos en las 4 esquinas:
     lid_mag_pockets = None
     for mx in [-MAG_X_OFFSET, +MAG_X_OFFSET]:
         for my in [-MAG_Y_OFFSET, +MAG_Y_OFFSET]:
-            p_cyl = m3d.Manifold.cylinder(MAG_HOLE_H, mag_r, mag_r, circular_segments=32, center=False).translate([mx, my, MAG_MEMBRANE])
-            lid_mag_pockets = p_cyl if lid_mag_pockets is None else (lid_mag_pockets + p_cyl)
+            p_hex = make_hex_magnet_pocket(MAG_HOLE_D, MAG_HOLE_H).translate([mx, my, MAG_MEMBRANE])
+            lid_mag_pockets = p_hex if lid_mag_pockets is None else (lid_mag_pockets + p_hex)
             
     # Uñeras ergonómicas en la base de la pestaña semicircular (X = 0.00 mm):
     scoop_z_bottom = BASE_FLOOR + 5.60
@@ -612,8 +623,8 @@ def main():
     target_dir = modelos_dir if os.path.exists(modelos_dir) else base_dir
 
     print("=================================================================")
-    print(" GENERANDO ESTUCHE V8.1 DEFINITIVO PARA XIAOMI SMART PEN 2")
-    print(f" Dimensiones: {CASE_LEN:.1f} x {CASE_WIDTH:.1f} x {TOTAL_CLOSED_H:.1f} mm (Blindado con Suspensión)")
+    print(" GENERANDO ESTUCHE V8.2 DEFINITIVO PARA XIAOMI SMART PEN 2")
+    print(f" Dimensiones: {CASE_LEN:.1f} x {CASE_WIDTH:.1f} x {TOTAL_CLOSED_H:.1f} mm (Imanes hexagonales D6x3)")
     print(f" TPU: {TPU_LEN:.1f} x {TOTAL_TPU_WIDTH:.1f} x {TPU_H:.1f} mm | Suelo: {TPU_FLOOR:.1f} mm | Uñero R={TPU_SCOOP_R:.1f} mm")
     print(f" Patitas T rectas (nervio {LEG_STEM_W:.1f} mm, apoyo {LEG_PAD_THICK:.1f} mm) | Embocadura 163.0 mm")
     print("=================================================================")
@@ -630,9 +641,10 @@ def main():
     lid_closed = lid_with_phone.translate([0, 0, BASE_BODY_H])
     assembled = base + lid_closed
     
-    tpu_plate = tpu_insert.translate([0, -32.0, 0])
+    # Separación limpia sin solapes (>12 mm entre piezas) para Split to Objects:
+    tpu_plate = tpu_insert.translate([0, -48.0, 0])
     base_plate = base.translate([0, 0, 0])
-    lid_plate = lid_print.translate([0, 35.0, 0])
+    lid_plate = lid_print.translate([0, 52.0, 0])
     plate_all = tpu_plate + base_plate + lid_plate
     
     files_to_export = [

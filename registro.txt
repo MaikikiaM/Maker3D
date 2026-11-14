@@ -234,3 +234,18 @@ Decisiones técnicas (`assemble_viewer_v2.py` + `Tableros-Catan/pipeline-biomas/
 - **Corrección crítica de nitidez en `assemble_viewer_v2.py`:** Eliminado el emborronado `du=0.0075` sobre taludes `rock` (restringiendo suavizado sólo a paredes cuasi-verticales `abs(n.z)<0.42` + detalle cristalino 3D de alta frecuencia), elevado `t.anisotropy = 16`, y sustituido JPEG90 (`4:2:0` chroma blur) por **WEBP calidad 96/94** (`diff=609KB`, `norm=920KB`, `rough=218KB`).
 - **Compilación y verificación final:** `V=381,965 | F=763,926 Δ | χ=2 | wt=True | wnd=True | degen=0 | Vol=376.2176 cm³ | Z=51.00 mm`. Verificado en 6 vistas (`oro_6views_audit.png`) y Chromium (`1b3e7a36`, `0` errores JS/WebGL) con mejora drástica en gravilla, pepitas 24K y fracturas rocosas (`Visores-HTML/catan-bioma-oro.html`, `14.49 MB`).
 ================================================================================
+
+================================================================================
+SESIÓN: 14/11/2026 - CORRECCIÓN GENERAL DE CARCASA E IMANES HEXAGONALES (V8.2)
+Prompt usuario: Revisar todo el diseño y corregir los fallos detectados en base, tapa y placa, pasando los alojamientos de imanes D6x3 mm a forma hexagonal para escape de aire y pegamento por los vértices.
+
+Decisiones técnicas y arquitectura (`Funda-Lapiz-Xiaomi/generar_estuche.py` + `MANUAL_IMPRESION.md`):
+- Cavidades hexagonales (`make_hex_magnet_pocket`): `MAG_HOLE_D=6.20 mm` entre caras planas (`r_out=3.58 mm` en vértices, escape de ~`0.58 mm` por vértice), reubicadas en `X=±109.50 mm, Y=±14.40 mm` con `CASE_LEN=230.00 mm` (`CASE_WIDTH=39.20 mm`), logrando paredes continuas de `>= 1.92 mm` al exterior, `1.82 mm` a `lip_trench` y `1.52 mm` a `click_groove`.
+- Anillo `click_groove` hueco y `click_bead` funcional: `click_groove = groove_outer - groove_inner` restringido a la pared de `lip_trench` sin perforar los imanes ni el techo de la tapa; `click_bead` ampliado `+0.05 mm` sobre `lip_trench` para retención táctil real.
+- Labio Base uniforme en los 4 lados: `lip_len = POCKET_LEN + 2 * LIP_THICKNESS = 207.80 mm` (`1.70 mm` en X e Y).
+- Precarga compatible: `COMPRESSION = 0.15 mm` sobre el TPU (`161.54 mm³` de apriete suave) y altura dedicada en el inserto rígido (`12.30 mm`, `0.0 mm³` de colisión al cerrar).
+- Placa de impresión sin solapes: separación en Y (`-48.0 / 0.0 / +52.0 mm`, huella `230.0 x 135.2 mm`, `0.0 mm³` de intersección) y pausa de capas corregida en `MANUAL_IMPRESION.md` (`Z=9.20 mm` inicio Capa 47 en Base; `Z=8.60 mm` inicio Capa 44 en Tapa).
+
+Resultados de validación observados:
+- 7 STL regenerados en `Funda-Lapiz-Xiaomi/Modelos-3D/`, todos `Watertight: True`: `base` (`5` shells), `tapa` (`5` shells), `tapa_lisa` (`5` shells), `inserto_TPU` (`1` shell), `inserto_rigido` (`1` shell), `base^lid=0.0 mm³`, `lid^rigid=0.0 mm³`, `placa` con `0.0 mm³` de solape entre piezas.
+================================================================================

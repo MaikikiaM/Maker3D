@@ -114,6 +114,69 @@ def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filte
     return np.clip(rgb * 255.0, 0.0, 255.0).astype(np.uint8), max_snow_steep
 
 
+def sculpt_albedo_microrelief(Z, diff_rgb, dist_edge, dist_vert, dx, max_bump_mm=0.95):
+    """Carve physical 3D stone domes, mineral cracks, crystalline gold outcrops & wave ribs from high-res albedo."""
+    rgb_f = diff_rgb.astype(np.float32) / 255.0
+    r, g, b = rgb_f[..., 0], rgb_f[..., 1], rgb_f[..., 2]
+    lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+    is_water = np.clip((g - r - 0.025) * 4.5, 0.0, 1.0) * np.clip((b - r - 0.02) * 4.0, 0.0, 1.0)
+    is_foam = is_water * nb.smoothstep(0.50, 0.85, lum)
+    is_gold = nb.smoothstep(0.18, 0.42, (r + g) * 0.5 - b) * nb.smoothstep(0.45, 0.78, lum)
+
+    s_fine = max(0.85, 0.10 / dx)
+    s_meso = max(3.5, 0.70 / dx)
+    s_broad = max(8.0, 1.65 / dx)
+    l_fine = ndi.gaussian_filter(lum, s_fine)
+    l_meso = ndi.gaussian_filter(lum, s_meso)
+    l_broad = ndi.gaussian_filter(lum, s_broad)
+
+    stone_domes = np.clip((l_fine - l_meso) * 2.6 + (l_meso - l_broad) * 1.15, -0.60, 0.80)
+    crevice_groove = np.clip((l_meso - l_fine) - 0.045, 0.0, 0.48) * 1.65
+    gold_facets = is_gold * nb.smoothstep(0.38, 0.82, lum) * (0.65 + 0.70 * np.clip(l_fine - l_meso + 0.25, 0.0, 0.75))
+
+    rock_relief = max_bump_mm * (
+        1.05 * stone_domes
+        - 0.82 * crevice_groove
+        + 0.65 * gold_facets
+    )
+    water_relief = max_bump_mm * 0.34 * is_foam
+
+    bump = (1.0 - is_water) * rock_relief + is_water * water_relief
+    core = nb.smoothstep(nb.ROAD_MARGIN + 0.65, nb.ROAD_MARGIN + 2.8, dist_edge) * nb.smoothstep(nb.PAD_RADIUS + 0.65, nb.PAD_RADIUS + 2.8, dist_vert)
+    return (Z + bump * core).astype(np.float32)
+
+
+def deink_mineral_albedo(diff_rgb, dist_edge, dist_vert, dx):
+    """Soften flat 2D comic ink outlines into natural mineral crevices & add fine geological stone grain."""
+    rgb_f = diff_rgb.astype(np.float32) / 255.0
+    r, g, b = rgb_f[..., 0], rgb_f[..., 1], rgb_f[..., 2]
+    lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    H, W = lum.shape
+
+    is_water = np.clip((g - r - 0.025) * 4.5, 0.0, 1.0) * np.clip((b - r - 0.02) * 4.0, 0.0, 1.0)
+    is_gold = nb.smoothstep(0.22, 0.46, (r + g) * 0.5 - b) * nb.smoothstep(0.48, 0.80, lum)
+    core = nb.smoothstep(nb.ROAD_MARGIN + 0.65, nb.ROAD_MARGIN + 2.8, dist_edge) * nb.smoothstep(nb.PAD_RADIUS + 0.65, nb.PAD_RADIUS + 2.8, dist_vert)
+
+    # Local bright neighborhood (dilated sandstone color around ink lines)
+    s_ctx = max(4.0, 0.75 / dx)
+    ctx_rgb = np.stack([ndi.gaussian_filter(rgb_f[..., c], s_ctx) for c in range(3)], axis=-1)
+    ctx_lum = ndi.gaussian_filter(lum, s_ctx)
+
+    # Detect sharp black/dark-umber comic outlines relative to bright neighbors
+    ink_mask = np.clip((ctx_lum - lum - 0.10) * 3.8, 0.0, 1.0) * (1.0 - nb.smoothstep(0.10, 0.34, lum))
+    ink_blend = (ink_mask * (1.0 - is_water) * core * 0.58)[..., None]
+    # Replace dead black ink with rich warm deep mineral umber (0.38x surrounding rock) so real 3D shadows dominate
+    deinked = rgb_f * (1.0 - ink_blend) + (ctx_rgb * 0.42) * ink_blend
+
+    # Tactile porous geological stone micro-grain on sandstone/basalt (absent on calm water & mirror gold)
+    grain1 = nb.fft_fbm(W, H, 0.16, 0.60, 2.0 * nb.R, 2.0 * nb.R, beta=1.9, seed=711)
+    grain2 = nb.fft_fbm(W, H, 0.05, 0.18, 2.0 * nb.R, 2.0 * nb.R, beta=1.8, seed=712)
+    rock_mask = (1.0 - is_water) * (1.0 - 0.65 * is_gold) * core
+    deinked = np.clip(deinked * (1.0 + rock_mask[..., None] * (0.085 * grain1 + 0.055 * grain2)[..., None]), 0.0, 1.0)
+    return np.clip(deinked * 255.0, 0, 255).astype(np.uint8)
+
+
 def compute_enhanced_pbr_maps(Z, diff_rgb, dx, dy, micro_norm_strength=0.32):
     """Generate tangent-space normal map fusing DEM geometry + painted albedo micro-relief, and material roughness."""
     gy, gx = np.gradient(Z, dy, dx)
@@ -317,6 +380,7 @@ def main():
     p.add_argument("--warp-strength", type=float, default=0.42, help="Grid slope attraction strength when --contour-align is active.")
     p.add_argument("--triplanar-mode", choices=["none", "clay", "forest", "rock"], default="none")
     p.add_argument("--keep-dark-rock", action="store_true", help="Preserve dark basalt/slate rock cliffs near the perimeter instead of painting warm fill.")
+    p.add_argument("--sculpt-from-albedo", type=float, default=0.0, help="If >0, carve physical 3D rock fractures, cobble/pebble domes, gold clusters & wave ribs (max mm) directly into Z(x,y).")
     p.add_argument("--snow-filter", action="store_true")
     p.add_argument("--alpine-v3-palette", action="store_true", help="Warm limestone granite, green valley moss, copper scree & <44 deg snow palette.")
     p.add_argument("--auto-mineral-albedo", action="store_true", help="Fallback: paint Nano Banana DEM with V3 hyperreal mineral-runoff PBR shader.")
@@ -334,6 +398,13 @@ def main():
         hm_arr, args.tex_size, args.tex_size, relief_mm=args.relief_mm, micro_detail_mm=args.micro_detail, x_lim=nb.R, y_lim=nb.R
     )
     Zt = apply_smooth_hex_apron(Xt, Yt, Zt, dist_t, dist_vt, args.relief_mm, apron_mm=args.apron_mm)
+    diff_raw = None
+    if args.albedo:
+        alb_arr = np.asarray(Image.open(args.albedo).convert("RGB"))
+        diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
+        if args.sculpt_from_albedo > 0.0:
+            Zt = sculpt_albedo_microrelief(Zt, diff_raw, dist_t, dist_vt, dxt, max_bump_mm=args.sculpt_from_albedo)
+            diff_raw = deink_mineral_albedo(diff_raw, dist_t, dist_vt, dxt)
     if args.slope_cap_grad > 0.0:
         n_cap_t = max(6, int(round(1.5 / dxt)))
         Zt = tmu.cap_extreme_slopes(Zt, dist_t, min_step_dx=dxt, max_grad=args.slope_cap_grad, passes=n_cap_t)
@@ -372,8 +443,9 @@ def main():
         max_snow = max(float(shader_stats.get("max_snow_steep", 0.0)), max_snow_phys)
         norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm)
     else:
-        alb_arr = np.asarray(Image.open(args.albedo).convert("RGB"))
-        diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
+        if diff_raw is None:
+            alb_arr = np.asarray(Image.open(args.albedo).convert("RGB"))
+            diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
         diff_rgb, max_snow = refine_biome_albedo(diff_raw, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=args.snow_filter, keep_dark_rock=args.keep_dark_rock)
         norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm)
 

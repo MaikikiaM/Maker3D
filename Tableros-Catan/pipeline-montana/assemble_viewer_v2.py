@@ -637,14 +637,28 @@ def build_viewer():
                 "#include <roughnessmap_fragment>",
                 `#include <roughnessmap_fragment>
                 float rTreeMix = ${{hasTreeVCol ? "clamp(vTreeVCol.a, 0.0, 1.0)" : "0.0"}};
-                float rSteep = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.68, 0.25, abs(normalize(vObjNrm).z)) : 0.0;
-                roughnessFactor = mix(roughnessFactor, 0.88, max(rTreeMix, rSteep * 0.65));`
+                float rSteep = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.55, 0.20, abs(normalize(vObjNrm).z)) : 0.0;
+                roughnessFactor = mix(roughnessFactor, 0.88, max(rTreeMix, rSteep * 0.55));
+                if (uTriMode > 2.5 && vObjPos.z > 25.05) {{
+                  float gM = smoothstep(0.46, 0.72, (diffuseColor.r + diffuseColor.g) * 0.5 - diffuseColor.b) * smoothstep(0.30, 0.60, diffuseColor.r);
+                  float wM = smoothstep(0.03, 0.14, min(diffuseColor.g, diffuseColor.b) - diffuseColor.r) * (1.0 - smoothstep(0.32, 0.58, diffuseColor.r));
+                  roughnessFactor = mix(roughnessFactor, 0.22, gM * 0.88);
+                  roughnessFactor = mix(roughnessFactor, 0.14, wM * 0.85);
+                }}`
+              )
+              .replace(
+                "#include <metalnessmap_fragment>",
+                `#include <metalnessmap_fragment>
+                if (uTriMode > 2.5 && vObjPos.z > 25.05) {{
+                  float gMet = smoothstep(0.46, 0.72, (diffuseColor.r + diffuseColor.g) * 0.5 - diffuseColor.b) * smoothstep(0.30, 0.60, diffuseColor.r);
+                  metalnessFactor = mix(metalnessFactor, 0.82, gMet);
+                }}`
               )
               .replace(
                 "#include <normal_fragment_maps>",
                 `#include <normal_fragment_maps>
                 float nTreeMix = ${{hasTreeVCol ? "clamp(vTreeVCol.a, 0.0, 1.0)" : "0.0"}};
-                float nSteep = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.65, 0.25, abs(normalize(vObjNrm).z)) * 0.85 : 0.0;
+                float nSteep = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.46, 0.15, abs(normalize(vObjNrm).z)) * 0.55 : 0.0;
                 normal = normalize(mix(normal, normalize(vNormal), clamp(max(nTreeMix, nSteep), 0.0, 1.0)));`
               );
           }};
