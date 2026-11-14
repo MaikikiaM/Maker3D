@@ -183,3 +183,13 @@ Prompt usuario (01:24:33 CET): "El bosque se ve fatal, parece que los arboles se
 4. Timer Programado:
    - Temporizador único programado hasta las `05:39:33 CET` (`4h15m` exactas desde `01:24:33 CET`) para reanudar **Biomas 5–8** (`campo`, `desierto`, `oro`, `oceano`) con Nano Banana.
 ================================================================================
+
+================================================================================
+SESIÓN: 14/11/2026 - BIOMA 5/8 CATAN: CAMPOS DE TRIGO (`campo`) TRAS TIMER 05:39 CET
+Prompt automático: Timer 4h15m cumplido (05:39:33 CET) para completar Biomas 5–8 uno a uno.
+
+Decisiones técnicas y métricas (`Tableros-Catan/pipeline-biomas/campo/`):
+- **Geometría (`build_catan_biome.py` + `terrain_mesh_utils.py`):** Generado *heightmap* cenital ortográfico desde `catan_fields_turnaround_1794609034842.jpg` (`catan_fields_heightmap_pureblack_border_1794635416455.jpg`), inspeccionada arcilla `campo_clay_overhead.png` y pintado albedo pixel-locked sin sombras (`campo_diffuse_albedo_1794635527550.jpg`).
+- **Compilación malla alineada a contorno (`--nx 640 --contour-align --slope-cap-grad 1.35 --warp-strength 0.34 --relief-mm 15.0`):** `760,307` flips diagonales convexos; `V=338,097 | F=676,190 Δ | χ=2 | watertight=True | winding=True | degen=0 | Vol=331.8632 cm³ | Z=40.0 mm`.
+- **Verificación visual y despliegue:** Auditado en 6 vistas 60° (`campo_6views_audit.png`) y en Chromium (`5f987f9c`, `0` errores de consola/WebGL en modos PBR héroe, trasera 180°, macro sobre almiares/muros y Arcilla CAD blanca). Desplegado en `Visores-HTML/catan-bioma-campo.html` (`12.22 MB`) y enlazado en `Visores-HTML/index.html`.
+================================================================================
