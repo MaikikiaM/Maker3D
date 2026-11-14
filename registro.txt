@@ -223,3 +223,14 @@ Decisiones técnicas y métricas (`Tableros-Catan/pipeline-biomas/oceano/`):
 - **Compilación malla sólida (`build_catan_biome.py`):** `--nx 660 --contour-align --slope-cap-grad 1.35 --warp-strength 0.34 --ridge-clean 0.30 --blur-px 1.35 --apron-mm 8.5 --relief-mm 16.0 --keep-dark-rock --triplanar-mode none` (`851,219` flips de aristas): `V=359,697 | F=719,390 Δ | χ=2 | watertight=True | winding=True | degen=0 | Vol=315.4463 cm³ | Z=41.00 mm`.
 - **Auditoría visual y cierre 8/8:** Verificado en 6 vistas equidistantes (`oceano_6views_audit.png`) y Chromium WebGL (`6258369a`, `0` errores JS/WebGL, hero PBR + macro Arcilla CAD). Desplegado en `Visores-HTML/catan-bioma-oceano.html` (`13.12 MB`), enlazado en `Visores-HTML/index.html` y completada la colección de **8/8 biomas Catan**.
 ================================================================================
+
+================================================================================
+SESIÓN: 14/11/2026 - REMASTERIZACIÓN HD 2K NATIVA Y PALETA MÁS DORADA DE BIOMA 7 (`oro`)
+Prompt usuario: Mejorar drásticamente la resolución de colores y nitidez de líneas/rocas en Bioma 7 sin alterar su forma geométrica y hacer la paleta más dorada.
+Decisiones técnicas (`assemble_viewer_v2.py` + `Tableros-Catan/pipeline-biomas/oro/`):
+- **Pipeline Nano Banana Multi-Pasada (`2048×2048` real sin cambio geométrico):**
+  1. `Pass 1` (`oro_hd_albedo_pass1_1794656025628.jpg`) y `Pass 1B` (`oro_hd_albedo_pass1b_1794656137222.jpg`): bloqueados 1:1 a `oro_clay_overhead.png`, potenciando areniscas dorado-ámbar, lajas rocosas nítidas en mesetas superiores y contraste basáltico oscuro en crestas.
+  2. Superresolución paralela en **4 cuadrantes solapados (`1280×1280` -> `1024×1024` nativo AI)** + **pase puente central (`q_center`: `1152×1152`)** sobre la barra de gravilla y cascada, alineados por correlación de fase (`shift=(0,0)`) y cosido de baja frecuencia en `oro_hd_master_v2_2048.png`.
+- **Corrección crítica de nitidez en `assemble_viewer_v2.py`:** Eliminado el emborronado `du=0.0075` sobre taludes `rock` (restringiendo suavizado sólo a paredes cuasi-verticales `abs(n.z)<0.42` + detalle cristalino 3D de alta frecuencia), elevado `t.anisotropy = 16`, y sustituido JPEG90 (`4:2:0` chroma blur) por **WEBP calidad 96/94** (`diff=609KB`, `norm=920KB`, `rough=218KB`).
+- **Compilación y verificación final:** `V=381,965 | F=763,926 Δ | χ=2 | wt=True | wnd=True | degen=0 | Vol=376.2176 cm³ | Z=51.00 mm`. Verificado en 6 vistas (`oro_6views_audit.png`) y Chromium (`1b3e7a36`, `0` errores JS/WebGL) con mejora drástica en gravilla, pepitas 24K y fracturas rocosas (`Visores-HTML/catan-bioma-oro.html`, `14.49 MB`).
+================================================================================

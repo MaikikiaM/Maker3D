@@ -96,9 +96,9 @@ def build_viewer():
     uvs_gz = base64.b64encode(gzip.compress(uvs.tobytes(), compresslevel=9)).decode("ascii")
     faces_gz = base64.b64encode(gzip.compress(faces.tobytes(), compresslevel=9)).decode("ascii")
 
-    diff_uri, diff_sz = encode_img_b64(os.path.join(OUT_DIR, "catan_mountain_diffuse_2k.png"), fmt="JPEG", quality=90)
-    norm_uri, norm_sz = encode_img_b64(os.path.join(SCRATCH_DIR, "catan_mountain_normal_2k.png"), fmt="JPEG", quality=90)
-    rough_uri, rough_sz = encode_img_b64(os.path.join(SCRATCH_DIR, "catan_mountain_roughness_2k.png"), fmt="JPEG", quality=85)
+    diff_uri, diff_sz = encode_img_b64(os.path.join(OUT_DIR, "catan_mountain_diffuse_2k.png"), fmt="WEBP", quality=96)
+    norm_uri, norm_sz = encode_img_b64(os.path.join(SCRATCH_DIR, "catan_mountain_normal_2k.png"), fmt="WEBP", quality=94)
+    rough_uri, rough_sz = encode_img_b64(os.path.join(SCRATCH_DIR, "catan_mountain_roughness_2k.png"), fmt="JPEG", quality=88)
 
     m = metrics["master"]
     cov = metrics["coverage"]
@@ -339,7 +339,7 @@ def build_viewer():
         img.onload = () => {{
           const t = new THREE.Texture(img);
           t.flipY = true;
-          t.anisotropy = 4;
+          t.anisotropy = 16;
           t.encoding = isSRGB ? THREE.sRGBEncoding : THREE.LinearEncoding;
           t.needsUpdate = true;
           res(t);
@@ -607,13 +607,17 @@ def build_viewer():
                     vec3 rockCol = slateMix * (0.88 + 0.34 * gran) * (0.84 + 0.24 * frac);
                     diffuseColor.rgb = mix(diffuseColor.rgb, rockCol, steepWall * 0.90);
                   }} else {{
-                    // Basalt / Gold Canyon 3D horizontal rock ledges & crystalline quartz detail (zero vertical streak)
-                    float warp = fbm3D(vObjPos * 0.18) * 2.2;
-                    float bed = sin(vObjPos.z * 3.8 + warp);
-                    float gran = fbm3D(vObjPos * 1.45) - 0.5;
-                    float crack = smoothstep(0.08, 0.55, abs(fbm3D(vObjPos * 0.55) * 2.0 - 1.0));
-                    vec3 rockCol = avgCol * (0.86 + 0.18 * bed) * (0.90 + 0.30 * gran) * (0.78 + 0.26 * crack);
-                    diffuseColor.rgb = mix(diffuseColor.rgb, rockCol, steepWall * 0.92);
+                    // Basalt / Gold Canyon 3D horizontal rock ledges & crisp crystalline quartz detail
+                    // Preserve sharp overhead UV texels everywhere except near-vertical UV-stretched scarps
+                    float sheer = smoothstep(0.42, 0.14, abs(normalize(vObjNrm).z));
+                    vec3 crispBase = mix(diffuseColor.rgb, avgCol, sheer * 0.65);
+                    float warp = fbm3D(vObjPos * 0.22) * 2.1;
+                    float bed = sin(vObjPos.z * 4.4 + warp);
+                    float fineGrain = fbm3D(vObjPos * 4.8) - 0.5;
+                    float gran = fbm3D(vObjPos * 1.9) - 0.5;
+                    float crack = smoothstep(0.06, 0.42, abs(fbm3D(vObjPos * 0.72) * 2.0 - 1.0));
+                    vec3 rockCol = crispBase * (0.90 + 0.14 * bed) * (0.94 + 0.22 * gran + 0.14 * fineGrain) * (0.82 + 0.22 * crack);
+                    diffuseColor.rgb = mix(diffuseColor.rgb, rockCol, smoothstep(0.56, 0.18, abs(normalize(vObjNrm).z)) * 0.88);
                   }}
                 }}
                 ${{hasTreeVCol ? `
