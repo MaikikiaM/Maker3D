@@ -2,8 +2,8 @@
 SESIÓN: 08/11/2026 - INICIALIZACIÓN Y CONSOLIDACIÓN DEL PROYECTO MAKER3D
 ================================================================================
 
-**Prompts del usuario:**
-- "Adelante /boost /goal"
+- Prompts literales del usuario:
+  * [08/11/2026]: "Adelante /boost /goal"
 
 **Acciones aplicadas:**
 1. Creación del monorrepo Maker3D para diseño paramétrico, modelado e impresión 3D FDM.
@@ -18,7 +18,10 @@ SESIÓN: 08/11/2026 - INICIALIZACIÓN Y CONSOLIDACIÓN DEL PROYECTO MAKER3D
 
 ================================================================================
 SESIÓN: 13/11/2026 - RECONSTRUCCIÓN INTEGRAL LOSETA MONTAÑA CATAN V2 (5.18M TRIS + UV + 45G/15V + VISOR ANDROID)
-Prompt usuario: Cumplir todos los requisitos acumulados de la loseta de montaña Catan (geometría/tolerancias exactas, >5M caras estancas, escultura realista, física nieve 0% en >=44°, uso completo de 45 grises + 15 verdes, fix UV y visor fluido compatible con Android/Visores-HTML).
+- Prompts literales del usuario:
+  * [13/11/2026 16:14]: "Oye, la montaña del catan, que es sobre la que estamos trabajando principalmente ahora, no acaba de estar bien. Aun no cumple con todos los requisitos que se te han pedido en el camino. Intenta cumplirlos (ahora hay un nuevo modelo de google (tu) y deberias ser mas capaz)"
+  * [13/11/2026 17:16]: "una pregunta. Por que no carga el visor en google chrome? llevo como 10 minutos y aun no acaba de cargar xd"
+- Objetivo: Cumplir todos los requisitos acumulados de la loseta de montaña Catan (geometría/tolerancias exactas, >5M caras estancas, escultura realista, física nieve 0% en >=44°, uso completo de 45 grises + 15 verdes, fix UV y visor fluido compatible con Android/Visores-HTML).
 
 Decisiones técnicas y arquitectura:
 - Pipeline V2 puro en NumPy/SciPy Delaunay/PIL/zipfile sin trimesh (eliminando bloqueos de importación en Windows) en Tableros-Catan/pipeline-montana/build_catan_mountain_master_v2.py.
@@ -39,7 +42,9 @@ Resultados de validación observados:
 
 ================================================================================
 SESIÓN: 13/11/2026 - REDISEÑO CORDILLERA V3 + TEXTURIZADO HIPERREALISTA PINTADO + VISOR PBR HDR CON SOMBRAS
-Prompt usuario: Sustituir la forma abultada V2 por una cordillera alpina puntiaguda/estilizada y sustituir la textura tipo años 2000 por acabados hiperrealistas donde todos los colores se fundan de forma pictórica y natural.
+- Prompts literales del usuario:
+  * [13/11/2026 17:27]: "Ahora sí funciona, pero es una mierda. La forma me gustaba antes y aun parece la textura de un juego de los 2000s. Lo comparas con cualquier juego actual y es una textura que se ve super mal. El problema no es tanto la resolucion como sí lo es que los colores no se funden bien entre si, es algo más bien basto, crudo. Tiene que parecer literalmente pintado, donde todos los colores se fundan. Que parezca una montaña de verdad, necesito graficos hiperrealistas. Aun no esta ni al 10% de lo que deberia ser. Y por cierto, la forma asi abultada no me convence, prefiero seguir en la línea de antes con una montañada mas puntiaguda aunque no sean tan comunes. Al final hay que pensar que en el catan no tienes 10 casillas de montañas, sino que representa la casilla de montaña toda una zona rocosa o de montañas. Es antes una cordillera que una montaña asi abultada. Tiene que ser algo mas estilizado vaya, para resaltar mejor o de forma mas bonita. Realmente te lo estoy argumentando de forma logica pero es algo que va totalmente por gustos"
+- Objetivo: Sustituir la forma abultada V2 por una cordillera alpina puntiaguda/estilizada y sustituir la textura tipo años 2000 por acabados hiperrealistas donde todos los colores se fundan de forma pictórica y natural.
 
 Decisiones técnicas y arquitectura:
 - Nuevo módulo escultórico y pictórico V3 (`Tableros-Catan/pipeline-montana/prototype_v3_cordillera.py`) integrado como fuente única en `build_catan_mountain_master_v2.py` con muestreo FFT canónico sobre `[-R, R]^2` para alineación matemática exacta entre mallas LOD y mapas UV 4K/2K.
@@ -56,7 +61,13 @@ Resultados de validación observados:
 
 ================================================================================
 SESIÓN: 13/11/2026 - CREACIÓN DE SKILL NANOBANANA 3D SCULPT (.agents/skills/nanobanana-3d-sculpt)
-Prompt usuario: Crear una skill para recurrir a Nano Banana y dotar de mayor capacidad imaginativa/conceptual a la creación de modelos 3D cuando toque en cada momento.
+- Prompts literales del usuario:
+  * [13/11/2026 18:09]: "Creo que aun te falta esa parte imaginativa. Te parece si creamos una skill para que puedas recurrir a nanobanana para lograr crear los modelos 3d que toque en cada momento?"
+  * [13/11/2026 18:13]: "Puedes explicarme como funciona la skill "para tontos"? Lo he propuesto porque vi que unos importantes igenieros de google trabajaban en deepmind con Nanobanana para construir pagodas en CAD y el efecto final era brutal"
+  * [13/11/2026 18:14]: "Entiendo la foto y es mas o menos lo que pensaba, pero solo con una foto bastaria? Y cómo consigues utilizar en un entorno como Antigravity donde Nanobanana no esta disponible?"
+  * [13/11/2026 18:16]: "Mmm, actualmente uso el plan de pago de Google AI pro. Cómo recomiendas proceder para el uso de Nanobanana?"
+  * [13/11/2026 18:17]: "De primeras, genera la imagen de una montaña con Nano banana y enseñamela para demostrarme que realmente funciona el metodo"
+- Objetivo: Crear una skill para recurrir a Nano Banana y dotar de mayor capacidad imaginativa/conceptual a la creación de modelos 3D cuando toque en cada momento.
 
 Decisiones técnicas y arquitectura:
 - Creada la skill oficial del workspace en `.agents/skills/nanobanana-3d-sculpt/SKILL.md` siguiendo la especificación de `agy-customizations/docs/skills.md`.
@@ -74,7 +85,11 @@ Resultados de validación observados:
 
 ================================================================================
 SESIÓN: 13/11/2026 - PROTOTIPO 3D EXPERIMENTAL V4 CON NANOBANANA (360° + ALTURA 64MM + VISOR PREVIEW)
-Prompt usuario: Generar una versión más alta y en 360° de la montaña con Nano Banana y probar qué tal queda llevada a 3D real.
+- Prompts literales del usuario:
+  * [13/11/2026 18:20]: "Es brutal, realmente es la ostia esa montaña. Aunque debo decir que si te fijas, esta pensada para ser vista solamente desde la perspectiva que nos lanza Nano banana (no es que yo quiera que sea simetrico ni mucho menos, pero esta claramente pensada para verse desde un lado y ya). Quitando ese mal menor, si realmente hicieras eso, seria brutal. Podrias probar otra generacion teniendo en cuenta lo que te he comentado? Estas 100% seguro de que no estas usando API?"
+  * [13/11/2026 18:31]: "Pues diria que pruebes a ver que tal sale la montaña con Nano banana. Hazlo un poco mas alto que en la imagen (o mas bien, pide otra imagen donde sea mas alta)"
+  * [13/11/2026 18:47]: "Opcion Aç" (para refinamiento V4 Opción A)
+- Objetivo: Generar una versión más alta y en 360° de la montaña con Nano Banana y probar qué tal queda llevada a 3D real.
 
 Decisiones técnicas y arquitectura:
 - Generada lámina conceptual 360° dual (`3/4 South` + `3/4 North`) más alta y escarpada vía `image-generator` (subagente nativo integrado, sin API key externa configurada).
@@ -92,7 +107,11 @@ Resultados de validación observados:
 
 ================================================================================
 SESIÓN: 13/11/2026 - SKILL DE 6 VISTAS EQUIDISTANTES + BIOMA 1 (MONTAÑA EQUILIBRADA) + BLOQUEO CUOTA BIOMAS 2-8
-Prompt usuario: Modificar la skill para dar 6 vistas equidistantes (cada 60° en hexágono), rehacer la montaña con altura equilibrada estilo inicial Nano Banana y completar secuencialmente todos los biomas de Catán.
+- Prompts literales del usuario:
+  * [13/11/2026 18:52]: "Haz esto para todos los "biomas" del catan para ver qué tal queda. Dedicales a cada uno la misma cantidad de esfuerzo que le has dedicado a la montaña. Ve uno a uno completandolo y despues pasando al siguiente de forma que, aunque te quedes sin uso de una vez, hayas dejado varios ya hechos para que yo cuando llegue pueda ver cómo han quedado. Hazlos todos del tiron.
+Btw, la montaña ha quedado demasiado alta. Hazla del mismo estilo que quedó en nano banana al principio. Modifica la skill para que de 6 vistas equidistantes (ya que hacemos hexagonos, que tb sea un hexagono la perspectiva y asi es mas completa la informacion) 
+/goal"
+- Objetivo: Modificar la skill para dar 6 vistas equidistantes (cada 60° en hexágono), rehacer la montaña con altura equilibrada estilo inicial Nano Banana y completar secuencialmente todos los biomas de Catán.
 
 Decisiones técnicas y avance real:
 - Actualizadas `.agents/skills/nanobanana-3d-sculpt/SKILL.md` y `references/prompt-recipes.md` al formato de **6 vistas equidistantes hexagonales (0°, 60°, 120°, 180°, 240°, 300°)** y auditoría visual en rejilla 3×2.
@@ -108,7 +127,9 @@ Decisiones técnicas y avance real:
 
 ================================================================================
 SESIÓN: 13/11/2026 - REFINAMIENTO FUNDA LÁPIZ XIAOMI (V8.1)
-Prompt usuario: Corregir el sistema Slide-to-Release en la punta (estaba cubierta), eliminar el aumento macizo de suelo en TPU, bajar el uñero del TPU hasta el suelo conservando curvatura, y hacer las patitas en T totalmente rectas y más gruesas solo en la sección de contacto.
+- Prompts literales del usuario:
+  * [13/11/2026 22:44]: "Una cosa, en la ultima edicion del lapiz se aumento el lugar de la punta pero solo hacia el interior cubierto. Es decir, que aun queda el lapiz totalmente cubierto y no me sirve de absolutamente nada el sistema de release. Arregla eso. Añado tb que debido al aumento de suelo ha quedado super macizo el TPU y quiero que se quite esa mejora. Quiero tb que el uñero del TPU llegue hasta el suelo dejando asi mas espacio para el lapiz. Para conservar curvatura, simplemente aumenta toda la circunferencia aunque haya mas longitud del lapiz abarcada por el uñero. Quiero que la forma de T de los salientes del TPU que eran los que si tocaban el exterior rigido sean totalmente rectos, sin ninguna rampita que no toque y algo mas gruesos (solamente la seccion que toca, la seccion que une ambas lineas paralelas del TPU debe seguir teniendo ese mismo grosor o trasladara demasiada fuerzas sobre el lapiz"
+- Objetivo: Corregir el sistema Slide-to-Release en la punta (estaba cubierta), eliminar el aumento macizo de suelo en TPU, bajar el uñero del TPU hasta el suelo conservando curvatura, y hacer las patitas en T totalmente rectas y más gruesas solo en la sección de contacto.
 
 Decisiones técnicas y arquitectura (`Funda-Lapiz-Xiaomi/generar_estuche.py` + `MANUAL_IMPRESION.md`):
 - Slide-to-Release funcional: embocadura superior (`open_slot`) ampliada desde `X=+71.0` hasta `X=-92.0` (`163.0 mm` abiertos), transición cónica suave `-75.0..-89.0` (`r=4.50->3.00`, sin estrangulamiento) hasta la cámara de punta (`-95.0 mm`, domo `-98.0 mm`). En reposo adelantado ~`4 mm` quedan bajo capucha (`-92..-98`), y al deslizar hacia atrás contra `+71.0` lápices de `152–158 mm` liberan la punta `5–11 mm` por delante de `-92.0`.
@@ -122,7 +143,9 @@ Resultados de validación observados:
 
 ================================================================================
 SESIÓN: 13/11/2026 - BIOMAS CATAN NANO BANANA 360° (BIOMA 2: BOSQUE)
-Prompt usuario: Proceder tras reinicio de cuota (/goal /boost) completando todos los biomas uno a uno con commit+push tras cada bioma.
+- Prompts literales del usuario:
+  * [13/11/2026 23:20]: "Procede. Ya es la hora /goal /boost"
+- Objetivo: Proceder tras reinicio de cuota (/goal /boost) completando todos los biomas uno a uno con commit+push tras cada bioma.
 
 Decisiones técnicas y avance:
 - **Bioma 2/8 — Bosque / Madera (`bosque`, `Z=63.0 mm`, `relief=38.0 mm`):**
@@ -133,6 +156,8 @@ Decisiones técnicas y avance:
 
 ================================================================================
 SESIÓN: 13/11/2026 - BIOMAS CATAN NANO BANANA 360° (BIOMA 3: COLINAS / ARCILLA)
+- Prompts literales del usuario:
+  * [13/11/2026 23:20]: "Procede. Ya es la hora /goal /boost" (continuación autónoma /goal /boost de la secuencia de biomas)
 Decisiones técnicas y avance:
 - **Bioma 3/8 — Colinas / Arcilla (`colina`, `Z=53.0 mm`, `relief=28.0 mm`):**
   - Lámina conceptual 6 vistas (`catan_hills_clay_hex_turnaround_sheet_...jpg`), *heightmap* cenital suavizado en bordes (`colina_heightmap_clean.png`) y albedo terracota/ocre pixel-locked sobre `colina_clay_overhead.png` (`colina_albedo_v1_...jpg`).
@@ -141,6 +166,8 @@ Decisiones técnicas y avance:
 
 ================================================================================
 SESIÓN: 13/11/2026 - BIOMAS CATAN NANO BANANA 360° (BIOMA 4: PASTOS / LANA + CORTE POR CUOTA)
+- Prompts literales del usuario:
+  * [13/11/2026 23:20]: "Procede. Ya es la hora /goal /boost" (continuación autónoma /goal /boost hasta límite de cuota en campo)
 Decisiones técnicas y avance:
 - **Bioma 4/8 — Pastos / Lana (`pasto`, `Z=38.0 mm`, `relief=13.0 mm`):**
   - Lámina conceptual 6 vistas (`catan_pasture_hex_turnaround_v2_...jpg`), *heightmap* cenital (`catan_pasture_hex_heightmap_v2_...jpg`) y albedo pictórico pixel-locked sobre `pasto_clay_overhead.png` (`pasto_albedo_v1_...jpg`).
@@ -153,7 +180,8 @@ Decisiones técnicas y avance:
 
 ================================================================================
 SESIÓN: 13/11/2026 - MEJORA ESTRUCTURAL Y PBR DE BIOMAS 1–4 (`nx=420`, `291,546 Δ`)
-Prompt usuario: "Luego los continuas. Ahora tira a mejorar los biomas anteriores"
+- Prompts literales del usuario:
+  * [13/11/2026 23:36]: "Luego los continuas. Ahora tira a mejorar los biomas anteriores"
 
 Auditoría visual previa sobre WebGL y mejoras implementadas en `build_catan_biome.py`:
 - **Eliminación de banda negra perimetral:** Restringido el collar arquitectónico pizarra en `refine_biome_albedo` únicamente a zonas planas (`Z - Z_BASE < 0.55 mm` y `ROAD_MARGIN + 0.40 mm` / `PAD_RADIUS + 0.45 mm`), y suavizado el arranque de `apply_smooth_hex_apron` desde `d_clear = 0.35 mm`.
@@ -165,7 +193,11 @@ Auditoría visual previa sobre WebGL y mejoras implementadas en `build_catan_bio
 
 ================================================================================
 SESIÓN: 14/11/2026 - RECONSTRUCCIÓN 3D BOSQUE (`manifold3d`) Y REPARACIÓN MALLADO COLINAS (`V3`)
-Prompt usuario (01:24:33 CET): "El bosque se ve fatal, parece que los arboles se derriten. Dedica al menos una hora a repararlo... El bioma de arcilla se ve bien pero muchos triangulos quedan mal por falta de calidad. Dedica al menos 30 minutos a arreglar ese problema... Pon un timer despues de todo esto para empezar a trabajar en 4:15 horas desde la escritura de este mensaje en los proximos biomas con nanobanana"
+- Prompts literales del usuario:
+  * [14/11/2026 01:24]: "El bsque se ve fatal, parece que los arboles se derriten. Dedica al menos una hora a repararlo (si "terminas" antes, simplemente revisalo de nuevo y arregla lo que sea).
+El bioma de arcilla se ve bien pero muchos triangulos quedan mal por falta de calidad. Dedica al menos 30 minutos a arreglar ese problema (aumenta la calidad, revisa que este todo bien y arregla todo lo que puedas hasta cumplir con el tiempo). 
+Pon un timer despues de todo esto para empezar a trabajar en 4:15 horas desde la escritura de este mensaje en los proimos biomas con nanobanana (ya habra recuperado seguro el uso)
+/goal"
 
 1. Utilidad Compartida (`Tableros-Catan/pipeline-biomas/terrain_mesh_utils.py`):
    - Creado módulo puro NumPy/SciPy con `resample_canonical_xy` (sin inversión vertical accidental sobre mallas canónicas), `cap_extreme_slopes`, `warp_grid_to_slopes`, `contour_aligned_edge_flip` (flips diagonales estrictamente convexos que minimizan `|ΔZ|`) y `build_contour_aligned_hex_solid`.
@@ -186,7 +218,12 @@ Prompt usuario (01:24:33 CET): "El bosque se ve fatal, parece que los arboles se
 
 ================================================================================
 SESIÓN: 14/11/2026 - BIOMA 5/8 CATAN: CAMPOS DE TRIGO (`campo`) TRAS TIMER 05:39 CET
-Prompt automático: Timer 4h15m cumplido (05:39:33 CET) para completar Biomas 5–8 uno a uno.
+- Prompts literales del usuario:
+  * [14/11/2026 01:24]: "El bsque se ve fatal, parece que los arboles se derriten. Dedica al menos una hora a repararlo (si "terminas" antes, simplemente revisalo de nuevo y arregla lo que sea).
+El bioma de arcilla se ve bien pero muchos triangulos quedan mal por falta de calidad. Dedica al menos 30 minutos a arreglar ese problema (aumenta la calidad, revisa que este todo bien y arregla todo lo que puedas hasta cumplir con el tiempo). 
+Pon un timer despues de todo esto para empezar a trabajar en 4:15 horas desde la escritura de este mensaje en los proimos biomas con nanobanana (ya habra recuperado seguro el uso)
+/goal" (continuación programada mediante timer 4h15m al cumplirse 05:39 CET)
+- Contexto automático: Timer 4h15m cumplido (05:39:33 CET) para completar Biomas 5–8 uno a uno.
 
 Decisiones técnicas y métricas (`Tableros-Catan/pipeline-biomas/campo/`):
 - **Geometría (`build_catan_biome.py` + `terrain_mesh_utils.py`):** Generado *heightmap* cenital ortográfico desde `catan_fields_turnaround_1794609034842.jpg` (`catan_fields_heightmap_pureblack_border_1794635416455.jpg`), inspeccionada arcilla `campo_clay_overhead.png` y pintado albedo pixel-locked sin sombras (`campo_diffuse_albedo_1794635527550.jpg`).
@@ -196,6 +233,8 @@ Decisiones técnicas y métricas (`Tableros-Catan/pipeline-biomas/campo/`):
 
 ================================================================================
 SESIÓN: 14/11/2026 - BIOMA 6/8 CATAN: DESIERTO Y OASIS (`desierto`)
+- Prompts literales del usuario:
+  * [14/11/2026 01:24]: "Pon un timer despues de todo esto para empezar a trabajar en 4:15 horas desde la escritura de este mensaje en los proximos biomas con nanobanana" (continuación autónoma /goal en secuencia de Biomas 5–8 tras [14/11/2026 01:24] completo en Bioma 5)
 Decisiones técnicas y métricas (`Tableros-Catan/pipeline-biomas/desierto/`):
 - **Geometría (`build_catan_biome.py` + `terrain_mesh_utils.py`):** Generada lámina conceptual 6 vistas (`catan_desert_hex_turnaround_sheet_1794635923649.jpg`), *heightmap* cenital ortográfico (`catan_desert_hex_heightmap_v3_1794636041969.jpg`), arcilla cenital suavizada (`apron-mm=12.5`) y albedo pictórico pixel-locked (`desierto_diffuse_albedo_overhead_1794636171281.jpg`) sin sombras cocidas ni vegetación vertical punzante.
 - **Compilación malla alineada a contorno (`--nx 640 --contour-align --slope-cap-grad 1.44 --warp-strength 0.34 --relief-mm 22.0`):** `803,843` flips diagonales convexos; `V=338,097 | F=676,190 Δ | χ=2 | watertight=True | winding=True | degen=0 | Vol=364.466 cm³ | Z=47.0 mm`.
@@ -204,6 +243,8 @@ Decisiones técnicas y métricas (`Tableros-Catan/pipeline-biomas/desierto/`):
 
 ================================================================================
 SESIÓN: 14/11/2026 - BIOMA 7/8 CATAN: RÍO DE ORO (`oro`)
+- Prompts literales del usuario:
+  * [14/11/2026 01:24]: "Pon un timer despues de todo esto para empezar a trabajar en 4:15 horas desde la escritura de este mensaje en los proximos biomas con nanobanana" (continuación autónoma /goal en secuencia de Biomas 5–8)
 Decisiones técnicas y métricas (`Tableros-Catan/pipeline-biomas/oro/`):
 - **Geometría y shaders (`build_catan_biome.py` + `assemble_viewer_v2.py`):** Añadidos `--triplanar-mode rock` (lechos horizontales 3D y microgranulación mineral para basaltos sin estrías UV verticales) y `--keep-dark-rock` (preserva roca basáltica oscura sin emborronar en el collar exterior).
 - **Iteración 2 tras auditoría visual (`bioma7_gold_river_heightmap_v3_1794636645831.jpg` + `oro_diffuse_albedo_1794636763228.jpg`):** Soldadas grietas AO de terraza con `--ridge-clean 0.80 --blur-px 2.0 --slope-cap-grad 1.32 --apron-mm 12.0 --relief-mm 26.0`, eliminando rebabas en diente de tiburón detectadas en v1 (`--nx 680 --contour-align`, `844,598` flips): `V=381,965 | F=763,926 Δ | χ=2 | watertight=True | winding=True | degen=0 | Vol=374.5253 cm³ | Z=51.0 mm`.
@@ -212,12 +253,16 @@ Decisiones técnicas y métricas (`Tableros-Catan/pipeline-biomas/oro/`):
 
 ================================================================================
 SESIÓN: 14/11/2026 - PAUSA LIMPIA EN BIOMA 8 (`oceano`) POR CUOTA NANO BANANA (`429`)
+- Prompts literales del usuario:
+  * [14/11/2026 01:24]: "Pon un timer despues de todo esto para empezar a trabajar en 4:15 horas desde la escritura de este mensaje en los proximos biomas con nanobanana" (pausa por cuota 429 en último bioma)
 - Al lanzar la lámina conceptual 6 vistas de **Bioma 8 — Océano (`b505fa6a`)**, `gemini-3.1-flash-image` devolvió `429 RESOURCE_EXHAUSTED` con reinicio programado en **`2026-11-14T09:40:32Z` (`10:40:32 CET`)**.
 - Quedan **7 de 8 biomas completados, verificados en STL/Chromium y subidos a `origin/main`** (`montana`, `bosque`, `colina`, `pasto`, `campo`, `desierto`, `oro`), restando únicamente `oceano`.
 ================================================================================
 
 ================================================================================
 SESIÓN: 14/11/2026 - BIOMA 8/8 CATAN COMPLETADO: OCÉANO Y ARRECIFE (`oceano`)
+- Prompts literales del usuario:
+  * [14/11/2026 01:24]: "Pon un timer despues de todo esto para empezar a trabajar en 4:15 horas desde la escritura de este mensaje en los proximos biomas con nanobanana" (reanudación automática post-cuota 10:40 CET)
 Decisiones técnicas y métricas (`Tableros-Catan/pipeline-biomas/oceano/`):
 - **Reanudación automática post-cuota (`task-2100`, >10:40 CET):** Generados con `image-generator` (Nano Banana) el sheet conceptual 6 vistas (`bioma8_ocean_turnaround_1794655183029.jpg`), heightmap ortográfico estricto (`bioma8_ocean_heightmap_1794655250871.jpg`), vista previa de arcilla (`oceano_clay_overhead.png`, `Z_PEAK=41.0mm`) y albedo pictórico bloqueado 1:1 píxel a píxel (`oceano_diffuse_albedo_1794655364472.jpg`).
 - **Compilación malla sólida (`build_catan_biome.py`):** `--nx 660 --contour-align --slope-cap-grad 1.35 --warp-strength 0.34 --ridge-clean 0.30 --blur-px 1.35 --apron-mm 8.5 --relief-mm 16.0 --keep-dark-rock --triplanar-mode none` (`851,219` flips de aristas): `V=359,697 | F=719,390 Δ | χ=2 | watertight=True | winding=True | degen=0 | Vol=315.4463 cm³ | Z=41.00 mm`.
@@ -226,7 +271,9 @@ Decisiones técnicas y métricas (`Tableros-Catan/pipeline-biomas/oceano/`):
 
 ================================================================================
 SESIÓN: 14/11/2026 - REMASTERIZACIÓN HD 2K NATIVA Y PALETA MÁS DORADA DE BIOMA 7 (`oro`)
-Prompt usuario: Mejorar drásticamente la resolución de colores y nitidez de líneas/rocas en Bioma 7 sin alterar su forma geométrica y hacer la paleta más dorada.
+- Prompts literales del usuario:
+  * [14/11/2026 12:32]: "El bioma dorado esta super bien (diria que el que mejor), pero le falta muchisima resolucion. Trabaja con Nano banana un buen rato y aumenta muchisimo mas la resolucion de los colores. Definelos mucho mejor, sea con lineas mas claras o con mas rocas o con ambos. Eso si, no cambies la forma diria yo que esta lograda. Lo pondria algo mas dorado yo"
+- Objetivo: Mejorar drásticamente la resolución de colores y nitidez de líneas/rocas en Bioma 7 sin alterar su forma geométrica y hacer la paleta más dorada.
 Decisiones técnicas (`assemble_viewer_v2.py` + `Tableros-Catan/pipeline-biomas/oro/`):
 - **Pipeline Nano Banana Multi-Pasada (`2048×2048` real sin cambio geométrico):**
   1. `Pass 1` (`oro_hd_albedo_pass1_1794656025628.jpg`) y `Pass 1B` (`oro_hd_albedo_pass1b_1794656137222.jpg`): bloqueados 1:1 a `oro_clay_overhead.png`, potenciando areniscas dorado-ámbar, lajas rocosas nítidas en mesetas superiores y contraste basáltico oscuro en crestas.
@@ -237,7 +284,10 @@ Decisiones técnicas (`assemble_viewer_v2.py` + `Tableros-Catan/pipeline-biomas/
 
 ================================================================================
 SESIÓN: 14/11/2026 - CORRECCIÓN GENERAL DE CARCASA E IMANES HEXAGONALES (V8.2)
-Prompt usuario: Revisar todo el diseño y corregir los fallos detectados en base, tapa y placa, pasando los alojamientos de imanes D6x3 mm a forma hexagonal para escape de aire y pegamento por los vértices.
+- Prompts literales del usuario:
+  * [13/11/2026 23:14]: "Revisa todo el diseño en general y confirma que no hay nada incorrecto en ninguna de las tres partes /boost"
+  * [14/11/2026 13:06]: "Si. Te parece si los imanes en vez de ser circulos que sean hexagonos? para que el pegamento y el aire escape por los vertices"
+- Objetivo: Revisar todo el diseño y corregir los fallos detectados en base, tapa y placa, pasando los alojamientos de imanes D6x3 mm a forma hexagonal para escape de aire y pegamento por los vértices.
 
 Decisiones técnicas y arquitectura (`Funda-Lapiz-Xiaomi/generar_estuche.py` + `MANUAL_IMPRESION.md`):
 - Cavidades hexagonales (`make_hex_magnet_pocket`): `MAG_HOLE_D=6.20 mm` entre caras planas (`r_out=3.58 mm` en vértices, escape de ~`0.58 mm` por vértice), reubicadas en `X=±109.50 mm, Y=±14.40 mm` con `CASE_LEN=230.00 mm` (`CASE_WIDTH=39.20 mm`), logrando paredes continuas de `>= 1.92 mm` al exterior, `1.82 mm` a `lip_trench` y `1.52 mm` a `click_groove`.
@@ -252,7 +302,9 @@ Resultados de validación observados:
 
 ================================================================================
 SESIÓN: 14/11/2026 - ESCULPIDO 3D FÍSICO Y PBR MINERAL REALISTA EN BIOMA 7 (`oro`)
-Prompt usuario: Dar formas 3D reales a cada textura del bioma dorado para eliminar la sensación 2D / caricaturesca manteniendo la forma macro.
+- Prompts literales del usuario:
+  * [14/11/2026 13:02]: "Has logrado a la perfeccion lo pedido, pero por la limitacion que te puse de no editar el 3d ahora parece un poco 2D o caricaturesco... Dale formas a cada textura para evitar esa sensacion"
+- Objetivo: Dar formas 3D reales a cada textura del bioma dorado para eliminar la sensación 2D / caricaturesca manteniendo la forma macro.
 Decisiones técnicas (`build_catan_biome.py` + `assemble_viewer_v2.py`):
 - **Micro-esculpido 3D sobre el DEM (`sculpt_albedo_microrelief`, `--sculpt-from-albedo 0.58 --nx 840`):** Tallado geométrico real en malla de cantos rodados redondeados (`tanh` suavizado), cristales facetados de oro 24K, surcos físicos en las fracturas de roca y rizos suaves en cascadas (`wall_damp` amortiguando muros verticales >34°). Resultado sólido: `V=582,913 | F=1,165,822 Δ | χ=2 | wt=True | wnd=True | degen=0 | Vol=376.3519 cm³ | Z=51.23 mm`.
 - **Des-entintado mineral + PBR físico (`deink_mineral_albedo` + `assemble_viewer_v2.py`):** Sustitución de líneas de tinta negra 2D por cavidades minerales cálidas y grano geológico (`fft_fbm`) + mapa metálico PBR real en oro 24K (`metalness=0.82, rough=0.22`) y brillo húmedo en el río (`rough=0.14`).
@@ -261,7 +313,9 @@ Decisiones técnicas (`build_catan_biome.py` + `assemble_viewer_v2.py`):
 
 ================================================================================
 SESIÓN: 14/11/2026 - ELIMINACIÓN TOTAL DE TRIÁNGULOS VISIBLES EN MACRO EN BIOMA 7 (`oro`)
-Prompt usuario: Reporte visual de triángulos/picos visibles al acercarse al relieve esculpido de Río de Oro (`media_1794658258629_705a7f3c.jpg`).
+- Prompts literales del usuario:
+  * [14/11/2026 13:11]: "Ahora esta super logrado, pero se ven los triangulos que componen todas las formas. Queda super feo. Esta pasando lo mismo que pasaba con el tema de la arcilla" (con captura `media_1794658258629_705a7f3c.jpg`)
+- Objetivo: Corregir la visibilidad de triángulos al acercarse al relieve esculpido de Río de Oro.
 Diagnóstico y solución (`build_catan_biome.py` + `assemble_viewer_v2.py`):
 - **Eliminada la doble inclinación de normales tangentes (`--tangent-norm`):** `compute_enhanced_pbr_maps` ahora calcula gradientes tangentes residuales (`Z - gaussian_filter(Z, 0.28mm)`) + alta frecuencia de luminancia alrededor de `(128, 128, 255)` en lugar de duplicar la pendiente macro sobre `vNormal`, y se desactivó la sobreescritura `nSteep` sobre roca/arcilla CAD (`TRIPLANAR_MODE == "rock"`).
 - **Filtrado Nyquist $C^2$ en geometría (`sculpt_albedo_microrelief`) + malla `nx=880`:** `s_smooth = max(4.8, 0.34/dx)` + suavizado gaussiano final `0.26mm` del campo `bump` (`--sculpt-from-albedo 0.56`) junto a `--warp-strength 0.14` (`1,469,758` flips) para cantos rodados redondeados sin conos piramidales ni facetas (`V=640,109 | F=1,280,214 Δ | χ=2 | wt=True | degen=0 | Vol=376.3107 cm³ | Z=51.05 mm`).
@@ -271,7 +325,9 @@ Diagnóstico y solución (`build_catan_biome.py` + `assemble_viewer_v2.py`):
 
 ================================================================================
 SESIÓN: 14/11/2026 - UNDO DE 585bb34 Y SUBIDA DE RESOLUCIÓN TRIANGULAR A 2.07M Δ EN BIOMA 7 (`oro`)
-Prompt usuario: Revertir el suavizado que eliminaba el 3D esculpido (`585bb34`) y solucionar los triángulos visibles aumentando directamente la resolución de malla manteniendo intacto todo el relieve 3D de `1ceedac`.
+- Prompts literales del usuario:
+  * [14/11/2026 13:31]: "Nada tio, la has liado. Te he pedido que aumentes la resolucion de triangulos para que no se vean esos errores y simplemente has jodido lo que habias hecho en el ultimo prompt. Has quitado todo el 3d que le habais dado a las texturas. Haz un undo de todo lo que acabas de hacer y simplemente arregla el tema de los trianguloas que te he dicho"
+- Objetivo: Revertir el suavizado que eliminaba el 3D esculpido (`585bb34`) y solucionar los triángulos visibles aumentando directamente la resolución de malla manteniendo intacto todo el relieve 3D de `1ceedac`.
 Decisiones técnicas y métricas:
 - **Undo exacto (`git checkout 1ceedac`)** sobre `build_catan_biome.py` y `assemble_viewer_v2.py` (restaurado `sculpt_albedo_microrelief` nítido y mapa normal original de alto contraste), añadiendo únicamente `sunLight.shadow.bias = -0.00025; sunLight.shadow.normalBias = 0.08` para eliminar bandas de sombra entre micro-triángulos.
 - **Compilación ultra-densa (`--nx 1120 --warp-strength 0.18 --sculpt-from-albedo 0.78 --micro-norm 0.36`):** `2,222,225` flips de arista alineados a contorno -> `V=1,036,503 | F=2,073,002 Δ | χ=2 | wt=True | wnd=True | degen=0 | Vol=376.3993 cm³ | Z=51.34 mm` (`Visores-HTML/catan-bioma-oro.html`, `37.29 MB < 50 MB`).
@@ -280,7 +336,9 @@ Decisiones técnicas y métricas:
 
 ================================================================================
 SESIÓN: 14/11/2026 - RESTAURACIÓN EXACTA DEL ESCULPIDO 3D ORIGINAL (`task-2304`) A 2.30M Δ EN BIOMA 7 (`oro`)
-Prompt usuario: Recuperar exactamente el aspecto esculpido 3D original previo a `1ceedac`/`585bb34`/`9d12132` (foto #1 del usuario, `Vol=376.50 cm³`) y resolver únicamente la visibilidad de triángulos elevando la densidad de malla.
+- Prompts literales del usuario:
+  * [14/11/2026 13:47]: "No has recuperado correctamente lo que tenias. Quiero que este igual a cuando te dije que convirtieras la textura en un 3D. Recupera los archivos y borra todo lo que has hecho en los dos ultimos prompts anda. En la primera foto puedes ver cuál busco y en la segunda el que has hecho. Aunque se parezcan, no son ni mucho menos iguales /goal" (con 2 capturas comparativas)
+- Objetivo: Recuperar exactamente el aspecto esculpido 3D original previo a `1ceedac`/`585bb34`/`9d12132` (`Vol=376.50 cm³`) y resolver únicamente la visibilidad de triángulos elevando la densidad de malla.
 Diagnóstico y decisiones técnicas (`build_catan_biome.py` + `assemble_viewer_v2.py`):
 - **Causa raíz confirmada:** La captura de referencia #1 provenía de `task-2304` (`--sculpt-from-albedo 0.95 --warp-strength 0.34 --micro-norm 0.34`, sin `wall_damp` ni `tanh`), anterior al suavizado introducido ya en `1ceedac` (`0.58`, `wall_damp`, `tanh`). Por ello `git checkout 1ceedac` seguía viéndose rebajado respecto a la foto #1.
 - **Restauración exacta + duplicación de resolución (`--nx 1180`):** Restaurado `sculpt_albedo_microrelief` de `task-2304` (`max_bump_mm=0.95`, `rock_relief = max_bump_mm * (1.05 * stone_domes - 0.82 * crevice_groove + 0.65 * gold_facets)`, sin `wall_damp` ni `tanh`) y `assemble_viewer_v2.py` limpio de `1ceedac` (`shadow.normalBias = 0.35`). Compilación resultante: `nx=1180 ny=1363 | flips=2,404,067 | V=1,150,765 | F=2,301,526 Δ | χ=2 | watertight=True | degen=0 | Vol=376.51 cm³ | Z=51.0 mm` (`Visores-HTML/catan-bioma-oro.html`, `39.22 MB < 50 MB`).
@@ -289,7 +347,13 @@ Diagnóstico y decisiones técnicas (`build_catan_biome.py` + `assemble_viewer_v
 
 ================================================================================
 SESIÓN: 14/11/2026 - ELIMINACIÓN DEFINITIVA DE TRIÁNGULOS VISIBLES EN BIOMA 7 (`oro` — `v02`)
-Prompt usuario: A pesar de 2.30M tris, se siguen viendo triángulos en macro sobre cantos rodados, paredes doradas y pared trasera oscura (`media_1794661245074_699abcb9.jpg`, `media_1794661253002_81594d98.jpg`, `media_1794661299851_cbcba78c.jpg`). Archivar versiones numeradas en local (`v01`, `v02`) y corregir el problema de raíz.
+- Prompts literales del usuario:
+  * [14/11/2026 14:01]: "Vale, ahora hay que tratar el tema de los triangulos. A pesar de haber ya 2,3 millones, se ven a simple vista los triangulos en todo el modelo. Hablo de los que conforman el modelo. Qué propones para deshacernos de ellos, para que no se vean a simple vista"
+  * [14/11/2026 14:01]: "Aqui tienes por detras otros btw" (con capturas `699abcb9`, `81594d98`, `cbcba78c`)
+  * [14/11/2026 14:09]: "Por cierto, antes de nada, que opinas de mantener un historial de versiones?"
+  * [14/11/2026 14:11]: "Simplemente mantener en local cada version bien numerada bastaria"
+  * [14/11/2026 14:13]: "Pues adelante, empieza a arreglar el rio de oro"
+- Objetivo: Archivar versiones numeradas en local (`v01`, `v02`) y eliminar de raíz la visibilidad de triángulos sobre cantos rodados, paredes doradas y pared trasera oscura.
 Diagnóstico raíz e ingeniería aplicada (`terrain_mesh_utils.py`, `build_catan_biome.py`, `assemble_viewer_v2.py`):
 - **Versionado local:** Guardada `v01_esculpido_095_2.30M` y `v02_sin_triangulos_2.36M` en `Tableros-Catan/pipeline-biomas/oro/versiones/` (excluida de Git en `.gitignore`).
 - **Tangentes analíticas suaves + normalMap residual (`--tangent-norm`):** En Three.js `r128`, el visor carecía de atributo `tangent` y usaba `dFdx/dFdy(vUv)` por triángulo sobre un `normalMap` con pendiente macro (`np.gradient(Z)`), creando rombos alternos claro/oscuro en paredes verticales. Ahora `assemble_viewer_v2.py` calcula `tangent` suave por vértice (`vertexTangents: true`, `USE_TANGENT`) y `compute_enhanced_pbr_maps` emite solo micro-relieve residual centrado en `(128,128,255)` + sombras con `bias=-0.00025`, `normalBias=0.08`.
@@ -304,7 +368,10 @@ Diagnóstico raíz e ingeniería aplicada (`terrain_mesh_utils.py`, `build_catan
 
 ================================================================================
 SESIÓN: 14/11/2026 - PERSISTENCIA DE REGLAS 3D APRENDIDAS EN SKILL `nanobanana-3d-sculpt`
-Prompt usuario: Guardar los aprendizajes de modelaje 3D de la sesión para proyectos futuros.
+- Prompts literales del usuario:
+  * [14/11/2026 14:39]: "Te pregunto. Has aprendido algo que puedas guardar para modelaje 3d en el futuro?"
+  * [14/11/2026 14:42]: "Pues si, guardadlo"
+- Objetivo: Guardar los aprendizajes de modelaje 3D de la sesión para proyectos futuros.
 Cambios realizados:
 - Actualizado `.agents/skills/nanobanana-3d-sculpt/SKILL.md` con la sección `Hard-Won 3D Sculpting, Triangulation & Viewer Rules`:
   1. Uso obligatorio de tangentes analíticas por vértice (`--tangent-norm` / `vertexTangents: true`, `USE_TANGENT`) + `normalMap` tangente residual puro (sin hornear `np.gradient(Z)` macro).
@@ -317,7 +384,8 @@ Cambios realizados:
 
 ================================================================================
 SESIÓN: 14/11/2026 - BIOMA 7 (RÍO DE ORO) v03: PULIDO DE PICOS Y ELIMINACIÓN DE TRIÁNGULOS RESIDUALES
-Prompt usuario: "Las formas de los picos no acaban de estar bien pulidas. Ademas, aun hay presencia de triangulos. No es tan vasta, pero existe. Arregla ambas coas /goal"
+- Prompts literales del usuario:
+  * [14/11/2026 14:59]: "Las formas de los picos no acaban de estar bien pulidas. Ademas, aun hay presencia de triangulos. No es tan vasta, pero existe. Arregla ambas coas /goal"
 Diagnóstico y solución técnica:
 - Causa raíz 1 (Picos en diente de tiburón / labio irregular): En guijarros de 0.6 mm el apilado de `stone_domes` + `gold_facets` alcanzaba +1.46 mm con p99=78.2° / max=82.8° y pocas pasadas `cap_extreme_slopes`.
 - Causa raíz 2 (Triángulos residuales): `contour_aligned_edge_flip` carecía de guarda de relación de aspecto geométrica (`q`), encadenando flips a través de 6 pasadas hasta crear triángulos-aguja XY de hasta 2.20 mm (p99).
@@ -338,7 +406,12 @@ Resultados verificados:
 
 ================================================================================
 SESIÓN: 14/11/2026 - BIOMA 7 (RÍO DE ORO) v04: TEXTURIZADO FOTORREALISTA 4K NATGEO CON NANO BANANA
-Prompt usuario: Mejorar drásticamente la calidad y fotorrealismo de textura con Nano Banana ("parecer algo de la vida real, no sacado de un juego de los 2000s") recuperando claridad, nitidez y color vivo, conservando la malla limpia sin triángulos.
+- Prompts literales del usuario:
+  * [14/11/2026 18:01]: "No me gusta tu solucion. Siento que se pierden los colores y un poco todo el tema de texturas es menos claro, menos brillante, mas crudo.
+Siento que, aun siendo un error, los triangulos tapaban la falta de resolucion del dibujo. 
+Hace falta mejor calidad de imagen. El problema no radica tanto en la forma sino ya un poco mas en la propia textura. Intenta lograr mayor calidad utilizando nanobanana. 
+Tiene que parecer algo de la vida real, no sacado de un juego de los 2000s. Aún no estas consiguiendo una textura realista"
+- Objetivo: Mejorar drásticamente la calidad y fotorrealismo de textura con Nano Banana recuperando claridad, nitidez y color vivo, conservando la malla limpia sin triángulos.
 Diagnóstico de causa raíz:
 - La textura anterior (`2K` con trazos pictóricos y `deink_mineral_albedo`) diluía el micro-contraste; en `assemble_viewer_v2.py` el shader `gM` en espacio lineal sangraba `metalness` sobre acantilados naranja de arenisca cálida (apagando el difuso), mientras `steepWall` (`0.88` rugosidad y blur triplanar en taludes 40°-76°) más `toneMappingExposure=0.96` apagaban brillo y realismo.
 Solución aplicada:
@@ -358,7 +431,8 @@ Solución aplicada:
 
 ================================================================================
 SESIÓN: 14/11/2026 - BIOMA 7 (RÍO DE ORO) v05: RECONSTRUCCIÓN HIDRÁULICA FÍSICA DEL RÍO (CERO MUROS DE AGUA)
-Prompt usuario: "El agua del rio en la zona donde hay mas turbuulencia tiene 0 sentido... simplemente son muros de agua y punto. No tiene sentido fisicamente"
+- Prompts literales del usuario:
+  * [14/11/2026 18:30]: "El agua del rio en la zona donde hay mas turbuulencia tiene 0 sentido. Entiendo la idea de la caida de agua y que haya cascada o lo que sea, pero lo que has puesto simplemente son muros de agua y punto. No tiene sentido fisicamente"
 Diagnóstico de causa raíz:
 - Al medir la sección hidráulica de `bioma7_gold_river_heightmap_v3_1794636645831.jpg`, la espuma blanca brillante había sido extruida como dos muros transversales (`hm=145..153`, +7 mm por encima de las pozas contiguas), el tramo sur subía cuesta arriba hasta `hm=86` mientras la barra de guijarros trepaba a `hm=120..135`.
 - Además, en `build_catan_biome.py`, `apply_smooth_hex_apron(apron_mm=12.0)` inclinaba el tramo norte cuesta arriba desde el bisel y `sculpt_albedo_microrelief` no reconocía la espuma blanca neutra dentro de `is_water`, tallando picos de roca sobre la turbulencia.
@@ -373,4 +447,16 @@ Resultados verificados y archivado (`v05`):
 - Visor HTML (`Visores-HTML/catan-bioma-oro.html`): `48,680,212 bytes` (`46.43 MiB` / `48.68 MB < 50 MB`).
 - Verificación WebGL Chromium (`afa46ded`, `0` errores): Hero limpio (`step_114`), macro de cascadas y rápidos (`step_120`), y entrada norte mirando cañón abajo (`final_step_128.png`): agua descendente coherente en dos saltos naturales con cero muros verticales.
 - Archivado local en `Tableros-Catan/pipeline-biomas/oro/versiones/v05_hidraulica_4k_2.99M/`.
+================================================================================
+
+================================================================================
+SESIÓN: 15/11/2026 - NORMALIZACIÓN DE REGLAS Y REGISTRO LITERAL DE PROMPTS
+================================================================================
+- Prompts literales del usuario:
+  * [15/11/2026 00:38]: "Cometiste un error al hacer todo el tema de la reorganización, sobre todo con el registro de las cosas. Lo que están haciendo en los diferentes proyectos, que ya lo he corregido en algún proyecto como es Apps, simplemente lo que hacen es el objetivo del prompt lo resumen, el que digo yo, y lo ponen como un objetivo y entonces dicen lo que han hecho. Yo quiero que literalmente pongan se ponga lo que yo he dicho. Y si eso después que resuman el objetivo, resuman lo que he dicho, pero debe aparecer lo que he dicho yo tal cual. Y no entiendo que estén ahora haciéndolo mal cuando, por ejemplo, justamente en Apps, SpotiLocal lo registraba correctamente. Y, por ejemplo, Minecraft, aunque no he vuelto to a trabajar en ello, el proyecto de Minecraft del servidor también lo registraba tal cual, que yo sepa. Entonces, mira a ver qué pasa y actualiza todos los proyectos. Obviamente no te cargues nada."
+- Objetivo: Dotar a `Maker3D` de `AGENTS.md` raíz exigiendo prompts literales palabra por palabra y restaurar los prompts exactos del usuario en todas las sesiones posteriores al 08/11/2026.
+
+**Cambios aplicados:**
+- `Maker3D/AGENTS.md`: creado protocolo operativo local reforzando `- Prompts literales del usuario:` obligatorio antes de `- Objetivo:`, reglas de `.agents/skills/nanobanana-3d-sculpt/`, visores `< 50 MB` y exclusión de binarios 3D en Git.
+- `Maker3D/registro.txt`: restaurados los prompts literales exactos de las 28 sesiones/bloques del 13–14/11/2026 desde `ed072550` y `ea5468d0`, conservando íntegros los resúmenes técnicos (`- Objetivo:`), métricas CAD y resultados WebGL.
 ================================================================================
