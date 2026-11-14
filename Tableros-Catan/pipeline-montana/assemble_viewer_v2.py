@@ -25,6 +25,7 @@ from PIL import Image
 
 OUT_DIR = "Tableros-Catan/Loseta_Montana_3D"
 SCRATCH_DIR = "Tableros-Catan/pipeline-montana/scratch_v2"
+TRIPLANAR_MODE = "none"  # "none" | "forest" | "clay"
 
 TARGET_PATHS = [
     "Tableros-Catan/Loseta_Montana_3D/catan_mountain_viewer.html",
@@ -74,6 +75,15 @@ def build_viewer():
     n_pf = len(pf)
     verts_p = verts[pf.ravel()]
     uvs_p = np.full((n_pf * 3, 2), 0.015, dtype=np.float32)
+
+    has_vcols = "vcols" in mesh_data
+    if has_vcols:
+        vcols = mesh_data["vcols"].astype(np.float32)
+        vcols_p = np.zeros((n_pf * 3, 4), dtype=np.float32)
+        vcols = np.vstack([vcols, vcols_p]).astype(np.float32)
+        vcols_gz = base64.b64encode(gzip.compress(vcols.tobytes(), compresslevel=9)).decode("ascii")
+    else:
+        vcols_gz = ""
 
     base_idx = len(verts)
     verts = np.vstack([verts, verts_p]).astype(np.float32)
@@ -293,6 +303,8 @@ def build_viewer():
     const VERTS_GZ = "{verts_gz}";
     const UVS_GZ   = "{uvs_gz}";
     const FACES_GZ = "{faces_gz}";
+    const VCOLS_GZ = "{vcols_gz}";
+    const TRIPLANAR_MODE = "{TRIPLANAR_MODE}";
     const DIFF_URI = "{diff_uri}";
     const NORM_URI = "{norm_uri}";
     const ROUGH_URI = "{rough_uri}";
@@ -361,10 +373,11 @@ def build_viewer():
 
     async function init() {{
       try {{
-        const [vBuf, uvBuf, fBuf, diffTex, normTex, roughTex] = await Promise.all([
+        const [vBuf, uvBuf, fBuf, vcBuf, diffTex, normTex, roughTex] = await Promise.all([
           gunzipBase64(VERTS_GZ),
           gunzipBase64(UVS_GZ),
           gunzipBase64(FACES_GZ),
+          VCOLS_GZ ? gunzipBase64(VCOLS_GZ) : Promise.resolve(null),
           loadTex(DIFF_URI, true),
           loadTex(NORM_URI, false),
           loadTex(ROUGH_URI, false),
@@ -377,6 +390,9 @@ def build_viewer():
         const geom = new THREE.BufferGeometry();
         geom.setAttribute("position", new THREE.BufferAttribute(posArr, 3));
         geom.setAttribute("uv", new THREE.BufferAttribute(uvArr, 2));
+        if (vcBuf) {{
+          geom.setAttribute("treeVCol", new THREE.BufferAttribute(new Float32Array(vcBuf), 4));
+        }}
         geom.setIndex(new THREE.BufferAttribute(idxArr, 1));
         geom.computeVertexNormals();
 
@@ -489,6 +505,8 @@ def build_viewer():
         const clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 83.5);
 
         // Materials
+        const hasTreeVCol = !!vcBuf;
+        const useTriShader = (TRIPLANAR_MODE !== "none") || hasTreeVCol;
         const matPBR = new THREE.MeshStandardMaterial({{
           map: diffTex,
           normalMap: normTex,
@@ -499,6 +517,123 @@ def build_viewer():
           envMapIntensity: 0.52,
           clippingPlanes: [clipPlane],
         }});
+        if (useTriShader) {{
+          matPBR.onBeforeCompile = (shader) => {{
+            shader.uniforms.uTriMode = {{ value: TRIPLANAR_MODE === "clay" ? 1.0 : (TRIPLANAR_MODE === "forest" ? 2.0 : 0.0) }};
+            shader.uniforms.uHasTree = {{ value: hasTreeVCol ? 1.0 : 0.0 }};
+            shader.vertexShader = shader.vertexShader
+              .replace(
+                "#include <common>",
+                `#include <common>
+                varying vec3 vObjPos;
+                varying vec3 vObjNrm;
+                ${{hasTreeVCol ? "attribute vec4 treeVCol; varying vec4 vTreeVCol;" : ""}}`
+              )
+              .replace(
+                "#include <begin_vertex>",
+                `#include <begin_vertex>
+                vObjPos = position;
+                vObjNrm = normal;
+                ${{hasTreeVCol ? "vTreeVCol = treeVCol;" : ""}}`
+              );
+            shader.fragmentShader = shader.fragmentShader
+              .replace(
+                "#include <common>",
+                `#include <common>
+                uniform float uTriMode;
+                uniform float uHasTree;
+                varying vec3 vObjPos;
+                varying vec3 vObjNrm;
+                ${{hasTreeVCol ? "varying vec4 vTreeVCol;" : ""}}
+                float hash31(vec3 p) {{
+                  p = fract(p * 0.1031);
+                  p += dot(p, p.yzx + 33.33);
+                  return fract((p.x + p.y) * p.z);
+                }}
+                float noise3D(vec3 x) {{
+                  vec3 i = floor(x);
+                  vec3 f = fract(x);
+                  f = f * f * (3.0 - 2.0 * f);
+                  return mix(
+                    mix(mix(hash31(i + vec3(0,0,0)), hash31(i + vec3(1,0,0)), f.x),
+                        mix(hash31(i + vec3(0,1,0)), hash31(i + vec3(1,1,0)), f.x), f.y),
+                    mix(mix(hash31(i + vec3(0,0,1)), hash31(i + vec3(1,0,1)), f.x),
+                        mix(hash31(i + vec3(0,1,1)), hash31(i + vec3(1,1,1)), f.x), f.y), f.z);
+                }}
+                float fbm3D(vec3 p) {{
+                  float v = 0.0; float a = 0.5;
+                  for (int i = 0; i < 3; i++) {{
+                    v += a * noise3D(p);
+                    p = p * 2.07 + vec3(13.1, 7.7, 5.3);
+                    a *= 0.5;
+                  }}
+                  return v;
+                }}`
+              )
+              .replace(
+                "#include <map_fragment>",
+                `#include <map_fragment>
+                float treeMix = ${{hasTreeVCol ? "clamp(vTreeVCol.a, 0.0, 1.0)" : "0.0"}};
+                float steepWall = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.68, 0.25, abs(normalize(vObjNrm).z)) : 0.0;
+                if (steepWall > 0.01 && treeMix < 0.5) {{
+                  float du = 0.0042;
+                  vec3 s1 = mapTexelToLinear(texture2D(map, vUv + vec2(du, 0.0))).rgb;
+                  vec3 s2 = mapTexelToLinear(texture2D(map, vUv - vec2(du, 0.0))).rgb;
+                  vec3 s3 = mapTexelToLinear(texture2D(map, vUv + vec2(0.0, du))).rgb;
+                  vec3 s4 = mapTexelToLinear(texture2D(map, vUv - vec2(0.0, du))).rgb;
+                  vec3 avgCol = (diffuseColor.rgb + s1 + s2 + s3 + s4) * 0.2;
+                  if (uTriMode < 1.5) {{
+                    // Terracotta & ochre 3D horizontal sedimentary clay strata (zero vertical UV streak)
+                    float warp = fbm3D(vObjPos * 0.14) * 3.6;
+                    float strata = sin(vObjPos.z * 2.8 + warp);
+                    float fine = fbm3D(vObjPos * 1.10) - 0.5;
+                    vec3 bandTint = mix(vec3(0.82, 0.72, 0.66), vec3(1.18, 1.08, 0.94), smoothstep(-0.6, 0.7, strata));
+                    vec3 cliffCol = avgCol * bandTint * (0.95 + 0.22 * fine);
+                    diffuseColor.rgb = mix(diffuseColor.rgb, cliffCol, steepWall * 0.92);
+                  }} else {{
+                    // Forest boulder / earth 3D granite stone & moss grain (zero vertical streak)
+                    float duf = 0.0095;
+                    vec3 sf1 = mapTexelToLinear(texture2D(map, vUv + vec2(duf, duf))).rgb;
+                    vec3 sf2 = mapTexelToLinear(texture2D(map, vUv - vec2(duf, duf))).rgb;
+                    vec3 fBlur = (avgCol + sf1 + sf2) * 0.3333;
+                    float gran = fbm3D(vObjPos * 1.15) - 0.5;
+                    float frac = abs(fbm3D(vObjPos * 0.42) * 2.0 - 1.0);
+                    float isStone = smoothstep(0.06, 0.015, fBlur.g - max(fBlur.r, fBlur.b));
+                    vec3 slateMix = mix(fBlur, vec3(0.18, 0.19, 0.18), isStone * 0.32);
+                    vec3 rockCol = slateMix * (0.88 + 0.34 * gran) * (0.84 + 0.24 * frac);
+                    diffuseColor.rgb = mix(diffuseColor.rgb, rockCol, steepWall * 0.90);
+                  }}
+                }}
+                ${{hasTreeVCol ? `
+                if (treeMix > 0.01) {{
+                  vec3 baseV = pow(max(vTreeVCol.rgb, vec3(0.0)), vec3(2.2));
+                  float isBark = smoothstep(0.05, 0.01, baseV.g - baseV.r);
+                  float needleN = fbm3D(vObjPos * vec3(2.8, 2.8, 3.8)) - 0.5;
+                  float macroN = fbm3D(vObjPos * 0.65) - 0.5;
+                  float barkN = fbm3D(vec3(vObjPos.x * 2.8, vObjPos.y * 2.8, vObjPos.z * 0.42)) - 0.5;
+                  float nrmZ = normalize(vObjNrm).z;
+                  float underCav = mix(0.68, 1.06, smoothstep(-0.55, 0.65, nrmZ));
+                  vec3 pineShade = baseV * (1.0 + mix(0.34 * needleN + 0.16 * macroN, 0.38 * barkN, isBark)) * mix(underCav, 1.0, isBark);
+                  diffuseColor.rgb = mix(diffuseColor.rgb, pineShade, treeMix);
+                }}` : ""}}`
+              )
+              .replace(
+                "#include <roughnessmap_fragment>",
+                `#include <roughnessmap_fragment>
+                float rTreeMix = ${{hasTreeVCol ? "clamp(vTreeVCol.a, 0.0, 1.0)" : "0.0"}};
+                float rSteep = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.68, 0.25, abs(normalize(vObjNrm).z)) : 0.0;
+                roughnessFactor = mix(roughnessFactor, 0.88, max(rTreeMix, rSteep * 0.65));`
+              )
+              .replace(
+                "#include <normal_fragment_maps>",
+                `#include <normal_fragment_maps>
+                float nTreeMix = ${{hasTreeVCol ? "clamp(vTreeVCol.a, 0.0, 1.0)" : "0.0"}};
+                float nSteep = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.65, 0.25, abs(normalize(vObjNrm).z)) * 0.85 : 0.0;
+                normal = normalize(mix(normal, normalize(vNormal), clamp(max(nTreeMix, nSteep), 0.0, 1.0)));`
+              );
+          }};
+          matPBR.customProgramCacheKey = () => "catan-tri-" + TRIPLANAR_MODE + "-" + (hasTreeVCol ? "vc" : "uv");
+        }}
         const matClay = new THREE.MeshStandardMaterial({{
           color: 0xcbd5e1,
           normalMap: normTex,
@@ -508,6 +643,20 @@ def build_viewer():
           envMapIntensity: 0.75,
           clippingPlanes: [clipPlane],
         }});
+        if (useTriShader) {{
+          matClay.onBeforeCompile = (shader) => {{
+            shader.vertexShader = shader.vertexShader
+              .replace("#include <common>", `#include <common>\nvarying vec3 vObjPos;\nvarying vec3 vObjNrm;\n${{hasTreeVCol ? "attribute vec4 treeVCol; varying vec4 vTreeVCol;" : ""}}`)
+              .replace("#include <begin_vertex>", `#include <begin_vertex>\nvObjPos = position; vObjNrm = normal;\n${{hasTreeVCol ? "vTreeVCol = treeVCol;" : ""}}`);
+            shader.fragmentShader = shader.fragmentShader
+              .replace("#include <common>", `#include <common>\nvarying vec3 vObjPos;\nvarying vec3 vObjNrm;\n${{hasTreeVCol ? "varying vec4 vTreeVCol;" : ""}}`)
+              .replace("#include <normal_fragment_maps>", `#include <normal_fragment_maps>
+                float nTree = ${{hasTreeVCol ? "clamp(vTreeVCol.a, 0.0, 1.0)" : "0.0"}};
+                float nSteep = (vObjPos.z > 25.08) ? smoothstep(0.65, 0.25, abs(normalize(vObjNrm).z)) * 0.85 : 0.0;
+                normal = normalize(mix(normal, normalize(vNormal), clamp(max(nTree, nSteep), 0.0, 1.0)));`);
+          }};
+          matClay.customProgramCacheKey = () => "catan-clay-" + TRIPLANAR_MODE + "-" + (hasTreeVCol ? "vc" : "uv");
+        }}
         const matSlope = new THREE.MeshStandardMaterial({{
           vertexColors: true,
           roughness: 0.62,
