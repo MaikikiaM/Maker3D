@@ -268,3 +268,12 @@ Diagnóstico y solución (`build_catan_biome.py` + `assemble_viewer_v2.py`):
 - **Acné de sombras suprimido:** `sunLight.shadow.bias = -0.00025; sunLight.shadow.normalBias = 0.08`.
 - **Verificación macro extrema (`~3.8×`):** Chromium (`eb37e20d`, `0` errores, captura `final_step_102.png`) confirma eliminación completa de triángulos y facetas tanto en gravilla como en taludes del cañón (`Visores-HTML/catan-bioma-oro.html`, `24.45 MB`).
 ================================================================================
+
+================================================================================
+SESIÓN: 14/11/2026 - UNDO DE 585bb34 Y SUBIDA DE RESOLUCIÓN TRIANGULAR A 2.07M Δ EN BIOMA 7 (`oro`)
+Prompt usuario: Revertir el suavizado que eliminaba el 3D esculpido (`585bb34`) y solucionar los triángulos visibles aumentando directamente la resolución de malla manteniendo intacto todo el relieve 3D de `1ceedac`.
+Decisiones técnicas y métricas:
+- **Undo exacto (`git checkout 1ceedac`)** sobre `build_catan_biome.py` y `assemble_viewer_v2.py` (restaurado `sculpt_albedo_microrelief` nítido y mapa normal original de alto contraste), añadiendo únicamente `sunLight.shadow.bias = -0.00025; sunLight.shadow.normalBias = 0.08` para eliminar bandas de sombra entre micro-triángulos.
+- **Compilación ultra-densa (`--nx 1120 --warp-strength 0.18 --sculpt-from-albedo 0.78 --micro-norm 0.36`):** `2,222,225` flips de arista alineados a contorno -> `V=1,036,503 | F=2,073,002 Δ | χ=2 | wt=True | wnd=True | degen=0 | Vol=376.3993 cm³ | Z=51.34 mm` (`Visores-HTML/catan-bioma-oro.html`, `37.29 MB < 50 MB`).
+- **Verificación:** Relieve 3D nítido confirmado en `oro_clay_overhead.png` y macro WebGL (`eb37e20d`, `0` errores, captura `final_step_110.png`).
+================================================================================
