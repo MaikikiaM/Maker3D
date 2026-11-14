@@ -215,3 +215,11 @@ SESIÓN: 14/11/2026 - PAUSA LIMPIA EN BIOMA 8 (`oceano`) POR CUOTA NANO BANANA (
 - Al lanzar la lámina conceptual 6 vistas de **Bioma 8 — Océano (`b505fa6a`)**, `gemini-3.1-flash-image` devolvió `429 RESOURCE_EXHAUSTED` con reinicio programado en **`2026-11-14T09:40:32Z` (`10:40:32 CET`)**.
 - Quedan **7 de 8 biomas completados, verificados en STL/Chromium y subidos a `origin/main`** (`montana`, `bosque`, `colina`, `pasto`, `campo`, `desierto`, `oro`), restando únicamente `oceano`.
 ================================================================================
+
+================================================================================
+SESIÓN: 14/11/2026 - BIOMA 8/8 CATAN COMPLETADO: OCÉANO Y ARRECIFE (`oceano`)
+Decisiones técnicas y métricas (`Tableros-Catan/pipeline-biomas/oceano/`):
+- **Reanudación automática post-cuota (`task-2100`, >10:40 CET):** Generados con `image-generator` (Nano Banana) el sheet conceptual 6 vistas (`bioma8_ocean_turnaround_1794655183029.jpg`), heightmap ortográfico estricto (`bioma8_ocean_heightmap_1794655250871.jpg`), vista previa de arcilla (`oceano_clay_overhead.png`, `Z_PEAK=41.0mm`) y albedo pictórico bloqueado 1:1 píxel a píxel (`oceano_diffuse_albedo_1794655364472.jpg`).
+- **Compilación malla sólida (`build_catan_biome.py`):** `--nx 660 --contour-align --slope-cap-grad 1.35 --warp-strength 0.34 --ridge-clean 0.30 --blur-px 1.35 --apron-mm 8.5 --relief-mm 16.0 --keep-dark-rock --triplanar-mode none` (`851,219` flips de aristas): `V=359,697 | F=719,390 Δ | χ=2 | watertight=True | winding=True | degen=0 | Vol=315.4463 cm³ | Z=41.00 mm`.
+- **Auditoría visual y cierre 8/8:** Verificado en 6 vistas equidistantes (`oceano_6views_audit.png`) y Chromium WebGL (`6258369a`, `0` errores JS/WebGL, hero PBR + macro Arcilla CAD). Desplegado en `Visores-HTML/catan-bioma-oceano.html` (`13.12 MB`), enlazado en `Visores-HTML/index.html` y completada la colección de **8/8 biomas Catan**.
+================================================================================
