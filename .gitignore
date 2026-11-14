@@ -70,5 +70,6 @@ Thumbs.db
 *.jpg
 *.jpeg
 !Visores-HTML/*.html
+Tableros-Catan/pipeline-biomas/*/versiones/
 *.zip
 
