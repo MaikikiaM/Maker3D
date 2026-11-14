@@ -25,9 +25,10 @@ Suite CAD/Mesh profesional de modelado procedimental e impresión 3D avanzada (F
   - **Bioma 3 (Colinas / Arcilla V3 — Mallado por Contorno + Estratos 3D):** `Z=53.0mm` (`relief=28mm`), `V=451,953 / F=903,902 Δ` ($\chi=2$, `watertight=True`, `385.88 cm³`), malla `nx=740` deformada por gradiente y con flips de arista alineados a curvas de nivel (`1,145,189` flips vía `terrain_mesh_utils.py`), faldón/pads de esquina pizarra limpios y shader triplanar GLSL `clay` sin estrías verticales, visor `Visores-HTML/catan-bioma-colina.html` (`15.27 MB`).
   - **Bioma 4 (Pastos / Lana V2):** `Z=38.0mm` (`relief=13mm`), `V=145,775 / F=291,546 Δ` ($\chi=2$, `318.97 cm³`), micro-normal en sillares de caliza + pradera esmeralda limpia hasta el carril, visor `Visores-HTML/catan-bioma-pasto.html` (`4.30 MB`).
   - **Bioma 5 (Campos / Trigo V3):** `Z=40.0mm` (`relief=15mm`), `V=338,097 / F=676,190 Δ` ($\chi=2$, `watertight=True`, `331.86 cm³`), malla `--nx 640 --contour-align` (`760,307` flips), terrazas doradas de cultivo, muros de mampostería, era circular y dos almiares, visor `Visores-HTML/catan-bioma-campo.html` (`12.22 MB`).
-  - **Biomas 6–8 (`Desierto`, `Río de Oro`, `Océano`):** reanudación activa en curso uno a uno con Nano Banana.
+  - **Bioma 6 (Desierto y Oasis V3):** `Z=47.0mm` (`relief=22mm`), `V=338,097 / F=676,190 Δ` ($\chi=2$, `watertight=True`, `364.47 cm³`), malla `--nx 640 --contour-align` (`803,843` flips), duna barján afilada con ondas eólicas, afloramiento de arenisca estratificada y poza turquesa con lajas calizas, visor `Visores-HTML/catan-bioma-desierto.html` (`12.10 MB`).
+  - **Biomas 7–8 (`Río de Oro`, `Océano`):** completando uno a uno con Nano Banana.
 
 ## Próximas Tareas Prioritarias
-1. Completar **Biomas 6–8** con Nano Banana uno a uno (`desierto`, `oro`, `oceano`), verificados en Chromium + STL y sincronizados en GitHub tras cada bioma.
+1. Completar **Biomas 7–8** con Nano Banana uno a uno (`oro`, `oceano`), verificados en Chromium + STL y sincronizados en GitHub tras cada bioma.
 2. Validar corte de impresión multicolor real (`infimech_cmykwog_mountain_slicing_guide.md`) con `catan_mountain_fullcolor.3mf` V2 o derivados LOD en OrcaSlicer/PrusaSlicer.
 3. Continuar con el resto de losetas modulares del tablero Catan 127 losetas siguiendo la arquitectura V2 pure NumPy/SciPy.

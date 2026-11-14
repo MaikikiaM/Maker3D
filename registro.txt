@@ -193,3 +193,11 @@ Decisiones técnicas y métricas (`Tableros-Catan/pipeline-biomas/campo/`):
 - **Compilación malla alineada a contorno (`--nx 640 --contour-align --slope-cap-grad 1.35 --warp-strength 0.34 --relief-mm 15.0`):** `760,307` flips diagonales convexos; `V=338,097 | F=676,190 Δ | χ=2 | watertight=True | winding=True | degen=0 | Vol=331.8632 cm³ | Z=40.0 mm`.
 - **Verificación visual y despliegue:** Auditado en 6 vistas 60° (`campo_6views_audit.png`) y en Chromium (`5f987f9c`, `0` errores de consola/WebGL en modos PBR héroe, trasera 180°, macro sobre almiares/muros y Arcilla CAD blanca). Desplegado en `Visores-HTML/catan-bioma-campo.html` (`12.22 MB`) y enlazado en `Visores-HTML/index.html`.
 ================================================================================
+
+================================================================================
+SESIÓN: 14/11/2026 - BIOMA 6/8 CATAN: DESIERTO Y OASIS (`desierto`)
+Decisiones técnicas y métricas (`Tableros-Catan/pipeline-biomas/desierto/`):
+- **Geometría (`build_catan_biome.py` + `terrain_mesh_utils.py`):** Generada lámina conceptual 6 vistas (`catan_desert_hex_turnaround_sheet_1794635923649.jpg`), *heightmap* cenital ortográfico (`catan_desert_hex_heightmap_v3_1794636041969.jpg`), arcilla cenital suavizada (`apron-mm=12.5`) y albedo pictórico pixel-locked (`desierto_diffuse_albedo_overhead_1794636171281.jpg`) sin sombras cocidas ni vegetación vertical punzante.
+- **Compilación malla alineada a contorno (`--nx 640 --contour-align --slope-cap-grad 1.44 --warp-strength 0.34 --relief-mm 22.0`):** `803,843` flips diagonales convexos; `V=338,097 | F=676,190 Δ | χ=2 | watertight=True | winding=True | degen=0 | Vol=364.466 cm³ | Z=47.0 mm`.
+- **Verificación visual y despliegue:** Auditado en 6 vistas 60° (`desierto_6views_audit.png`) y Chromium (`d9516394`, `0` errores de consola/WebGL en vista héroe, trasera 180°, macro PBR y Arcilla CAD blanca). Desplegado en `Visores-HTML/catan-bioma-desierto.html` (`12.10 MB`) y enlazado en `Visores-HTML/index.html`.
+================================================================================
