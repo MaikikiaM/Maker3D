@@ -129,26 +129,28 @@ def sculpt_albedo_microrelief(Z, diff_rgb, dist_edge, dist_vert, dx, max_bump_mm
     is_foam = ndi.gaussian_filter(is_water * nb.smoothstep(0.50, 0.85, lum), max(1.5, 0.22 / dx))
     is_gold = nb.smoothstep(0.18, 0.42, (r + g) * 0.5 - b) * nb.smoothstep(0.45, 0.78, lum)
 
-    # Smooth low-noise band-pass for rounded water-worn cobbles & stratified rock blocks
-    s_smooth = max(1.1, 0.14 / dx)
-    s_meso = max(4.0, 0.75 / dx)
-    s_broad = max(9.0, 1.75 / dx)
+    # Nyquist-safe low-noise band-pass: smooth rounded 3D domes (>= 0.34mm) so zero single-triangle facets appear
+    s_smooth = max(4.8, 0.34 / dx)
+    s_meso = max(10.0, 0.90 / dx)
+    s_broad = max(18.0, 1.95 / dx)
     l_fine = ndi.gaussian_filter(lum, s_smooth)
     l_meso = ndi.gaussian_filter(lum, s_meso)
     l_broad = ndi.gaussian_filter(lum, s_broad)
 
-    stone_domes = np.tanh((l_fine - l_meso) * 2.4 + (l_meso - l_broad) * 1.1) * 0.78
-    crevice_groove = np.clip((l_meso - l_fine) - 0.045, 0.0, 0.45) * 1.45
-    gold_facets = is_gold * nb.smoothstep(0.38, 0.82, lum) * (0.55 + 0.55 * np.clip(l_fine - l_meso + 0.25, 0.0, 0.75))
+    stone_domes = np.tanh((l_fine - l_meso) * 2.2 + (l_meso - l_broad) * 1.05) * 0.72
+    crevice_groove = np.clip((l_meso - l_fine) - 0.04, 0.0, 0.42) * 1.35
+    gold_facets = is_gold * nb.smoothstep(0.42, 0.84, lum) * (0.45 + 0.45 * np.clip(l_fine - l_meso + 0.22, 0.0, 0.65))
 
     rock_relief = max_bump_mm * wall_damp * (
-        0.95 * stone_domes
-        - 0.78 * crevice_groove
-        + 0.55 * gold_facets
+        0.92 * stone_domes
+        - 0.72 * crevice_groove
+        + 0.45 * gold_facets
     )
-    water_relief = max_bump_mm * 0.18 * is_foam
+    water_relief = max_bump_mm * 0.16 * is_foam
 
     bump = (1.0 - is_water) * rock_relief + is_water * water_relief
+    # Final Nyquist C2 smooth filter before displacement guarantees silky rounded triangle interpolation
+    bump = ndi.gaussian_filter(bump, max(3.8, 0.26 / dx))
     core = nb.smoothstep(nb.ROAD_MARGIN + 0.65, nb.ROAD_MARGIN + 2.8, dist_edge) * nb.smoothstep(nb.PAD_RADIUS + 0.65, nb.PAD_RADIUS + 2.8, dist_vert)
     return (Z + bump * core).astype(np.float32)
 
@@ -183,19 +185,27 @@ def deink_mineral_albedo(diff_rgb, dist_edge, dist_vert, dx):
     return np.clip(deinked * 255.0, 0, 255).astype(np.uint8)
 
 
-def compute_enhanced_pbr_maps(Z, diff_rgb, dx, dy, micro_norm_strength=0.32):
-    """Generate tangent-space normal map fusing DEM geometry + painted albedo micro-relief, and material roughness."""
+def compute_enhanced_pbr_maps(Z, diff_rgb, dx, dy, micro_norm_strength=0.32, tangent_residual=False):
+    """Generate tangent-space normal map fusing DEM geometry (or high-freq residual) + painted albedo micro-relief, and material roughness."""
     gy, gx = np.gradient(Z, dy, dx)
     rgb_f = diff_rgb.astype(np.float32) / 255.0
     lum = 0.2126 * rgb_f[:, :, 0] + 0.7152 * rgb_f[:, :, 1] + 0.0722 * rgb_f[:, :, 2]
 
-    if micro_norm_strength > 0.0:
-        hp = lum - ndi.gaussian_filter(lum, sigma=2.2)
-        mgy, mgx = np.gradient(hp * (micro_norm_strength * 3.5), dy, dx)
-        gx_tot = gx + mgx
-        gy_tot = gy + mgy
+    if tangent_residual:
+        z_smooth = ndi.gaussian_filter(Z, sigma=max(3.5, 0.28 / dx))
+        rgy, rgx = np.gradient(Z - z_smooth, dy, dx)
+        base_gx, base_gy = rgx, rgy
     else:
-        gx_tot, gy_tot = gx, gy
+        base_gx, base_gy = gx, gy
+
+    if micro_norm_strength > 0.0:
+        hp = lum - ndi.gaussian_filter(lum, sigma=2.0)
+        scale = 2.0 if tangent_residual else 3.5
+        mgy, mgx = np.gradient(hp * (micro_norm_strength * scale), dy, dx)
+        gx_tot = base_gx + mgx
+        gy_tot = base_gy + mgy
+    else:
+        gx_tot, gy_tot = base_gx, base_gy
 
     inv_len = 1.0 / np.sqrt(gx_tot * gx_tot + gy_tot * gy_tot + 1.0)
     n_x = (-gx_tot * inv_len * 0.5 + 0.5) * 255.0
@@ -387,6 +397,7 @@ def main():
     p.add_argument("--triplanar-mode", choices=["none", "clay", "forest", "rock"], default="none")
     p.add_argument("--keep-dark-rock", action="store_true", help="Preserve dark basalt/slate rock cliffs near the perimeter instead of painting warm fill.")
     p.add_argument("--sculpt-from-albedo", type=float, default=0.0, help="If >0, carve physical 3D rock fractures, cobble/pebble domes, gold clusters & wave ribs (max mm) directly into Z(x,y).")
+    p.add_argument("--tangent-norm", action="store_true", help="Compute true tangent-space residual normal map around vertex normals (prevents double-tilt triangle facets on steep sculpted meshes).")
     p.add_argument("--snow-filter", action="store_true")
     p.add_argument("--alpine-v3-palette", action="store_true", help="Warm limestone granite, green valley moss, copper scree & <44 deg snow palette.")
     p.add_argument("--auto-mineral-albedo", action="store_true", help="Fallback: paint Nano Banana DEM with V3 hyperreal mineral-runoff PBR shader.")
@@ -453,7 +464,7 @@ def main():
             alb_arr = np.asarray(Image.open(args.albedo).convert("RGB"))
             diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
         diff_rgb, max_snow = refine_biome_albedo(diff_raw, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=args.snow_filter, keep_dark_rock=args.keep_dark_rock)
-        norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm)
+        norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm, tangent_residual=args.tangent_norm)
 
     nb.save_uv_aligned_png(diff_rgb, os.path.join(out_dir, "catan_mountain_diffuse_2k.png"))
     nb.save_uv_aligned_png(norm_u8, os.path.join(out_dir, "catan_mountain_normal_2k.png"))
@@ -472,7 +483,7 @@ def main():
         dist_w, _ = nb.hex_distances(Xw, Yw)
         Zw = tmu.resample_canonical_xy(Zt, Xw, Yw, lim=nb.R)
         verts, faces, n_flips = tmu.build_contour_aligned_hex_solid(
-            Xw, Yw, Zw, dist_w, n_bnd=168, n_mag=32, include_magnet=True, flip_passes=6
+            Xw, Yw, Zw, dist_w, n_bnd=168, n_mag=32, include_magnet=True, flip_passes=8
         )
         print(f"[Contour-Aligned Mesh] nx={args.nx} ny={ny} flips={n_flips} V={len(verts)} F={len(faces)}")
     else:

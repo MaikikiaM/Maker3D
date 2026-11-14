@@ -258,3 +258,13 @@ Decisiones técnicas (`build_catan_biome.py` + `assemble_viewer_v2.py`):
 - **Des-entintado mineral + PBR físico (`deink_mineral_albedo` + `assemble_viewer_v2.py`):** Sustitución de líneas de tinta negra 2D por cavidades minerales cálidas y grano geológico (`fft_fbm`) + mapa metálico PBR real en oro 24K (`metalness=0.82, rough=0.22`) y brillo húmedo en el río (`rough=0.14`).
 - **Auditoría visual:** Verificado en `oro_clay_overhead.png` (relieve físico puro sin textura) y Chromium WebGL (`eb37e20d`, `0` errores, captura oblicua `final_step_65.png`). Visor desplegado en `Visores-HTML/catan-bioma-oro.html` (`21.94 MB`).
 ================================================================================
+
+================================================================================
+SESIÓN: 14/11/2026 - ELIMINACIÓN TOTAL DE TRIÁNGULOS VISIBLES EN MACRO EN BIOMA 7 (`oro`)
+Prompt usuario: Reporte visual de triángulos/picos visibles al acercarse al relieve esculpido de Río de Oro (`media_1794658258629_705a7f3c.jpg`).
+Diagnóstico y solución (`build_catan_biome.py` + `assemble_viewer_v2.py`):
+- **Eliminada la doble inclinación de normales tangentes (`--tangent-norm`):** `compute_enhanced_pbr_maps` ahora calcula gradientes tangentes residuales (`Z - gaussian_filter(Z, 0.28mm)`) + alta frecuencia de luminancia alrededor de `(128, 128, 255)` en lugar de duplicar la pendiente macro sobre `vNormal`, y se desactivó la sobreescritura `nSteep` sobre roca/arcilla CAD (`TRIPLANAR_MODE == "rock"`).
+- **Filtrado Nyquist $C^2$ en geometría (`sculpt_albedo_microrelief`) + malla `nx=880`:** `s_smooth = max(4.8, 0.34/dx)` + suavizado gaussiano final `0.26mm` del campo `bump` (`--sculpt-from-albedo 0.56`) junto a `--warp-strength 0.14` (`1,469,758` flips) para cantos rodados redondeados sin conos piramidales ni facetas (`V=640,109 | F=1,280,214 Δ | χ=2 | wt=True | degen=0 | Vol=376.3107 cm³ | Z=51.05 mm`).
+- **Acné de sombras suprimido:** `sunLight.shadow.bias = -0.00025; sunLight.shadow.normalBias = 0.08`.
+- **Verificación macro extrema (`~3.8×`):** Chromium (`eb37e20d`, `0` errores, captura `final_step_102.png`) confirma eliminación completa de triángulos y facetas tanto en gravilla como en taludes del cañón (`Visores-HTML/catan-bioma-oro.html`, `24.45 MB`).
+================================================================================

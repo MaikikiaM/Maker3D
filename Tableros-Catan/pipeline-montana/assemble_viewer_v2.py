@@ -495,8 +495,8 @@ def build_viewer():
         sunLight.shadow.camera.bottom = -74;
         sunLight.shadow.camera.near = 25;
         sunLight.shadow.camera.far = 360;
-        sunLight.shadow.bias = -0.0006;
-        sunLight.shadow.normalBias = 0.35;
+        sunLight.shadow.bias = -0.00025;
+        sunLight.shadow.normalBias = 0.08;
         scene.add(sunLight);
         const rimLight = new THREE.DirectionalLight(0x7dd3fc, 0.36);
         rimLight.position.set(-120, 120, 85);
@@ -658,7 +658,7 @@ def build_viewer():
                 "#include <normal_fragment_maps>",
                 `#include <normal_fragment_maps>
                 float nTreeMix = ${{hasTreeVCol ? "clamp(vTreeVCol.a, 0.0, 1.0)" : "0.0"}};
-                float nSteep = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.46, 0.15, abs(normalize(vObjNrm).z)) * 0.55 : 0.0;
+                float nSteep = (uTriMode > 0.5 && uTriMode < 2.5 && vObjPos.z > 25.08) ? smoothstep(0.46, 0.15, abs(normalize(vObjNrm).z)) * 0.55 : 0.0;
                 normal = normalize(mix(normal, normalize(vNormal), clamp(max(nTreeMix, nSteep), 0.0, 1.0)));`
               );
           }};
@@ -682,7 +682,7 @@ def build_viewer():
               .replace("#include <common>", `#include <common>\nvarying vec3 vObjPos;\nvarying vec3 vObjNrm;\n${{hasTreeVCol ? "varying vec4 vTreeVCol;" : ""}}`)
               .replace("#include <normal_fragment_maps>", `#include <normal_fragment_maps>
                 float nTree = ${{hasTreeVCol ? "clamp(vTreeVCol.a, 0.0, 1.0)" : "0.0"}};
-                float nSteep = (vObjPos.z > 25.08) ? smoothstep(0.65, 0.25, abs(normalize(vObjNrm).z)) * 0.85 : 0.0;
+                float nSteep = ({"0.0" if TRIPLANAR_MODE == "rock" else "1.0"} > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.65, 0.25, abs(normalize(vObjNrm).z)) * 0.85 : 0.0;
                 normal = normalize(mix(normal, normalize(vNormal), clamp(max(nTree, nSteep), 0.0, 1.0)));`);
           }};
           matClay.customProgramCacheKey = () => "catan-clay-" + TRIPLANAR_MODE + "-" + (hasTreeVCol ? "vc" : "uv");
