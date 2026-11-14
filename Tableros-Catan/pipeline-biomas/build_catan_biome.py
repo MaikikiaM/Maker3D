@@ -114,33 +114,39 @@ def refine_biome_albedo(diffuse_rgb, Z, dist_edge, dist_vert, dx, dy, snow_filte
     return np.clip(rgb * 255.0, 0.0, 255.0).astype(np.uint8), max_snow_steep
 
 
-def sculpt_albedo_microrelief(Z, diff_rgb, dist_edge, dist_vert, dx, max_bump_mm=0.95):
+def sculpt_albedo_microrelief(Z, diff_rgb, dist_edge, dist_vert, dx, max_bump_mm=0.58):
     """Carve physical 3D stone domes, mineral cracks, crystalline gold outcrops & wave ribs from high-res albedo."""
     rgb_f = diff_rgb.astype(np.float32) / 255.0
     r, g, b = rgb_f[..., 0], rgb_f[..., 1], rgb_f[..., 2]
     lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
 
+    # Attenuate bump smoothly on near-vertical canyon cliffs so cobbles & benches carve cleanly without tall wall spikes
+    gy, gx = np.gradient(Z, dx, dx)
+    slope_deg = np.degrees(np.arctan(np.hypot(gx, gy)))
+    wall_damp = 1.0 - 0.72 * nb.smoothstep(34.0, 58.0, slope_deg)
+
     is_water = np.clip((g - r - 0.025) * 4.5, 0.0, 1.0) * np.clip((b - r - 0.02) * 4.0, 0.0, 1.0)
-    is_foam = is_water * nb.smoothstep(0.50, 0.85, lum)
+    is_foam = ndi.gaussian_filter(is_water * nb.smoothstep(0.50, 0.85, lum), max(1.5, 0.22 / dx))
     is_gold = nb.smoothstep(0.18, 0.42, (r + g) * 0.5 - b) * nb.smoothstep(0.45, 0.78, lum)
 
-    s_fine = max(0.85, 0.10 / dx)
-    s_meso = max(3.5, 0.70 / dx)
-    s_broad = max(8.0, 1.65 / dx)
-    l_fine = ndi.gaussian_filter(lum, s_fine)
+    # Smooth low-noise band-pass for rounded water-worn cobbles & stratified rock blocks
+    s_smooth = max(1.1, 0.14 / dx)
+    s_meso = max(4.0, 0.75 / dx)
+    s_broad = max(9.0, 1.75 / dx)
+    l_fine = ndi.gaussian_filter(lum, s_smooth)
     l_meso = ndi.gaussian_filter(lum, s_meso)
     l_broad = ndi.gaussian_filter(lum, s_broad)
 
-    stone_domes = np.clip((l_fine - l_meso) * 2.6 + (l_meso - l_broad) * 1.15, -0.60, 0.80)
-    crevice_groove = np.clip((l_meso - l_fine) - 0.045, 0.0, 0.48) * 1.65
-    gold_facets = is_gold * nb.smoothstep(0.38, 0.82, lum) * (0.65 + 0.70 * np.clip(l_fine - l_meso + 0.25, 0.0, 0.75))
+    stone_domes = np.tanh((l_fine - l_meso) * 2.4 + (l_meso - l_broad) * 1.1) * 0.78
+    crevice_groove = np.clip((l_meso - l_fine) - 0.045, 0.0, 0.45) * 1.45
+    gold_facets = is_gold * nb.smoothstep(0.38, 0.82, lum) * (0.55 + 0.55 * np.clip(l_fine - l_meso + 0.25, 0.0, 0.75))
 
-    rock_relief = max_bump_mm * (
-        1.05 * stone_domes
-        - 0.82 * crevice_groove
-        + 0.65 * gold_facets
+    rock_relief = max_bump_mm * wall_damp * (
+        0.95 * stone_domes
+        - 0.78 * crevice_groove
+        + 0.55 * gold_facets
     )
-    water_relief = max_bump_mm * 0.34 * is_foam
+    water_relief = max_bump_mm * 0.18 * is_foam
 
     bump = (1.0 - is_water) * rock_relief + is_water * water_relief
     core = nb.smoothstep(nb.ROAD_MARGIN + 0.65, nb.ROAD_MARGIN + 2.8, dist_edge) * nb.smoothstep(nb.PAD_RADIUS + 0.65, nb.PAD_RADIUS + 2.8, dist_vert)

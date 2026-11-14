@@ -249,3 +249,12 @@ Decisiones técnicas y arquitectura (`Funda-Lapiz-Xiaomi/generar_estuche.py` + `
 Resultados de validación observados:
 - 7 STL regenerados en `Funda-Lapiz-Xiaomi/Modelos-3D/`, todos `Watertight: True`: `base` (`5` shells), `tapa` (`5` shells), `tapa_lisa` (`5` shells), `inserto_TPU` (`1` shell), `inserto_rigido` (`1` shell), `base^lid=0.0 mm³`, `lid^rigid=0.0 mm³`, `placa` con `0.0 mm³` de solape entre piezas.
 ================================================================================
+
+================================================================================
+SESIÓN: 14/11/2026 - ESCULPIDO 3D FÍSICO Y PBR MINERAL REALISTA EN BIOMA 7 (`oro`)
+Prompt usuario: Dar formas 3D reales a cada textura del bioma dorado para eliminar la sensación 2D / caricaturesca manteniendo la forma macro.
+Decisiones técnicas (`build_catan_biome.py` + `assemble_viewer_v2.py`):
+- **Micro-esculpido 3D sobre el DEM (`sculpt_albedo_microrelief`, `--sculpt-from-albedo 0.58 --nx 840`):** Tallado geométrico real en malla de cantos rodados redondeados (`tanh` suavizado), cristales facetados de oro 24K, surcos físicos en las fracturas de roca y rizos suaves en cascadas (`wall_damp` amortiguando muros verticales >34°). Resultado sólido: `V=582,913 | F=1,165,822 Δ | χ=2 | wt=True | wnd=True | degen=0 | Vol=376.3519 cm³ | Z=51.23 mm`.
+- **Des-entintado mineral + PBR físico (`deink_mineral_albedo` + `assemble_viewer_v2.py`):** Sustitución de líneas de tinta negra 2D por cavidades minerales cálidas y grano geológico (`fft_fbm`) + mapa metálico PBR real en oro 24K (`metalness=0.82, rough=0.22`) y brillo húmedo en el río (`rough=0.14`).
+- **Auditoría visual:** Verificado en `oro_clay_overhead.png` (relieve físico puro sin textura) y Chromium WebGL (`eb37e20d`, `0` errores, captura oblicua `final_step_65.png`). Visor desplegado en `Visores-HTML/catan-bioma-oro.html` (`21.94 MB`).
+================================================================================
