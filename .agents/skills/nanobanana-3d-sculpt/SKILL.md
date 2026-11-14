@@ -90,3 +90,29 @@ AND verify the live WebGL viewer in Chromium (`0` console errors), comparing all
 Refine slope opening (`slope_gamma`), snow/moisture altitude masks (`0%` snow on
 `>=44°`), or run a targeted `image-generator` paint-over until every hexagonal
 face matches the artistic standard of the concept.
+
+## Hard-Won 3D Sculpting, Triangulation & Viewer Rules
+
+Apply these engineering invariants on all high-detail Maker3D terrain/asset builds (`build_catan_biome.py`, `terrain_mesh_utils.py`, `assemble_viewer_v2.py`):
+
+1. **Never Diagnose Faceting by Triangle Count Alone — Eliminate `dFdx/dFdy` + Macro Normal Double-Tilting (`--tangent-norm`):**
+   - When 3D micro-relief is already physically sculpted into the mesh (`--sculpt-from-albedo`), do **not** bake macro DEM gradients (`np.gradient(Z)`) into the `normalMap`, and do **not** omit per-vertex `tangent` attributes in WebGL.
+   - Without explicit `tangent` attributes (`vertexTangents: true`, `USE_TANGENT` define in Three.js `r128`), `MeshStandardMaterial` computes screen-space `dFdx/dFdy(vUv)` per flat triangle; squashed overhead UVs on steep walls cause alternating bright/dark diamond zigzags even at `>2M` triangles.
+   - Always pair **pure high-frequency tangent residual `normalMap`s** (centered near `(128,128,255)`) with smooth per-vertex analytic tangents and tight shadow bias (`bias = -0.00025`, `normalBias = 0.08`).
+
+2. **Uniform 3D Density on Steep Cliffs & Bicubic Resampling (`order=3` + Red-Green + Taubin):**
+   - Uniform XY grids stretch triangles `2×–3×` vertically on `≥45°` scarps. Always use **bicubic (`order=3`)** DEM resampling in `resample_canonical_xy` (never `order=1` linear), warp toward slopes, align diagonals (`contour_aligned_edge_flip`), and refine stretched slopes/peaks (`≥38°`) using conformal **Red-Green 3D subdivision** (`--subdivide-passes 1 --edge-len-max 0.265`) evaluating new midpoints on the bicubic `2048×2048` DEM.
+   - Follow with **zero-shrinkage Taubin smoothing** (`--taubin-passes 4`, `λ=0.34, μ=-0.35`) on interior `Z` only to remove triangle-edge zigzags while keeping `~99.9%` peak height and volume intact (`watertight=True`, `chi=2`, HTML `< 50 MB`).
+
+3. **Never Flatten Sculpted Relief Amplitude to Hide Triangles:**
+   - Do **not** dampen walls (`wall_damp`) or apply broad spatial blurs (`~0.34 mm`) to the bump field—that turns sculpted rocks back into flat 2D caricatures. Preserve full physical relief (`--sculpt-from-albedo 0.95`), rounding only sub-2-triangle pebble needle tips (`--sculpt-crown-mm 0.115`) while fixing visual facets via smooth tangents + adaptive 3D subdivision + Taubin.
+
+4. **High-Res Quadrant Albedo (`2048×2048`) & Mineral De-Inking (`deink_mineral_albedo`):**
+   - For intricate ground/rock textures (gravel, cobblestones, mineral veins), generate zoomed `image-generator` quadrants + center bridge stitched into `2048×2048` and run `deink_mineral_albedo` to convert 2D dark comic ink lines into natural warm mineral cavities before physical 3D displacement.
+
+5. **Choose `2.5D` vs. True `3D` CSG by Overhang Geometry + Triplanar Cliffs:**
+   - Use `2.5D` heightfields + adaptive subdivision + GLSL 3D triplanar rock/clay shaders (`--triplanar-mode rock|clay`) for canyons, terraces, strata, and sand dunes.
+   - Use standalone 3D solids fused via `manifold3d` (`build_bosque_3d.py` pattern) over an inpainted base terrain for trees, overhanging foliage, buildings, or undercut organic miniatures that melt in `2.5D`.
+
+6. **Local Numbered Version Snapshots (`versiones/v01/`, `v02/`, …):**
+   - Before major geometry/shader changes on hero assets, archive `<dir>/versiones/vNN_<label>/` locally (HTML viewer, STL, 6-view PNG, `master_metrics_v2.json`, exact CLI `build_info.txt`) excluded from Git via `.gitignore` so every visual state stays A/B-comparable without bloating the Git repository.

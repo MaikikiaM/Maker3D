@@ -301,3 +301,16 @@ Diagnóstico raíz e ingeniería aplicada (`terrain_mesh_utils.py`, `build_catan
   - STL (`catan_oro.stl`): `V=1,179,300 | F=2,358,596 Δ | watertight=True | euler=2 | vol_cm3=376.49 | degen=0 | Z=51.0mm`.
   - Visor WebGL (`Visores-HTML/catan-bioma-oro.html`, `46.32 MB < 50 MB`): Verificado en Chromium (`7390f6df-69f7-432d-a30b-1d6806ba4e3e`, `0` errores) en vista hero (`v02_hero.png`), macro delantero sobre cantos y acantilados dorados (`v02_macro_front.png`) y macro extremo en pared trasera de basalto (`v02_macro_rear_basalt.png`): cero facetas triangulares ni zigzag visibles.
 ================================================================================
+
+================================================================================
+SESIÓN: 14/11/2026 - PERSISTENCIA DE REGLAS 3D APRENDIDAS EN SKILL `nanobanana-3d-sculpt`
+Prompt usuario: Guardar los aprendizajes de modelaje 3D de la sesión para proyectos futuros.
+Cambios realizados:
+- Actualizado `.agents/skills/nanobanana-3d-sculpt/SKILL.md` con la sección `Hard-Won 3D Sculpting, Triangulation & Viewer Rules`:
+  1. Uso obligatorio de tangentes analíticas por vértice (`--tangent-norm` / `vertexTangents: true`, `USE_TANGENT`) + `normalMap` tangente residual puro (sin hornear `np.gradient(Z)` macro).
+  2. Remuestreo bicúbico (`order=3`), subdivisión adaptativa Red-Green 3D en pendientes `≥38°` (`--subdivide-passes 1 --edge-len-max 0.265`) y Taubin smoothing (`--taubin-passes 4`) sin pérdida de volumen.
+  3. Preservación de amplitud esculpida (`0.95mm`, solo `--sculpt-crown-mm 0.115` en guijarros, sin `wall_damp`/blur ancho).
+  4. Albedo `2048×2048` por cuadrantes + `deink_mineral_albedo`.
+  5. Criterio `2.5D` + triplanar (`rock`/`clay`) vs sólidos 3D booleanos (`manifold3d`).
+  6. Archivado local numerado (`versiones/vNN/`) excluido de Git.
+================================================================================
