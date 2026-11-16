@@ -126,16 +126,27 @@ def sculpt_albedo_microrelief(Z, diff_rgb, dist_edge, dist_vert, dx, max_bump_mm
     is_foam = is_water * nb.smoothstep(0.50, 0.85, lum)
     is_gold = nb.smoothstep(0.18, 0.42, (r + g) * 0.5 - b) * nb.smoothstep(0.45, 0.78, lum)
 
-    s_fine = max(0.85, (crown_smooth_mm if crown_smooth_mm >= 0.13 else 0.10) / dx)
-    s_meso = max(3.5, 0.70 / dx)
-    s_broad = max(8.0, 1.65 / dx)
-    l_fine = ndi.gaussian_filter(lum, s_fine)
-    l_meso = ndi.gaussian_filter(lum, s_meso)
-    l_broad = ndi.gaussian_filter(lum, s_broad)
+    # Local-contrast normalized luminance so dark volcanic basalt cracks/pores carve at full physical depth matching sandstone
+    s_norm = max(8.0, 2.2 / dx)
+    l_local = np.maximum(ndi.gaussian_filter(lum, s_norm), 0.14)
+    lum_eq = np.clip((lum / l_local) * 0.55, 0.0, 1.35)
+    lum_sculpt = 0.45 * lum + 0.55 * lum_eq
 
-    stone_domes = np.clip((l_fine - l_meso) * 2.6 + (l_meso - l_broad) * 1.15, -0.60, 0.80)
-    crevice_groove = np.clip((l_meso - l_fine) - 0.045, 0.0, 0.48) * 1.65
-    gold_facets = is_gold * nb.smoothstep(0.38, 0.82, lum) * (0.65 + 0.70 * np.clip(l_fine - l_meso + 0.25, 0.0, 0.75))
+    s_fine = max(0.85, 0.055 / dx if crown_smooth_mm >= 0.13 else 0.10 / dx)
+    s_meso = max(3.5, 0.65 / dx)
+    s_broad = max(8.0, 1.65 / dx)
+    l_fine = ndi.gaussian_filter(lum_sculpt, s_fine)
+    l_meso = ndi.gaussian_filter(lum_sculpt, s_meso)
+    l_broad = ndi.gaussian_filter(lum_sculpt, s_broad)
+
+    # Raw-lum scales for bright gold/cobbles + normalized cracks for dark basalt fractures/vesicles
+    l_fine_raw = ndi.gaussian_filter(lum, s_fine)
+    l_meso_raw = ndi.gaussian_filter(lum, s_meso)
+    l_broad_raw = ndi.gaussian_filter(lum, s_broad)
+
+    stone_domes = np.clip((l_fine - l_meso) * 2.75 + (l_meso - l_broad) * 1.15, -0.65, 0.85)
+    crevice_groove = np.clip((l_meso - l_fine) - 0.04, 0.0, 0.55) * 1.80
+    gold_facets = is_gold * nb.smoothstep(0.38, 0.82, lum) * (0.70 + 0.75 * np.clip(l_fine_raw - l_meso_raw + 0.25, 0.0, 0.75))
 
     if crown_smooth_mm >= 0.13:
         # Polish peak profiles: calm choppy micro-warts along steep canyon ridge lips, round stone crowns
@@ -162,11 +173,21 @@ def sculpt_albedo_microrelief(Z, diff_rgb, dist_edge, dist_vert, dx, max_bump_mm
             - 0.82 * crevice_groove
             + 0.65 * gold_facets
         )
-    water_relief = 0.0 if water_mask is not None else (max_bump_mm * 0.34 * is_foam)
+    if water_mask is not None:
+        # Sculpt BOTH submerged river stones/boulders AND zero-mean downstream waterfall foam streaks inside water
+        # (never blank flat water, and zero upward transverse blocking walls!)
+        sub_hp = np.clip((l_fine_raw - l_meso_raw) * 3.4 + (l_meso_raw - l_broad_raw) * 0.9, -0.18, 0.65)
+        submerged_stones = np.maximum(0.0, sub_hp) * (1.0 - is_foam) * max_bump_mm * 0.62
+        # High-frequency zero-mean cascade foam ribs elongated vertically along stream flow (no transverse block)
+        foam_hp = l_fine_raw - ndi.gaussian_filter(lum, (max(2.2, 0.55 / dx), max(1.6, 0.30 / dx)))
+        foam_ribs = np.clip(foam_hp * 2.6, -0.38, 0.48) * is_foam * max_bump_mm * 0.46
+        water_relief = submerged_stones + foam_ribs
+    else:
+        water_relief = max_bump_mm * 0.34 * is_foam
 
     bump = (1.0 - is_water) * rock_relief + is_water * water_relief
     if crown_smooth_mm > 0.0:
-        sig_post = crown_smooth_mm if crown_smooth_mm >= 0.13 else (crown_smooth_mm * 0.75)
+        sig_post = min(0.042, crown_smooth_mm * 0.35) if crown_smooth_mm >= 0.13 else (crown_smooth_mm * 0.75)
         bump = ndi.gaussian_filter(bump, max(0.85, sig_post / dx))
     core = nb.smoothstep(nb.ROAD_MARGIN + 0.65, nb.ROAD_MARGIN + 2.8, dist_edge) * nb.smoothstep(nb.PAD_RADIUS + 0.65, nb.PAD_RADIUS + 2.8, dist_vert)
     return (Z + bump * core).astype(np.float32)

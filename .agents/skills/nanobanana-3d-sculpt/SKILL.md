@@ -84,9 +84,9 @@ Verify script invariants:
 
 ### Stage 4: Hexagonal 6-View Visual Audit
 Always render a **6-view equidistant hexagonal turnaround** (`0°, 60°, 120°, 180°,
-240°, 300°` in a 3×2 studio panel) from the actual compiled STL/DEM + PBR textures
-AND verify the live WebGL viewer in Chromium (`0` console errors), comparing all
-6 angles side-by-side against the Stage 1 Nano Banana concept sheet via `read_file`.
+240°, 300°` in a 3×2 studio panel) from the actual compiled STL/DEM + PBR textures,
+a **side-by-side zoomed 2D-Albedo vs. Untextured 3D-Clay parity check** across key
+terrain regions, AND verify the live WebGL viewer in Chromium (`0` console errors, checking both `Hiperreal PBR` and untextured `Arcilla CAD`), comparing all 6 angles against the Stage 1 Nano Banana concept sheet via `read_file`.
 Refine slope opening (`slope_gamma`), snow/moisture altitude masks (`0%` snow on
 `>=44°`), or run a targeted `image-generator` paint-over until every hexagonal
 face matches the artistic standard of the concept.
@@ -116,3 +116,10 @@ Apply these engineering invariants on all high-detail Maker3D terrain/asset buil
 
 6. **Local Numbered Version Snapshots (`versiones/v01/`, `v02/`, …):**
    - Before major geometry/shader changes on hero assets, archive `<dir>/versiones/vNN_<label>/` locally (HTML viewer, STL, 6-view PNG, `master_metrics_v2.json`, exact CLI `build_info.txt`) excluded from Git via `.gitignore` so every visual state stays A/B-comparable without bloating the Git repository.
+
+7. **100% 2D-to-3D Geometry Parity — Every Painted Detail MUST Exist in Physical 3D (Zero Flat Painted Surfaces):**
+   - Never ship a model where visual elements in the 2D albedo (submerged river stones, waterfall foam cascades, cobble bank margins, dark basalt cracks/pores, gold crystal clusters, terrace grooves) sit painted on a smooth flat slab. If you toggle **`Arcilla CAD` (untextured clay)** in the viewer, **every recognizable 2D texture feature must already be sculpted in real 3D geometry**:
+     - **Normalize dark rocks (`lum_eq`) before sculpting:** Dark basalt/slate has `3×–4×` narrower RGB luminance range than light sandstone/limestone. Always normalize local contrast (`lum / max(local_mean, 0.14)`) inside `sculpt_albedo_microrelief` so dark volcanic cracks, fractures, and pores carve at the same physical millimeter depth as light stone.
+     - **Never zero out water relief blindly:** Preserve strictly monotonic downhill water hydraulics (`N → S`, zero transverse foam walls blocking flow), while still sculpting submerged boulder/pebble domes and downstream-aligned zero-mean waterfall flow ribs (`~0.25–0.45 mm`) inside water corridors so rivers and cascades read as physical 3D relief in Clay.
+     - **Do not over-flatten edges with huge aprons or post-blurs:** Keep perimeter hex aprons compact (`~5.0–5.5 mm`, keeping `road=3.5 mm` and `Ø20` pads flat at `Z_BASE`) so outer rock outcrops retain steep sculptural relief, and keep post-bump smoothing ultra-tight (`≤ 0.05 mm`) so tiny stones and rock pores are not erased prior to meshing.
+     - **Mandatory Clay-vs-Albedo Verification:** Always generate and inspect side-by-side zoomed crops (`2D Albedo` vs. `Untextured 3D Clay Z` + live WebGL `Arcilla CAD` toggle) before closing any hero sculpt.

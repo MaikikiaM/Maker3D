@@ -460,3 +460,26 @@ SESIÓN: 15/11/2026 - NORMALIZACIÓN DE REGLAS Y REGISTRO LITERAL DE PROMPTS
 - `Maker3D/AGENTS.md`: creado protocolo operativo local reforzando `- Prompts literales del usuario:` obligatorio antes de `- Objetivo:`, reglas de `.agents/skills/nanobanana-3d-sculpt/`, visores `< 50 MB` y exclusión de binarios 3D en Git.
 - `Maker3D/registro.txt`: restaurados los prompts literales exactos de las 28 sesiones/bloques del 13–14/11/2026 desde `ed072550` y `ea5468d0`, conservando íntegros los resúmenes técnicos (`- Objetivo:`), métricas CAD y resultados WebGL.
 ================================================================================
+
+
+================================================================================
+SESIÓN: 16/11/2026 - BIOMA 7 (RÍO DE ORO) v06: PARIDAD 100% 2D-A-3D Y REGLA PERMANENTE EN SKILL
+Prompt literal del usuario:
+  * [16/11/2026 00:46]: "Bueno, otra vez no toda la textura tiene formas tio en el rio de oro. Cometes continuamente el mismo error, deberias poner en la skill que debes asegurarte de que toda la textura del 2d salga en 3d"
+Diagnóstico comparativo (`v05` Albedo vs. Arcilla 3D `v05_albedo_vs_clay_audit.png`):
+- Causa 1 (Basalto negro liso): `sculpt_albedo_microrelief` medía saltos de luminancia bruta; al ser el basalto oscuro (`lum=0.06..0.24`), su relieve era `3×–4×` más débil que en arenisca clara.
+- Causa 2 (Río y piedras sumergidas totalmente planos): `--water-mask` ponía `water_relief=0.0`, borrando >25 piedras sumergidas en la laguna sur y las estrías de flujo en las cascadas.
+- Causa 3 (Post-blur excesivo): `sig_post=0.140mm` (~4.5px en 4K) suavizaba poros volcánicos, vetas de oro y cantos pequeños antes del mallado.
+Cambios realizados:
+- `.agents/skills/nanobanana-3d-sculpt/SKILL.md`: Añadida la Regla #7 obligatoria (**100% 2D-to-3D Geometry Parity**) y auditoría visual en `Stage 4` exigiendo comparativa lado a lado `2D Albedo vs. Arcilla 3D sin textura` + verificación en modo WebGL `Arcilla CAD`.
+- `Tableros-Catan/pipeline-biomas/build_catan_biome.py` (`sculpt_albedo_microrelief`):
+  - Normalización de contraste local (`lum_eq = clip((lum / l_local) * 0.55)`) para esculpir fisuras y poros en basaltos oscuros con profundidad física equivalente a la arenisca.
+  - Escultura 3D física dentro de `--water-mask` de domos para cantos rodados sumergidos y estrías longitudinales de espuma en cascadas sin masa neta (`zero-mean`), manteniendo el descenso hidráulico estricto libre de muros de agua.
+  - Reducción de desenfoque post-bump (`sig_post <= 0.042mm`) e incremento a `--sculpt-from-albedo 1.15 --sculpt-crown-mm 0.135`.
+- `reconstruct_oro_v5_hm.py`: Rampa costera ajustada (`4.5px`) para no diluir guijarros de orilla, saltos de cascada más nítidos (`8.5px / 10.5px`) y bajada uniforme del pequeño banco sur de piedras.
+Resultados verificados (`v06`, `--nx 408 --apron-mm 10.5 --curv-thresh 20.0 --tex-size 4096`):
+- STL (`catan_oro.stl`): `V=1,400,341 | F=2,800,678 Δ | watertight=True | euler=2 | degen=0 | vol=366.48 cm³ | Z=51.0mm`.
+- Visor HTML (`Visores-HTML/catan-bioma-oro.html`): `47,746,588 bytes` (`45.53 MiB` / `47.75 MB < 50 MB`).
+- Verificación WebGL Chromium (`7f958573-dbdd-4823-8b77-530deb791d63`, `0` errores): Validado en PBR hero (`step_22`), macro PBR de cantos sumergidos y barra (`step_49`), y geometría desnuda **`Arcilla CAD`** (`step_69` y `final_step_94.png`), confirmando relieve físico real en todos los cantos sumergidos, basaltos fracturados, cascadas y vetas 24K.
+- Archivado local en `Tableros-Catan/pipeline-biomas/oro/versiones/v06_paridad_2d3d_4k_2.80M/`.
+================================================================================
