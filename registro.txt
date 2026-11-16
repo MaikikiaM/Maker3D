@@ -483,3 +483,19 @@ Resultados verificados (`v06`, `--nx 408 --apron-mm 10.5 --curv-thresh 20.0 --te
 - Verificación WebGL Chromium (`7f958573-dbdd-4823-8b77-530deb791d63`, `0` errores): Validado en PBR hero (`step_22`), macro PBR de cantos sumergidos y barra (`step_49`), y geometría desnuda **`Arcilla CAD`** (`step_69` y `final_step_94.png`), confirmando relieve físico real en todos los cantos sumergidos, basaltos fracturados, cascadas y vetas 24K.
 - Archivado local en `Tableros-Catan/pipeline-biomas/oro/versiones/v06_paridad_2d3d_4k_2.80M/`.
 ================================================================================
+
+================================================================================
+SESIÓN: 16/11/2026 - BIOMA 7 (RÍO DE ORO) v07: RESOLUCIÓN DUAL DESACOPLADA (STL MASTER 8.00M Δ <= 10M + VISOR WEBGL 2.80M Δ < 50 MB)
+- Prompts literales del usuario:
+  * [16/11/2026 00:55]: "Oye, te recuerdo que los diseños STL no tienen por qué entrar en github. Puedes subir los triangulos hasta 10 millones si es necesario. Te pongo el tope ahi porque la optimizacion va a ser una cosa loca si no"
+- Objetivo: Desacoplar la malla STL maestra imprimible (permitiendo hasta 10,000,000 de triángulos en local sin subir binarios a GitHub) respecto al LOD embebido en el visor WebGL HTML (`< 50 MB`).
+Cambios realizados:
+- `Tableros-Catan/pipeline-biomas/build_catan_biome.py`: Añadidos flags `--stl-nx`, `--stl-subdivide-passes`, `--stl-edge-len-max`, `--stl-curv-thresh` y helper compartido `build_lod_mesh(...)` para compilar dos resoluciones independientes en la misma ejecución: LOD WebGL (`--nx`) para `Visores-HTML/catan-bioma-oro.html` + Master STL imprimible (`--stl-nx`) para `catan_oro.stl`, registrando ambos conteos en `master_metrics_v2.json` (`master` vs `viewer`) y en el HUD del visor.
+- `.agents/skills/nanobanana-3d-sculpt/SKILL.md`: Documentada en la regla #6 la estrategia de resolución dual (`--stl-nx` hasta el tope `<= 10,000,000 Δ` solo local frente a WebGL LOD `--nx 408` `< 50 MB`).
+- `Visores-HTML/index.html` y `docs/ia/ESTADO.md`: Actualizadas tarjetas y estado con métricas reales `Master STL 8.00M Δ / WebGL 2.80M Δ`.
+Resultados verificados (`v07`):
+- STL Master imprimible (solo local, `--stl-nx 750 --stl-subdivide-passes 2 --stl-edge-len-max 0.250 --stl-curv-thresh 17.5`): `V=4,000,214 | F=8,000,424 Δ` (`<= 10M`), `400,021,284 bytes` (`400.02 MB`), soldado `trimesh.load` verificado `watertight=True`, `chi=2`, `degen=0`, `vol=366.48 cm³`, `Z=(0.000, 51.653) mm`.
+- Visor WebGL (`--nx 408 --subdivide-passes 2 --edge-len-max 0.45 --curv-thresh 20.0`): `V=1,400,341 | F=2,800,678 Δ`, `Visores-HTML/catan-bioma-oro.html` = `47,746,588 bytes` (`47.75 MB < 50 MB`).
+- Auditoría visual y WebGL Chromium (`http://127.0.0.1:8766`, `7f958573-dbdd-4823-8b77-530deb791d63`, `0` errores): verificados HUD (`Malla Master: 8,000,424 Δ`, `Visor WebGL: 2,800,678 Δ`), modo `Arcilla CAD` sin textura, `Hiperreal PBR` (`final_step_139.png`), `oro_6views_audit.png` y `oro_clay_overhead.png`.
+- Archivado local en `Tableros-Catan/pipeline-biomas/oro/versiones/v07_stl_ultra_hd_8.00M/`.
+================================================================================

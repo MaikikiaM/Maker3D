@@ -114,7 +114,8 @@ Apply these engineering invariants on all high-detail Maker3D terrain/asset buil
    - Use `2.5D` heightfields + adaptive subdivision + GLSL 3D triplanar rock/clay shaders (`--triplanar-mode rock|clay`) for canyons, terraces, strata, and sand dunes.
    - Use standalone 3D solids fused via `manifold3d` (`build_bosque_3d.py` pattern) over an inpainted base terrain for trees, overhanging foliage, buildings, or undercut organic miniatures that melt in `2.5D`.
 
-6. **Local Numbered Version Snapshots (`versiones/v01/`, `v02/`, …):**
+6. **Local Numbered Version Snapshots (`versiones/v01/`, `v02/`, …) & Decoupled Master STL Resolution (`--stl-nx`):**
+   - Since `*.stl` files stay strictly local (never committed to GitHub, decoupled from the `< 50 MB` HTML WebGL viewer limit), compile the printable Master STL at ultra-high density via `--stl-nx` / `--stl-edge-len-max` (e.g. `~7.5M–9.5M` triangles, **hard ceiling `<= 10,000,000 Δ`** to keep slicing/optimization tractable) while keeping the embedded WebGL LOD mesh at `--nx 408` (`~2.80M Δ`, `< 50 MB` HTML).
    - Before major geometry/shader changes on hero assets, archive `<dir>/versiones/vNN_<label>/` locally (HTML viewer, STL, 6-view PNG, `master_metrics_v2.json`, exact CLI `build_info.txt`) excluded from Git via `.gitignore` so every visual state stays A/B-comparable without bloating the Git repository.
 
 7. **100% 2D-to-3D Geometry Parity — Every Painted Detail MUST Exist in Physical 3D (Zero Flat Painted Surfaces):**

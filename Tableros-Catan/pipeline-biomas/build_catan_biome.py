@@ -441,6 +441,10 @@ def main():
     p.add_argument("--micro-detail", type=float, default=0.14)
     p.add_argument("--micro-norm", type=float, default=0.32, help="PBR normal map luminance high-pass infusion strength.")
     p.add_argument("--nx", type=int, default=420)
+    p.add_argument("--stl-nx", type=int, default=0, help="Optional separate ultra-HD grid resolution for local printable STL Master (<=10M tris), while --nx builds the <50MB WebGL viewer.")
+    p.add_argument("--stl-subdivide-passes", type=int, default=None)
+    p.add_argument("--stl-edge-len-max", type=float, default=None)
+    p.add_argument("--stl-curv-thresh", type=float, default=None)
     p.add_argument("--tex-size", type=int, default=2048)
     p.add_argument("--contour-align", action="store_true", help="Concentrate grid toward steep walls & flip Delaunay diagonals along height contours.")
     p.add_argument("--slope-cap-grad", type=float, default=0.0, help="If >0, gently cap near-vertical cliffs to max dZ/dX gradient (e.g. 1.45 -> ~55 deg scarp).")
@@ -535,34 +539,53 @@ def main():
     nb.save_uv_aligned_png(norm_u8, os.path.join(out_dir, "catan_mountain_normal_2k.png"))
     nb.save_uv_aligned_png(rough_u8, os.path.join(out_dir, "catan_mountain_roughness_2k.png"))
 
-    ny = int(round(args.nx * (nb.R / nb.APOTHEM)))
-    Xm, Ym, Zm, dist_m, dist_vm, dxm, _ = nb.synthesize_dem_from_heightmap(
-        hm_arr, args.nx, ny, relief_mm=args.relief_mm, micro_detail_mm=args.micro_detail, x_lim=nb.APOTHEM, y_lim=nb.R
-    )
-    wmask_m = np.clip(nb.sample_square_domain(wm_arr, Xm, Ym), 0.0, 1.0) if args.water_mask else None
-    Zm = apply_smooth_hex_apron(Xm, Ym, Zm, dist_m, dist_vm, args.relief_mm, apron_mm=args.apron_mm, water_mask=wmask_m)
-    if args.slope_cap_grad > 0.0:
-        n_cap_m = max(4, int(round(1.5 / dxm)))
-        Zm = tmu.cap_extreme_slopes(Zm, dist_m, min_step_dx=dxm, max_grad=args.slope_cap_grad, passes=n_cap_m)
-    if args.contour_align:
-        Xw, Yw = tmu.warp_grid_to_slopes(Xm, Ym, Zm, dist_m, dist_vm, iters=4, strength=args.warp_strength)
-        dist_w, _ = nb.hex_distances(Xw, Yw)
-        Zw = tmu.resample_canonical_xy(Zt, Xw, Yw, lim=nb.R)
-        verts, faces, n_flips = tmu.build_contour_aligned_hex_solid(
-            Xw, Yw, Zw, dist_w, n_bnd=168, n_mag=32, include_magnet=True, flip_passes=6,
-            subdivide_passes=args.subdivide_passes, edge_len_3d_max=args.edge_len_max,
-            curv_deg_thresh=args.curv_thresh, relax_passes=args.relax_passes,
-            taubin_passes=args.taubin_passes, Z_dem=Zt, morton_sort=args.morton_sort,
+    def build_lod_mesh(nx_val, subdiv_p, edge_max, curv_th, label="Mesh"):
+        ny_val = int(round(nx_val * (nb.R / nb.APOTHEM)))
+        Xm, Ym, Zm, dist_m, dist_vm, dxm, _ = nb.synthesize_dem_from_heightmap(
+            hm_arr, nx_val, ny_val, relief_mm=args.relief_mm, micro_detail_mm=args.micro_detail, x_lim=nb.APOTHEM, y_lim=nb.R
         )
-        print(f"[Contour-Aligned Mesh] nx={args.nx} ny={ny} flips={n_flips} subdiv={args.subdivide_passes} taubin={args.taubin_passes} V={len(verts)} F={len(faces)}")
-    else:
-        verts, faces = nb.build_solid_hex_mesh(Xm, Ym, Zm, dist_m, include_magnet=True)
-    stats = nb.verify_watertight(verts, faces)
-    if not stats["watertight"]:
-        raise RuntimeError(f"{args.slug} mesh failed watertight check: {stats}")
+        wmask_m = np.clip(nb.sample_square_domain(wm_arr, Xm, Ym), 0.0, 1.0) if args.water_mask else None
+        Zm = apply_smooth_hex_apron(Xm, Ym, Zm, dist_m, dist_vm, args.relief_mm, apron_mm=args.apron_mm, water_mask=wmask_m)
+        if args.slope_cap_grad > 0.0:
+            n_cap_m = max(4, int(round(1.5 / dxm)))
+            Zm = tmu.cap_extreme_slopes(Zm, dist_m, min_step_dx=dxm, max_grad=args.slope_cap_grad, passes=n_cap_m)
+        if args.contour_align:
+            Xw, Yw = tmu.warp_grid_to_slopes(Xm, Ym, Zm, dist_m, dist_vm, iters=4, strength=args.warp_strength)
+            dist_w, _ = nb.hex_distances(Xw, Yw)
+            Zw = tmu.resample_canonical_xy(Zt, Xw, Yw, lim=nb.R)
+            v_out, f_out, n_flips = tmu.build_contour_aligned_hex_solid(
+                Xw, Yw, Zw, dist_w, n_bnd=168, n_mag=32, include_magnet=True, flip_passes=6,
+                subdivide_passes=subdiv_p, edge_len_3d_max=edge_max,
+                curv_deg_thresh=curv_th, relax_passes=args.relax_passes,
+                taubin_passes=args.taubin_passes, Z_dem=Zt, morton_sort=args.morton_sort,
+            )
+            print(f"[{label}] nx={nx_val} ny={ny_val} flips={n_flips} subdiv={subdiv_p} taubin={args.taubin_passes} V={len(v_out)} F={len(f_out)}")
+        else:
+            v_out, f_out = nb.build_solid_hex_mesh(Xm, Ym, Zm, dist_m, include_magnet=True)
+        st = nb.verify_watertight(v_out, f_out)
+        if not st["watertight"]:
+            raise RuntimeError(f"{args.slug} {label} failed watertight check: {st}")
+        return v_out, f_out, st
 
-    stl_path = os.path.join(out_dir, f"catan_{args.slug}.stl")
-    nb.write_binary_stl(verts, faces, stl_path, label=f"Catan {args.slug}")
+    verts, faces, viewer_stats = build_lod_mesh(
+        args.nx, args.subdivide_passes, args.edge_len_max, args.curv_thresh,
+        label="Contour-Aligned WebGL" if args.stl_nx > 0 else "Contour-Aligned Mesh",
+    )
+    if args.stl_nx > 0:
+        stl_verts, stl_faces, stats = build_lod_mesh(
+            args.stl_nx,
+            args.subdivide_passes if args.stl_subdivide_passes is None else args.stl_subdivide_passes,
+            args.edge_len_max if args.stl_edge_len_max is None else args.stl_edge_len_max,
+            args.curv_thresh if args.stl_curv_thresh is None else args.stl_curv_thresh,
+            label="Ultra-HD STL Master",
+        )
+        stl_path = os.path.join(out_dir, f"catan_{args.slug}.stl")
+        nb.write_binary_stl(stl_verts, stl_faces, stl_path, label=f"Catan {args.slug} Master")
+        del stl_verts, stl_faces
+    else:
+        stats = viewer_stats
+        stl_path = os.path.join(out_dir, f"catan_{args.slug}.stl")
+        nb.write_binary_stl(verts, faces, stl_path, label=f"Catan {args.slug}")
     np.savez_compressed(os.path.join(out_dir, "viewer_mesh_v2.npz"), verts=verts, faces=faces)
 
     audit_path = os.path.join(out_dir, f"{args.slug}_6views_audit.png")
@@ -572,7 +595,7 @@ def main():
     metrics = {
         "master": {"V": stats["V"], "E": stats["E"], "F": stats["F"], "chi": stats["chi"], "watertight": True, "volume_cm3": stats["vol_cm3"]},
         "coverage": {"max_snow_steep": round(max_snow, 6)},
-        "viewer": {"V": stats["V"], "F": stats["F"]},
+        "viewer": {"V": viewer_stats["V"], "F": viewer_stats["F"]},
     }
     with open(os.path.join(out_dir, "master_metrics_v2.json"), "w", encoding="utf-8") as mf:
         json.dump(metrics, mf, indent=2)
