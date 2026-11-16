@@ -499,3 +499,23 @@ Resultados verificados (`v07`):
 - Auditoría visual y WebGL Chromium (`http://127.0.0.1:8766`, `7f958573-dbdd-4823-8b77-530deb791d63`, `0` errores): verificados HUD (`Malla Master: 8,000,424 Δ`, `Visor WebGL: 2,800,678 Δ`), modo `Arcilla CAD` sin textura, `Hiperreal PBR` (`final_step_139.png`), `oro_6views_audit.png` y `oro_clay_overhead.png`.
 - Archivado local en `Tableros-Catan/pipeline-biomas/oro/versiones/v07_stl_ultra_hd_8.00M/`.
 ================================================================================
+
+================================================================================
+SESIÓN: 16/11/2026 - BIOMA 7 (RÍO DE ORO) v08: ESCULPIDO 3D EN PAREDES DE ACANTILADO + SHADER ANTI-ESTIRAMIENTO
+- Prompts literales del usuario:
+  * [16/11/2026 01:29]: "Debo decir que sí están conseguidas las partes que se ven desde arriba, pero paredes y demas que tienen la textira de roca aun se ven en 2d. Mira la foto que te he pasado. No sé como puedes arreglarlo pero arreglalo jeje"
+- Objetivo: Eliminar el estiramiento vertical UV y el aspecto 2.5D liso en paredes escarpadas de roca/acantilado tanto en la geometría física (STL + Arcilla CAD) como en el texturizado y normales PBR.
+Diagnóstico de causa raíz:
+- En un relieve puro `2.5D` `Z(x, y)`, desplazar solo `Z` sobre paredes de `65°–88°` desliza vértices en paralelo al muro sin crear relieve perpendicular, mientras los cantos claros de orilla se extruían como dientes verticales y el mapeo UV cenital `(x, y)` estiraba 1–3 píxeles verticalmente arrastrando espuma/agua turquesa.
+- Además, el shader `rock` de `assemble_viewer_v2.py` dejaba demasiado peso del UV cenital estirado (`rockMix <= 0.62`) y atenuaba `normal` hacia `vNormal` liso sin perturbar normales en 3D espacial.
+Solución aplicada:
+- `Tableros-Catan/pipeline-biomas/terrain_mesh_utils.py`: Añadidos `_hash_noise3d` y `sculpt_cliff_walls_3d(...)` para esculpir en 3D real a lo largo de la normal `(nx, ny, nz)` (después del check planar de winding y con guarda Jacobiana anti-pliegue en 5 pasadas): estanterías estratificadas horizontales (`shelf`), bloques columnares y grietas C1-continuas (`sqrt(n^2 + 0.014)`), restringido a escarpes secos (`wall_w`, `top_dist >= 4.5 mm`, atenuado sobre `water_mask`).
+- `Tableros-Catan/pipeline-biomas/build_catan_biome.py`: Nuevo flag `--cliff-sculpt` (`0.72 mm`), atenuación de extrusión vertical `+Z` sobre escarpes (`wall_z_calm`), y coronas redondeadas de cantos rodados (`rock_pos` suavizado preservando grietas nítidas `rock_neg`).
+- `Tableros-Catan/pipeline-montana/assemble_viewer_v2.py`: Reemplazo anti-estiramiento (`wallRep` hasta `0.94`) sondeando tonos minerales cuesta arriba (`-normalize(vObjNrm.xy)`) con rechazo de agua cian/espuma de borde, proyección 3D espacial `cliffRelief3D(vObjPos)` C1-continua sincronizada con la geometría, grietas mate (`roughness = 0.92`) y gradiente normal tetraédrico 3D transformado por `(vMvX, vMvY, vMvZ)` sin artefactos de bloques 2×2 ni halos plateados.
+- `.agents/skills/nanobanana-3d-sculpt/SKILL.md`: Documentado el esculpido lateral `--cliff-sculpt` + sombreado triplanar anti-estiramiento en la Regla #7.
+Resultados verificados (`v08`, `--stl-nx 750 --nx 408 --cliff-sculpt 0.72`):
+- STL Master (solo local): `V=3,491,656 | F=6,983,308 Δ` (`<= 10M`), `349,165,484 bytes` (`349.17 MB`), `trimesh.load` verificado `watertight=True`, `chi=2`, `degen=0`, `vol=366.62 cm³`.
+- Visor WebGL (`Visores-HTML/catan-bioma-oro.html`): `V=1,220,012 | F=2,440,020 Δ`, `42,060,951 bytes` (`42.06 MB < 50 MB`).
+- Verificación Chromium en primer plano rasante (`http://127.0.0.1:8766?v=8b`, `7f958573-dbdd-4823-8b77-530deb791d63`, `0` errores): confirmados estratos/grietas 3D en acantilados sin estiramientos UV ni sangrado turquesa, grietas oscuras mate sin halos plateados y cantos rodados redondeados tanto en `Hiperreal PBR` (`final_step_446.png`) como en `Arcilla CAD`.
+- Archivado local en `Tableros-Catan/pipeline-biomas/oro/versiones/v08_cliff_sculpt_3d_6.98M/`.
+================================================================================

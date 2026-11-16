@@ -553,6 +553,9 @@ def build_viewer():
                 `#include <common>
                 varying vec3 vObjPos;
                 varying vec3 vObjNrm;
+                varying vec3 vMvX;
+                varying vec3 vMvY;
+                varying vec3 vMvZ;
                 ${{hasTreeVCol ? "attribute vec4 treeVCol; varying vec4 vTreeVCol;" : ""}}`
               )
               .replace(
@@ -560,6 +563,9 @@ def build_viewer():
                 `#include <begin_vertex>
                 vObjPos = position;
                 vObjNrm = normal;
+                vMvX = normalize((modelViewMatrix * vec4(1.0, 0.0, 0.0, 0.0)).xyz);
+                vMvY = normalize((modelViewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+                vMvZ = normalize((modelViewMatrix * vec4(0.0, 0.0, 1.0, 0.0)).xyz);
                 ${{hasTreeVCol ? "vTreeVCol = treeVCol;" : ""}}`
               );
             shader.fragmentShader = shader.fragmentShader
@@ -571,6 +577,9 @@ def build_viewer():
                 uniform float uPhotoGold;
                 varying vec3 vObjPos;
                 varying vec3 vObjNrm;
+                varying vec3 vMvX;
+                varying vec3 vMvY;
+                varying vec3 vMvZ;
                 ${{hasTreeVCol ? "varying vec4 vTreeVCol;" : ""}}
                 float hash31(vec3 p) {{
                   p = fract(p * 0.1031);
@@ -595,13 +604,38 @@ def build_viewer():
                     a *= 0.5;
                   }}
                   return v;
+                }}
+                float fastTanh(float x) {{
+                  float xc = clamp(x, -6.0, 6.0);
+                  float e2 = exp(2.0 * xc);
+                  return (e2 - 1.0) / (e2 + 1.0);
+                }}
+                vec4 cliffRelief3D(vec3 p) {{
+                  float nW1 = noise3D(p * 0.20 + vec3(11.3, 4.7, 2.1)) * 2.0 - 1.0;
+                  float nW2 = noise3D(p * 0.48 + vec3(31.7, 19.1, 7.3)) * 2.0 - 1.0;
+                  float zW = p.z + 1.15 * nW1 + 0.35 * nW2;
+                  float shelfMaj = fastTanh(2.15 * sin(zW * 2.55));
+                  float shelfMin = sin((p.z + 1.45 * nW1) * 6.20);
+                  float shelf = 0.72 * shelfMaj + 0.28 * shelfMin;
+                  float nBlk = noise3D(vec3(p.x * 0.56 + 0.35 * nW1 + 3.1, p.y * 0.56 - 0.35 * nW1 + 8.7, p.z * 0.24 + 1.9)) * 2.0 - 1.0;
+                  float blk = fastTanh(2.35 * nBlk);
+                  float nCr1 = noise3D(vec3(p.x * 0.92 + 0.42 * nW2 + 17.3, p.y * 0.92 + 5.4, p.z * 0.36 + 9.2)) * 2.0 - 1.0;
+                  float nCr2 = noise3D(vec3(p.x * 0.68 - 0.30 * nW1 + 41.1, p.y * 0.68 + 0.30 * nW1 + 23.8, p.z * 0.85 + 3.5)) * 2.0 - 1.0;
+                  float dCr1 = sqrt(nCr1 * nCr1 + 0.014);
+                  float dCr2 = sqrt(nCr2 * nCr2 + 0.014);
+                  float crack1 = smoothstep(0.36, 0.12, dCr1);
+                  float crack2 = smoothstep(0.34, 0.12, dCr2);
+                  float cracks = max(crack1, 0.75 * crack2);
+                  float fine = (fbm3D(p * 3.8 + vec3(5.1, 2.3, 8.7)) - 0.5) * 0.62 + (noise3D(p * 11.5) - 0.5) * 0.36;
+                  float hTot = 0.36 * shelf + 0.26 * blk - 0.52 * cracks + 0.30 * fine;
+                  return vec4(hTot, shelf, blk - cracks, fine);
                 }}`
               )
               .replace(
                 "#include <map_fragment>",
                 `#include <map_fragment>
                 float treeMix = ${{hasTreeVCol ? "clamp(vTreeVCol.a, 0.0, 1.0)" : "0.0"}};
-                float steepWall = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.68, 0.24, abs(normalize(vObjNrm).z)) : 0.0;
+                float steepWall = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.72, 0.26, abs(normalize(vObjNrm).z)) : 0.0;
                 if (steepWall > 0.01 && treeMix < 0.5) {{
                   float du = 0.0075;
                   vec3 s1 = mapTexelToLinear(texture2D(map, vUv + vec2(du, 0.0))).rgb;
@@ -634,20 +668,32 @@ def build_viewer():
                     vec3 rockCol = slateMix * (0.88 + 0.34 * gran) * (0.84 + 0.24 * frac);
                     diffuseColor.rgb = mix(diffuseColor.rgb, rockCol, steepWall * 0.90);
                   }} else {{
-                    // Basalt / Gold Canyon 3D horizontal rock ledges & crisp crystalline quartz detail
+                    // Anti-streak 3D upslope rock hue recovery + crisp 3D strata, fracture blocks & mineral pores
                     float absNz = abs(normalize(vObjNrm).z);
-                    float sheer = smoothstep(uPhotoGold > 0.5 ? 0.28 : 0.42, uPhotoGold > 0.5 ? 0.09 : 0.14, absNz);
-                    vec3 crispBase = mix(diffuseColor.rgb, avgCol, sheer * (uPhotoGold > 0.5 ? 0.48 : 0.65));
-                    float warp = fbm3D(vObjPos * 0.22) * 2.1;
-                    float bed = sin(vObjPos.z * 4.4 + warp);
-                    float fineGrain = fbm3D(vObjPos * 4.8) - 0.5;
-                    float gran = fbm3D(vObjPos * 1.9) - 0.5;
-                    float crack = smoothstep(0.06, 0.42, abs(fbm3D(vObjPos * 0.72) * 2.0 - 1.0));
-                    vec3 rockCol = uPhotoGold > 0.5
-                      ? crispBase * (0.96 + 0.08 * bed) * (0.98 + 0.14 * gran + 0.10 * fineGrain) * (0.93 + 0.10 * crack)
-                      : crispBase * (0.90 + 0.14 * bed) * (0.94 + 0.22 * gran + 0.14 * fineGrain) * (0.82 + 0.22 * crack);
-                    float rockMix = uPhotoGold > 0.5 ? smoothstep(0.36, 0.10, absNz) * 0.62 : smoothstep(0.56, 0.18, absNz) * 0.88;
-                    diffuseColor.rgb = mix(diffuseColor.rgb, rockCol, rockMix);
+                    vec2 outDir = normalize(vObjNrm.xy + vec2(1e-5));
+                    vec2 tanDir = vec2(-outDir.y, outDir.x);
+                    vec3 pA = mapTexelToLinear(texture2D(map, vUv - outDir * 0.011)).rgb;
+                    vec3 pB = mapTexelToLinear(texture2D(map, vUv - outDir * 0.022)).rgb;
+                    vec3 pC = mapTexelToLinear(texture2D(map, vUv - outDir * 0.012 + tanDir * 0.010)).rgb;
+                    vec3 pD = mapTexelToLinear(texture2D(map, vUv - outDir * 0.012 - tanDir * 0.010)).rgb;
+                    vec3 pE = diffuseColor.rgb;
+                    float wA = (1.0 - smoothstep(0.008, 0.045, min(pA.g, pA.b) - pA.r)) * (1.0 - 0.55 * smoothstep(0.32, 0.65, dot(pA, vec3(0.3,0.6,0.1))) * smoothstep(0.18, 0.04, max(pA.r,max(pA.g,pA.b))-min(pA.r,min(pA.g,pA.b))));
+                    float wB = (1.0 - smoothstep(0.008, 0.045, min(pB.g, pB.b) - pB.r)) * (1.0 - 0.55 * smoothstep(0.32, 0.65, dot(pB, vec3(0.3,0.6,0.1))) * smoothstep(0.18, 0.04, max(pB.r,max(pB.g,pB.b))-min(pB.r,min(pB.g,pB.b))));
+                    float wC = (1.0 - smoothstep(0.008, 0.045, min(pC.g, pC.b) - pC.r)) * (1.0 - 0.55 * smoothstep(0.32, 0.65, dot(pC, vec3(0.3,0.6,0.1))) * smoothstep(0.18, 0.04, max(pC.r,max(pC.g,pC.b))-min(pC.r,min(pC.g,pC.b))));
+                    float wD = (1.0 - smoothstep(0.008, 0.045, min(pD.g, pD.b) - pD.r)) * (1.0 - 0.55 * smoothstep(0.32, 0.65, dot(pD, vec3(0.3,0.6,0.1))) * smoothstep(0.18, 0.04, max(pD.r,max(pD.g,pD.b))-min(pD.r,min(pD.g,pD.b))));
+                    float wE = (1.0 - smoothstep(0.008, 0.045, min(pE.g, pE.b) - pE.r)) * 0.35;
+                    float wSum = wA + wB + wC + wD + wE;
+                    vec3 cleanRock = wSum > 0.05 ? (pA * wA + pB * wB + pC * wC + pD * wD + pE * wE) / wSum : vec3(0.24, 0.14, 0.07);
+                    vec4 cr = cliffRelief3D(vObjPos);
+                    float shelfShade = mix(0.76, 1.20, smoothstep(-0.85, 0.85, cr.y));
+                    float blockShade = 0.90 + 0.18 * clamp(cr.z, -0.8, 0.8);
+                    float creviceAO = 1.0 - 0.42 * smoothstep(0.18, 0.85, -min(cr.z, 0.0));
+                    float mineralMicro = 1.0 + 0.24 * cr.w;
+                    vec3 rock3D = cleanRock * shelfShade * blockShade * creviceAO * mineralMicro;
+                    float rockMix = uPhotoGold > 0.5 ? smoothstep(0.68, 0.28, absNz) * 0.94 : smoothstep(0.62, 0.22, absNz) * 0.90;
+                    float cyanSelf = smoothstep(0.012, 0.06, min(diffuseColor.g, diffuseColor.b) - diffuseColor.r);
+                    rockMix = max(rockMix, cyanSelf * smoothstep(0.72, 0.42, absNz) * 0.96);
+                    diffuseColor.rgb = mix(diffuseColor.rgb, rock3D, rockMix);
                   }}
                 }}
                 ${{hasTreeVCol ? `
@@ -668,8 +714,12 @@ def build_viewer():
                 `#include <roughnessmap_fragment>
                 float rTreeMix = ${{hasTreeVCol ? "clamp(vTreeVCol.a, 0.0, 1.0)" : "0.0"}};
                 float rSteep = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.55, 0.20, abs(normalize(vObjNrm).z)) : 0.0;
-                float cliffRough = uPhotoGold > 0.5 ? 0.56 : 0.88;
-                roughnessFactor = mix(roughnessFactor, cliffRough, max(rTreeMix, rSteep * (uPhotoGold > 0.5 ? 0.40 : 0.55)));
+                  float cliffRough = uPhotoGold > 0.5 ? 0.66 : 0.88;
+                  roughnessFactor = mix(roughnessFactor, cliffRough, max(rTreeMix, rSteep * (uPhotoGold > 0.5 ? 0.58 : 0.55)));
+                  if (uTriMode > 2.5 && rSteep > 0.05) {{
+                    float rCrev = smoothstep(0.15, 0.85, -min(cliffRelief3D(vObjPos).z, 0.0));
+                    roughnessFactor = mix(roughnessFactor, 0.92, rSteep * rCrev);
+                  }}
                 if (uTriMode > 2.5 && vObjPos.z > 25.05) {{
                   float gHue = uPhotoGold > 0.5 ? smoothstep(0.55, 0.68, diffuseColor.g / max(diffuseColor.r, 0.01)) : 1.0;
                   float gM = smoothstep(0.46, 0.72, (diffuseColor.r + diffuseColor.g) * 0.5 - diffuseColor.b) * smoothstep(0.30, 0.60, diffuseColor.r) * gHue;
@@ -691,8 +741,26 @@ def build_viewer():
                 "#include <normal_fragment_maps>",
                 `#include <normal_fragment_maps>
                 float nTreeMix = ${{hasTreeVCol ? "clamp(vTreeVCol.a, 0.0, 1.0)" : "0.0"}};
-                float nSteep = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.46, 0.15, abs(normalize(vObjNrm).z)) * 0.55 : 0.0;
-                normal = normalize(mix(normal, normalize(vNormal), clamp(max(nTreeMix, nSteep), 0.0, 1.0)));`
+                float nAbsNz = abs(normalize(vObjNrm).z);
+                float nSteep = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.62, 0.26, nAbsNz) * 0.78 : 0.0;
+                normal = normalize(mix(normal, normalize(vNormal), clamp(max(nTreeMix, nSteep), 0.0, 1.0)));
+                if (uTriMode > 2.5 && vObjPos.z > 25.08 && nAbsNz < 0.70 && nTreeMix < 0.5) {{
+                  float eps = 0.06;
+                  vec3 k0 = vec3( 1.0, -1.0, -1.0);
+                  vec3 k1 = vec3(-1.0, -1.0,  1.0);
+                  vec3 k2 = vec3(-1.0,  1.0, -1.0);
+                  vec3 k3 = vec3( 1.0,  1.0,  1.0);
+                  vec3 gObj = (
+                    k0 * cliffRelief3D(vObjPos + k0 * eps).x +
+                    k1 * cliffRelief3D(vObjPos + k1 * eps).x +
+                    k2 * cliffRelief3D(vObjPos + k2 * eps).x +
+                    k3 * cliffRelief3D(vObjPos + k3 * eps).x
+                  ) / (4.0 * eps);
+                  vec3 gView = gObj.x * vMvX + gObj.y * vMvY + gObj.z * vMvZ;
+                  vec3 gSurf = gView - dot(gView, normal) * normal;
+                  float wallBumpMask = smoothstep(0.70, 0.30, nAbsNz);
+                  normal = normalize(normal - gSurf * (0.26 * wallBumpMask));
+                }}`
               );
           }};
           matPBR.customProgramCacheKey = () => "catan-tri-" + TRIPLANAR_MODE + "-" + (hasTreeVCol ? "vc" : "uv");
@@ -716,7 +784,7 @@ def build_viewer():
               .replace("#include <common>", `#include <common>\nvarying vec3 vObjPos;\nvarying vec3 vObjNrm;\n${{hasTreeVCol ? "varying vec4 vTreeVCol;" : ""}}`)
               .replace("#include <normal_fragment_maps>", `#include <normal_fragment_maps>
                 float nTree = ${{hasTreeVCol ? "clamp(vTreeVCol.a, 0.0, 1.0)" : "0.0"}};
-                float nSteep = (vObjPos.z > 25.08) ? smoothstep(0.65, 0.25, abs(normalize(vObjNrm).z)) * 0.85 : 0.0;
+                float nSteep = (vObjPos.z > 25.08) ? smoothstep(0.70, 0.32, abs(normalize(vObjNrm).z)) * 0.96 : 0.0;
                 normal = normalize(mix(normal, normalize(vNormal), clamp(max(nTree, nSteep), 0.0, 1.0)));`);
           }};
           matClay.customProgramCacheKey = () => "catan-clay-" + TRIPLANAR_MODE + "-" + (hasTreeVCol ? "vc" : "uv");

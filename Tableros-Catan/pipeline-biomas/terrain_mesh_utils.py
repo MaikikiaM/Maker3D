@@ -548,10 +548,123 @@ def sort_mesh_spatial_morton(verts, faces):
     return v_sorted, f_sorted[f_ord]
 
 
+def _hash_noise3d(x, y, z):
+    """Fast vectorized 3D value noise in [0, 1] for continuous millimeter coordinates."""
+    ix = np.floor(x).astype(np.int64)
+    iy = np.floor(y).astype(np.int64)
+    iz = np.floor(z).astype(np.int64)
+    fx = x - ix
+    fy = y - iy
+    fz = z - iz
+    ux = fx * fx * (3.0 - 2.0 * fx)
+    uy = fy * fy * (3.0 - 2.0 * fy)
+    uz = fz * fz * (3.0 - 2.0 * fz)
+
+    def h(ox, oy, oz):
+        n = (ix + ox) * np.int64(73856093) ^ (iy + oy) * np.int64(19349663) ^ (iz + oz) * np.int64(83492791)
+        n = (n * np.int64(2654435761)) & np.int64(0xFFFFFF)
+        return n.astype(np.float64) * (1.0 / 16777215.0)
+
+    c00 = h(0, 0, 0) * (1.0 - ux) + h(1, 0, 0) * ux
+    c10 = h(0, 1, 0) * (1.0 - ux) + h(1, 1, 0) * ux
+    c01 = h(0, 0, 1) * (1.0 - ux) + h(1, 0, 1) * ux
+    c11 = h(0, 1, 1) * (1.0 - ux) + h(1, 1, 1) * ux
+    c0 = c00 * (1.0 - uy) + c10 * uy
+    c1 = c01 * (1.0 - uy) + c11 * uy
+    return c0 * (1.0 - uz) + c1 * uz
+
+
+def sculpt_cliff_walls_3d(verts, tri_top, top_dist, strength_mm=0.72, water_mask_arr=None):
+    """
+    Sculpt real lateral (nx, ny, nz) 3D geological rock strata ledges, columnar rock blocks,
+    and fracture crevices on steep cliff walls so walls never rely solely on vertical 2.5D Z-height.
+    """
+    if strength_mm <= 0.0:
+        return verts
+    v0 = verts[tri_top[:, 0]]
+    v1 = verts[tri_top[:, 1]]
+    v2 = verts[tri_top[:, 2]]
+    fn_old = np.cross(v1 - v0, v2 - v0)
+    fn_old_len = np.linalg.norm(fn_old, axis=1) + 1e-12
+
+    vn = np.zeros_like(verts, dtype=np.float64)
+    np.add.at(vn, tri_top[:, 0], fn_old)
+    np.add.at(vn, tri_top[:, 1], fn_old)
+    np.add.at(vn, tri_top[:, 2], fn_old)
+    vn_len = np.linalg.norm(vn, axis=1, keepdims=True) + 1e-12
+    vn /= vn_len
+
+    # Active only on interior steep rock walls well clear of hex bezel, corner pads, and water channels
+    wall_w = nb.smoothstep(0.76, 0.28, np.abs(vn[:, 2]))
+    z_w = nb.smoothstep(nb.Z_BASE + 1.0, nb.Z_BASE + 2.4, verts[:, 2])
+    edge_w = nb.smoothstep(4.5, 8.2, top_dist)
+    w_all = wall_w * z_w * edge_w
+
+    if water_mask_arr is not None:
+        wm_v = np.clip(nb.sample_square_domain(water_mask_arr, verts[:, 0], verts[:, 1]), 0.0, 1.0)
+        w_all *= (1.0 - nb.smoothstep(0.08, 0.42, wm_v))
+
+    idx = np.flatnonzero(w_all > 0.005)
+    if len(idx) == 0:
+        return verts
+
+    x = verts[idx, 0]
+    y = verts[idx, 1]
+    z = verts[idx, 2]
+
+    # 3D multi-scale rock geology synchronized with GLSL triplanar cliff strata/fractures
+    n_warp = _hash_noise3d(x * 0.20 + 11.3, y * 0.20 + 4.7, z * 0.20 + 2.1) * 2.0 - 1.0
+    n_warp2 = _hash_noise3d(x * 0.48 + 31.7, y * 0.48 + 19.1, z * 0.48 + 7.3) * 2.0 - 1.0
+    z_warped = z + 1.15 * n_warp + 0.35 * n_warp2
+
+    shelf_major = np.tanh(2.15 * np.sin(z_warped * 2.55))
+    shelf_minor = np.sin((z + 1.45 * n_warp) * 6.20)
+    shelf = 0.72 * shelf_major + 0.28 * shelf_minor
+
+    # Vertical / steeply inclined columnar basalt & sedimentary rock blocks + sharp inward cracks
+    n_blk = _hash_noise3d(x * 0.56 + 0.35 * n_warp + 3.1, y * 0.56 - 0.35 * n_warp + 8.7, z * 0.24 + 1.9) * 2.0 - 1.0
+    blocks = np.tanh(2.35 * n_blk)
+
+    n_cr1 = _hash_noise3d(x * 0.92 + 0.42 * n_warp2 + 17.3, y * 0.92 + 5.4, z * 0.36 + 9.2) * 2.0 - 1.0
+    n_cr2 = _hash_noise3d(x * 0.68 - 0.30 * n_warp + 41.1, y * 0.68 + 0.30 * n_warp + 23.8, z * 0.85 + 3.5) * 2.0 - 1.0
+    d_cr1 = np.sqrt(n_cr1 * n_cr1 + 0.014)
+    d_cr2 = np.sqrt(n_cr2 * n_cr2 + 0.014)
+    t_cr1 = np.clip(1.0 - (d_cr1 - 0.118) / 0.24, 0.0, 1.0)
+    t_cr2 = np.clip(1.0 - (d_cr2 - 0.118) / 0.22, 0.0, 1.0)
+    crack1 = t_cr1 * t_cr1 * (3.0 - 2.0 * t_cr1)
+    crack2 = t_cr2 * t_cr2 * (3.0 - 2.0 * t_cr2)
+    cracks = np.maximum(crack1, 0.75 * crack2)
+
+    n_fine = _hash_noise3d(x * 2.35 + 53.1, y * 2.35 + 14.9, z * 2.35 + 29.7) * 2.0 - 1.0
+
+    delta_sub = strength_mm * w_all[idx] * (0.44 * shelf + 0.34 * blocks - 0.52 * cracks + 0.16 * n_fine)
+    delta = np.zeros(len(verts), dtype=np.float64)
+    delta[idx] = delta_sub
+
+    # Anti-foldover Jacobian guard: iteratively damp any triangle approaching normal inversion or severe pinch
+    v_out = verts + delta[:, None] * vn
+    for _ in range(5):
+        fn_new = np.cross(v_out[tri_top[:, 1]] - v_out[tri_top[:, 0]], v_out[tri_top[:, 2]] - v_out[tri_top[:, 0]])
+        fn_new_len = np.linalg.norm(fn_new, axis=1) + 1e-12
+        dot_cos = np.sum(fn_old * fn_new, axis=1) / (fn_old_len * fn_new_len)
+        area_ratio = fn_new_len / fn_old_len
+        bad = (dot_cos < 0.12) | (area_ratio < 0.18)
+        if not np.any(bad):
+            break
+        damp = np.ones(len(verts), dtype=np.float64)
+        np.minimum.at(damp, tri_top[bad].ravel(), 0.52)
+        delta *= damp
+        v_out = verts + delta[:, None] * vn
+
+    print(f"  [3D Cliff Sculpt] active_verts={len(idx)}/{len(verts)} strength={strength_mm:.2f}mm range=({delta.min():+.2f},{delta.max():+.2f})mm")
+    return v_out
+
+
 def build_contour_aligned_hex_solid(
     X, Y, Z, dist_edge, n_bnd=144, n_mag=32, include_magnet=True, flip_passes=4,
     subdivide_passes=0, edge_len_3d_max=0.175, slope_deg_thresh=38.0, curv_deg_thresh=0.0,
-    relax_passes=0, taubin_passes=0, Z_dem=None, morton_sort=False
+    relax_passes=0, taubin_passes=0, Z_dem=None, morton_sort=False,
+    cliff_sculpt=0.0, water_mask_arr=None,
 ):
     """
     Watertight hex prism solid builder matching `nanobanana_to_catan_hex.build_solid_hex_mesh`,
@@ -595,11 +708,16 @@ def build_contour_aligned_hex_solid(
     if taubin_passes > 0:
         all_top_verts = taubin_smooth_interior_z(all_top_verts, tri_top, top_dist, passes=taubin_passes, lam=0.33, mu=-0.34)
 
-    bot_bnd_start = len(all_top_verts)
-
     p0, p1, p2 = all_top_verts[tri_top[:, 0]], all_top_verts[tri_top[:, 1]], all_top_verts[tri_top[:, 2]]
     flip = ((p1[:, 0] - p0[:, 0]) * (p2[:, 1] - p0[:, 1]) - (p1[:, 1] - p0[:, 1]) * (p2[:, 0] - p0[:, 0])) < 0
     tri_top[flip, 1], tri_top[flip, 2] = tri_top[flip, 2], tri_top[flip, 1]
+
+    if cliff_sculpt > 0.0:
+        all_top_verts = sculpt_cliff_walls_3d(
+            all_top_verts, tri_top, top_dist, strength_mm=cliff_sculpt, water_mask_arr=water_mask_arr
+        )
+
+    bot_bnd_start = len(all_top_verts)
 
     pts_bot_bnd = np.column_stack([bnd_xy, np.zeros(n_b, dtype=np.float64)])
     idx_e = np.arange(n_b, dtype=np.int32)

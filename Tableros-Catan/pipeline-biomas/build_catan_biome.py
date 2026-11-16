@@ -153,16 +153,20 @@ def sculpt_albedo_microrelief(Z, diff_rgb, dist_edge, dist_vert, dx, max_bump_mm
         # into convex river-cobble domes (zero 80° shark teeth) while keeping rock crevices razor-deep.
         gy_m, gx_m = np.gradient(ndi.gaussian_filter(Z, max(2.0, 0.35 / dx)), dx, dx)
         macro_slope = np.hypot(gx_m, gy_m)
-        crest_calm = 1.0 - 0.46 * nb.smoothstep(0.52, 1.10, macro_slope)
+        crest_calm = 1.0 - 0.50 * nb.smoothstep(0.45, 1.05, macro_slope)
+        wall_z_calm = 1.0 - 0.82 * nb.smoothstep(0.68, 1.32, macro_slope)
 
-        pos_d = np.maximum(0.0, stone_domes) * crest_calm
-        neg_d = np.minimum(0.0, stone_domes)
-        domed_pos = 0.74 * np.tanh(pos_d / 0.56)
-        rock_pos = max_bump_mm * (1.02 * domed_pos + 0.38 * gold_facets * (0.65 + 0.35 * crest_calm))
-        # Smooth saturation cap (~0.88 * max_bump_mm) prevents cobblestone+gold double-stacking into needles
-        max_pos = 0.88 * max_bump_mm
+        # Round positive cobble/stone crowns into water-worn pillow domes while keeping cracks sharp
+        l_dome = ndi.gaussian_filter(lum_sculpt, max(1.4, 0.14 / dx))
+        dome_raw = np.clip((l_dome - l_meso) * 2.35 + (l_meso - l_broad) * 1.05, 0.0, 0.90)
+        pos_d = np.power(dome_raw * crest_calm * wall_z_calm + 1e-6, 0.68)
+        domed_pos = 0.62 * np.tanh(pos_d / 0.52)
+        neg_d = np.minimum(0.0, stone_domes) * wall_z_calm
+        rock_pos = max_bump_mm * (0.64 * domed_pos + 0.32 * gold_facets * (0.65 + 0.35 * crest_calm) * wall_z_calm)
+        max_pos = 0.56 * max_bump_mm
         rock_pos = max_pos * np.tanh(rock_pos / max_pos)
-        rock_neg = max_bump_mm * (1.02 * neg_d - 0.84 * crevice_groove)
+        rock_pos = ndi.gaussian_filter(rock_pos, max(1.1, 0.13 / dx))
+        rock_neg = max_bump_mm * (0.95 * neg_d - 0.84 * crevice_groove * wall_z_calm)
         rock_relief = rock_pos + rock_neg
     else:
         if crown_smooth_mm > 0.0:
@@ -453,6 +457,7 @@ def main():
     p.add_argument("--keep-dark-rock", action="store_true", help="Preserve dark basalt/slate rock cliffs near the perimeter instead of painting warm fill.")
     p.add_argument("--sculpt-from-albedo", type=float, default=0.0, help="If >0, carve physical 3D rock fractures, cobble/pebble domes, gold clusters & wave ribs (max mm) directly into Z(x,y).")
     p.add_argument("--sculpt-crown-mm", type=float, default=0.0, help="Sub-pixel spire-crown rounding radius (mm) on sculpted pebbles/ridges.")
+    p.add_argument("--cliff-sculpt", type=float, default=0.0, help="Normal-direction (nx,ny,nz) 3D cliff strata/block/crack sculpting (mm) on steep rock walls.")
     p.add_argument("--tangent-norm", action="store_true", help="Emit pure residual tangent-space normalMap + analytic per-vertex tangents in Three.js (kills dFdx/dFdy wall facets).")
     p.add_argument("--photoreal", action="store_true", help="Preserve photorealistic Nano Banana 4K contrast/vibrancy (skip comic deink, boost specular & exposure).")
     p.add_argument("--water-mask", default=None, help="Optional river water-channel mask PNG to prevent whitewater foam spikes & apron back-slope.")
@@ -558,6 +563,7 @@ def main():
                 subdivide_passes=subdiv_p, edge_len_3d_max=edge_max,
                 curv_deg_thresh=curv_th, relax_passes=args.relax_passes,
                 taubin_passes=args.taubin_passes, Z_dem=Zt, morton_sort=args.morton_sort,
+                cliff_sculpt=args.cliff_sculpt, water_mask_arr=(wm_arr if args.water_mask else None),
             )
             print(f"[{label}] nx={nx_val} ny={ny_val} flips={n_flips} subdiv={subdiv_p} taubin={args.taubin_passes} V={len(v_out)} F={len(f_out)}")
         else:
