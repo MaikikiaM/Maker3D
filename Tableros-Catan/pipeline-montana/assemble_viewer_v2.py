@@ -32,6 +32,10 @@ DIFF_QUALITY = 96
 NORM_QUALITY = 94
 SHADOW_BIAS = -0.0006
 SHADOW_NORMAL_BIAS = 0.35
+INIT_CAM_POS = (168.0, -172.0, 130.0)
+INIT_CAM_TARGET = (6.0, 0.0, 34.0)
+INIT_FOV = 36.0
+INIT_SUN_POS = (112.0, -96.0, 138.0)
 
 TARGET_PATHS = [
     "Tableros-Catan/Loseta_Montana_3D/catan_mountain_viewer.html",
@@ -493,23 +497,23 @@ def build_viewer():
           pmrem.dispose();
         }})();
 
-        const camera = new THREE.PerspectiveCamera(36, container.clientWidth / container.clientHeight, 1.0, 1200.0);
+        const camera = new THREE.PerspectiveCamera({INIT_FOV}, container.clientWidth / container.clientHeight, 1.0, 1400.0);
         camera.up.set(0, 0, 1);
-        camera.position.set(168, -172, 130);
+        camera.position.set({INIT_CAM_POS[0]}, {INIT_CAM_POS[1]}, {INIT_CAM_POS[2]});
 
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.target.set(6, 0, 34);
+        controls.target.set({INIT_CAM_TARGET[0]}, {INIT_CAM_TARGET[1]}, {INIT_CAM_TARGET[2]});
         controls.enableDamping = true;
         controls.dampingFactor = 0.07;
-        controls.maxDistance = 420;
+        controls.maxDistance = {780 if INIT_FOV < 30.0 else 420};
         controls.minDistance = 45;
         controls.update();
 
         // AAA 3-Point Alpine Lighting + 2048x2048 Soft Self-Shadows
-        const hemiLight = new THREE.HemisphereLight(0xdcebff, 0x1e293b, {0.56 if PHOTOREAL_GOLD else 0.48});
+        const hemiLight = new THREE.HemisphereLight(0xdcebff, 0x1e293b, {0.48 if TRIPLANAR_MODE == "alpine" else (0.56 if PHOTOREAL_GOLD else 0.48)});
         scene.add(hemiLight);
-        const sunLight = new THREE.DirectionalLight(0xfff7ea, {1.48 if PHOTOREAL_GOLD else 1.38});
-        sunLight.position.set(112, -96, 138);
+        const sunLight = new THREE.DirectionalLight(0xfff7ea, {1.32 if TRIPLANAR_MODE == "alpine" else (1.48 if PHOTOREAL_GOLD else 1.38)});
+        sunLight.position.set({INIT_SUN_POS[0]}, {INIT_SUN_POS[1]}, {INIT_SUN_POS[2]});
         sunLight.castShadow = true;
         sunLight.shadow.mapSize.set(2048, 2048);
         sunLight.shadow.camera.left = -74;
@@ -538,13 +542,13 @@ def build_viewer():
           roughnessMap: roughTex,
           roughness: 1.0,
           metalness: 0.02,
-          envMapIntensity: {0.92 if PHOTOREAL_GOLD else 0.52},
+          envMapIntensity: {0.72 if TRIPLANAR_MODE == "alpine" else (0.92 if PHOTOREAL_GOLD else 0.52)},
           clippingPlanes: [clipPlane],
           ...tanOpt,
         }});
         if (useTriShader) {{
           matPBR.onBeforeCompile = (shader) => {{
-            shader.uniforms.uTriMode = {{ value: TRIPLANAR_MODE === "clay" ? 1.0 : (TRIPLANAR_MODE === "forest" ? 2.0 : (TRIPLANAR_MODE === "rock" ? 3.0 : 0.0)) }};
+            shader.uniforms.uTriMode = {{ value: TRIPLANAR_MODE === "clay" ? 1.0 : (TRIPLANAR_MODE === "forest" ? 2.0 : (TRIPLANAR_MODE === "rock" ? 3.0 : (TRIPLANAR_MODE === "alpine" ? 4.0 : 0.0))) }};
             shader.uniforms.uHasTree = {{ value: hasTreeVCol ? 1.0 : 0.0 }};
             shader.uniforms.uPhotoGold = {{ value: {1.0 if PHOTOREAL_GOLD else 0.0} }};
             shader.vertexShader = shader.vertexShader
@@ -667,6 +671,29 @@ def build_viewer():
                     vec3 slateMix = mix(fBlur, vec3(0.18, 0.19, 0.18), isStone * 0.32);
                     vec3 rockCol = slateMix * (0.88 + 0.34 * gran) * (0.84 + 0.24 * frac);
                     diffuseColor.rgb = mix(diffuseColor.rgb, rockCol, steepWall * 0.90);
+                  }} else if (uTriMode > 3.5) {{
+                    // Alpine V4: crisp 3D granite micro-cleavage & upslope de-streaking strictly on grazing near-vertical cliffs (zero metalness/gold!)
+                    float absNz = abs(normalize(vObjNrm).z);
+                    float vCliff = smoothstep(0.46, 0.14, absNz);
+                    if (vCliff > 0.01) {{
+                      vec2 outDir = normalize(vObjNrm.xy + vec2(1e-5));
+                      vec2 tanDir = vec2(-outDir.y, outDir.x);
+                      vec3 u0 = diffuseColor.rgb;
+                      vec3 u1 = mapTexelToLinear(texture2D(map, vUv - outDir * 0.008)).rgb;
+                      vec3 u2 = mapTexelToLinear(texture2D(map, vUv - outDir * 0.015 + tanDir * 0.006)).rgb;
+                      vec3 u3 = mapTexelToLinear(texture2D(map, vUv - outDir * 0.015 - tanDir * 0.006)).rgb;
+                      vec3 upslopeCol = (u0 * 0.35 + u1 * 0.35 + u2 * 0.15 + u3 * 0.15);
+                      // Softly suppress accidental snow stretch smears ONLY on near-vertical >64 deg rock walls
+                      float snowStreak = smoothstep(0.62, 0.85, max(upslopeCol.r, max(upslopeCol.g, upslopeCol.b))) * smoothstep(0.14, 0.04, max(upslopeCol.r, max(upslopeCol.g, upslopeCol.b)) - min(upslopeCol.r, min(upslopeCol.g, upslopeCol.b)));
+                      vec3 wallBase = mix(upslopeCol, vec3(0.24, 0.21, 0.18), snowStreak * smoothstep(0.36, 0.14, absNz) * 0.55);
+                      vec4 cr = cliffRelief3D(vObjPos * 1.38);
+                      float strata = mix(0.84, 1.14, smoothstep(-0.8, 0.8, cr.y));
+                      float blockS = 0.90 + 0.20 * clamp(cr.z, -0.75, 0.75);
+                      float crev = 1.0 - 0.34 * smoothstep(0.16, 0.82, -min(cr.z, 0.0));
+                      float grain = 1.0 + 0.22 * cr.w;
+                      vec3 rock3D = wallBase * strata * blockS * crev * grain;
+                      diffuseColor.rgb = mix(diffuseColor.rgb, rock3D, vCliff * 0.88);
+                    }}
                   }} else {{
                     // Anti-streak 3D upslope rock hue recovery + crisp 3D strata, fracture blocks & mineral pores
                     float absNz = abs(normalize(vObjNrm).z);
@@ -717,10 +744,10 @@ def build_viewer():
                   float cliffRough = uPhotoGold > 0.5 ? 0.66 : 0.88;
                   roughnessFactor = mix(roughnessFactor, cliffRough, max(rTreeMix, rSteep * (uPhotoGold > 0.5 ? 0.58 : 0.55)));
                   if (uTriMode > 2.5 && rSteep > 0.05) {{
-                    float rCrev = smoothstep(0.15, 0.85, -min(cliffRelief3D(vObjPos).z, 0.0));
+                    float rCrev = smoothstep(0.15, 0.85, -min(cliffRelief3D(vObjPos * (uTriMode > 3.5 ? 1.38 : 1.0)).z, 0.0));
                     roughnessFactor = mix(roughnessFactor, 0.92, rSteep * rCrev);
                   }}
-                if (uTriMode > 2.5 && vObjPos.z > 25.05) {{
+                if (uTriMode > 2.5 && uTriMode < 3.5 && vObjPos.z > 25.05) {{
                   float gHue = uPhotoGold > 0.5 ? smoothstep(0.55, 0.68, diffuseColor.g / max(diffuseColor.r, 0.01)) : 1.0;
                   float gM = smoothstep(0.46, 0.72, (diffuseColor.r + diffuseColor.g) * 0.5 - diffuseColor.b) * smoothstep(0.30, 0.60, diffuseColor.r) * gHue;
                   float wM = smoothstep(0.03, 0.14, min(diffuseColor.g, diffuseColor.b) - diffuseColor.r) * (1.0 - smoothstep(0.32, 0.58, diffuseColor.r));
@@ -731,7 +758,7 @@ def build_viewer():
               .replace(
                 "#include <metalnessmap_fragment>",
                 `#include <metalnessmap_fragment>
-                if (uTriMode > 2.5 && vObjPos.z > 25.05) {{
+                if (uTriMode > 2.5 && uTriMode < 3.5 && vObjPos.z > 25.05) {{
                   float gHueM = uPhotoGold > 0.5 ? smoothstep(0.55, 0.68, diffuseColor.g / max(diffuseColor.r, 0.01)) : 1.0;
                   float gMet = smoothstep(0.46, 0.72, (diffuseColor.r + diffuseColor.g) * 0.5 - diffuseColor.b) * smoothstep(0.30, 0.60, diffuseColor.r) * gHueM;
                   metalnessFactor = mix(metalnessFactor, uPhotoGold > 0.5 ? 0.88 : 0.82, gMet);
@@ -742,24 +769,25 @@ def build_viewer():
                 `#include <normal_fragment_maps>
                 float nTreeMix = ${{hasTreeVCol ? "clamp(vTreeVCol.a, 0.0, 1.0)" : "0.0"}};
                 float nAbsNz = abs(normalize(vObjNrm).z);
-                float nSteep = (uTriMode > 0.5 && vObjPos.z > 25.08) ? smoothstep(0.62, 0.26, nAbsNz) * 0.78 : 0.0;
+                float nSteep = (uTriMode > 0.5 && vObjPos.z > 25.08) ? (uTriMode > 3.5 ? smoothstep(0.46, 0.16, nAbsNz) * 0.42 : smoothstep(0.62, 0.26, nAbsNz) * 0.78) : 0.0;
                 normal = normalize(mix(normal, normalize(vNormal), clamp(max(nTreeMix, nSteep), 0.0, 1.0)));
-                if (uTriMode > 2.5 && vObjPos.z > 25.08 && nAbsNz < 0.70 && nTreeMix < 0.5) {{
+                if (uTriMode > 2.5 && vObjPos.z > 25.08 && nAbsNz < (uTriMode > 3.5 ? 0.52 : 0.70) && nTreeMix < 0.5) {{
                   float eps = 0.06;
+                  float cScale = (uTriMode > 3.5) ? 1.38 : 1.0;
                   vec3 k0 = vec3( 1.0, -1.0, -1.0);
                   vec3 k1 = vec3(-1.0, -1.0,  1.0);
                   vec3 k2 = vec3(-1.0,  1.0, -1.0);
                   vec3 k3 = vec3( 1.0,  1.0,  1.0);
                   vec3 gObj = (
-                    k0 * cliffRelief3D(vObjPos + k0 * eps).x +
-                    k1 * cliffRelief3D(vObjPos + k1 * eps).x +
-                    k2 * cliffRelief3D(vObjPos + k2 * eps).x +
-                    k3 * cliffRelief3D(vObjPos + k3 * eps).x
+                    k0 * cliffRelief3D(vObjPos * cScale + k0 * eps).x +
+                    k1 * cliffRelief3D(vObjPos * cScale + k1 * eps).x +
+                    k2 * cliffRelief3D(vObjPos * cScale + k2 * eps).x +
+                    k3 * cliffRelief3D(vObjPos * cScale + k3 * eps).x
                   ) / (4.0 * eps);
                   vec3 gView = gObj.x * vMvX + gObj.y * vMvY + gObj.z * vMvZ;
                   vec3 gSurf = gView - dot(gView, normal) * normal;
-                  float wallBumpMask = smoothstep(0.70, 0.30, nAbsNz);
-                  normal = normalize(normal - gSurf * (0.26 * wallBumpMask));
+                  float wallBumpMask = smoothstep(uTriMode > 3.5 ? 0.50 : 0.70, uTriMode > 3.5 ? 0.18 : 0.30, nAbsNz);
+                  normal = normalize(normal - gSurf * ((uTriMode > 3.5 ? 0.20 : 0.26) * wallBumpMask));
                 }}`
               );
           }};
@@ -998,10 +1026,11 @@ def build_viewer():
 
         document.querySelectorAll("[data-cam]").forEach(btn => btn.addEventListener("click", () => {{
           const c = btn.dataset.cam;
-          if (c === "iso") {{ camera.position.set(168, -172, 130); controls.target.set(6, 0, 34); }}
-          else if (c === "top") {{ camera.position.set(0, -1.5, 225); controls.target.set(0, 0, 28); }}
-          else if (c === "north") {{ camera.position.set(-22, 165, 92); controls.target.set(0, 0, 40); }}
-          else if (c === "eye") {{ camera.position.set(125, -110, 12); controls.target.set(0, 0, 22); }}
+          const sc = (Math.tan(Math.PI * 18.0 / 180.0) / Math.tan(Math.PI * {INIT_FOV * 0.5} / 180.0));
+          if (c === "iso") {{ camera.position.set({INIT_CAM_POS[0]}, {INIT_CAM_POS[1]}, {INIT_CAM_POS[2]}); controls.target.set({INIT_CAM_TARGET[0]}, {INIT_CAM_TARGET[1]}, {INIT_CAM_TARGET[2]}); }}
+          else if (c === "top") {{ camera.position.set(0, -1.5, 28 + 197 * sc); controls.target.set(0, 0, 28); }}
+          else if (c === "north") {{ camera.position.set(-22 * sc, 165 * sc, 40 + 52 * sc); controls.target.set(0, 0, 40); }}
+          else if (c === "eye") {{ camera.position.set(125 * sc, -110 * sc, 22 - 10 * sc); controls.target.set(0, 0, 22); }}
           controls.update();
         }}));
 

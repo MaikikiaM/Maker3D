@@ -519,3 +519,49 @@ Resultados verificados (`v08`, `--stl-nx 750 --nx 408 --cliff-sculpt 0.72`):
 - Verificación Chromium en primer plano rasante (`http://127.0.0.1:8766?v=8b`, `7f958573-dbdd-4823-8b77-530deb791d63`, `0` errores): confirmados estratos/grietas 3D en acantilados sin estiramientos UV ni sangrado turquesa, grietas oscuras mate sin halos plateados y cantos rodados redondeados tanto en `Hiperreal PBR` (`final_step_446.png`) como en `Arcilla CAD`.
 - Archivado local en `Tableros-Catan/pipeline-biomas/oro/versiones/v08_cliff_sculpt_3d_6.98M/`.
 ================================================================================
+
+================================================================================
+SESIÓN: 17/11/2026 - BIOMA 1 (MONTAÑA / CORDILLERA ALPINA V4) — PARIDAD 1:1 HERO NANO BANANA + TRIPLANAR ALPINE + RESOLUCIÓN DUAL 4.64M Δ
+- Prompts literales del usuario:
+  * [16/11/2026 23:28]: "por que no esta funcionando?
+Trajectory ID: 1aee0acd-27e9-4a79-b618-9ed9777d1f2b
+Error: HTTP 400 Bad Request
+Sherlog: 
+TraceID: 0xf495785e53eb02
+Headers: {\"Alt-Svc\":[\"h3=\\\":443\\\"; ma=2592000,h3-29=\\\":443\\\"; ma=2592000\"],\"Content-Length\":[\"377\"],\"Content-Type\":[\"text/event-stream\"],\"Date\":[\"Mon, 16 Nov 2026 22:26:43 GMT\"],\"Server\":[\"ESF\"],\"Server-Timing\":[\"gfet4t7; dur=16078\"],\"Vary\":[\"Origin\",\"X-Origin\",\"Referer\"],\"X-Cloudaicompanion-Trace-Id\":[\"f495785e53eb02\"],\"X-Content-Type-Options\":[\"nosniff\"],\"X-Frame-Options\":[\"SAMEORIGIN\"],\"X-Xss-Protection\":[\"0\"]}
+
+{
+  \"error\": {
+    \"code\": 400,
+    \"details\": [
+      {
+        \"@type\": \"type.googleapis.com/google.rpc.ErrorInfo\",
+        \"domain\": \"cloudcode-pa.googleapis.com\",
+        \"metadata\": {
+          \"error_number\": \"2011\"
+        },
+        \"reason\": \"INVALID_MEDIA\"
+      }
+    ],
+    \"message\": \"Request contains an invalid argument.\",
+    \"status\": \"INVALID_ARGUMENT\"
+  }
+}"
+  * [16/11/2026 23:41]: "La montaña no se parece a lo que hizo Nano banana la primera vez en lo mas minimo. Editala hasta que no se puedan distinguir uno de la otra /goal "
+- Objetivo: Reemplazar el prototipo antiguo de Bioma 1 (`v01_baseline_291k`) por una reconstrucción paramétrica 360° calibrada píxel a píxel contra la referencia Hero original de Nano Banana (`refs/hero_nanobanana.jpg`), con paridad geométrica 2D→3D completa, visor WebGL `< 50 MB` y STL Maestro estanco `<= 10M Δ`.
+Diagnóstico y solución aplicada:
+- `Tableros-Catan/pipeline-biomas/montana_sculpt_v4.py`:
+  - Calibración fotogramétrica de cámara Hero (`RMS=2.30 px` sobre los 6 vértices del bisel) y optimización iterativa del horizonte (`MAE=3.94 px` en 1024 px, `Z_PEAK=70.20–70.40 mm`), manteniendo intactos el carril plano `ROAD_MARGIN=3.50 mm` y los 6 pads `Ø20.00 mm` en `Z_BASE=25.00 mm` mediante `smoothstep(e0>e1)` corregido.
+  - Apertura de dos circos glaciares norte en U (`--stage clay`) sin presas artificiales ni artefactos circulares.
+  - Fusión 4K `--stage fuse`: convolución Gaussiana normalizada de 2 bandas en la pirámide Laplaciana (eliminando halos de cresta y restos de raíl izquierdo), bancos de muestras puros verificados sin nieve intrusa ni amplificación JPEG en ventisqueros, y síntesis Voronoi de ganador único con marco ortonormal rígido evaluado en el centro de semilla (eliminando singularidades y pliegues UV en el hemisferio norte) junto con bisel grafito oscuro `[0.158, 0.164, 0.175]` y aros de pad mecanizados.
+- `Tableros-Catan/pipeline-biomas/build_catan_biome.py`:
+  - Carga directa sin pérdida en `float32` desde `.npy` y PNGs de 16 bits, flags opt-in `--preserve-bezel`, `--snow-smooth-sculpt` (mantiene ventisqueros suaves en `3D` mientras esculpe grietas de granito y cascajo de cobre), `--init-cam hero`, passthrough real de `--triplanar-mode alpine`, preservando los glaciares frontales Hero (`--keep-dark-rock`) y los escarpes exteriores (`--apron-mm 2.2`).
+- `Tableros-Catan/pipeline-montana/assemble_viewer_v2.py`:
+  - Encuadre inicial calibrado (`fov=18.5°`, cámara Hero `0°` frontal y luz solar coincidente), escalado proporcional por `fov` en los botones rápidos (`Cara Norte ≥44°`, `Cenital`, `Mesa/Imán`) y nuevo sombreador PBR `--triplanar-mode alpine` (`uTriMode=4.0`) que elimina estiramientos UV verticales en muros norte de `60°–80°` con micro-fracturas 3D de granito sin metalicidad oro.
+- `Tableros-Catan/pipeline-biomas/montana_audit_parity.py`: Script independiente de verificación binaria de STL (`memmap`) y generación de recortes comparativos 2D Albedo vs. Arcilla 3D.
+Resultados verificados (`v02_nanobanana_parity_4.64M`):
+- STL Maestro local (`catan_montana.stl`, `--stl-nx 700 --taubin-passes 5 --cliff-sculpt 0.0`): `V=2,318,815 | F=4,637,626 Δ` (`<= 10M`), `221.14 MB`, `watertight=True`, `chi=2`, `degen=0`, `vol=346.51 cm³`, `Z=(0.000, 70.404) mm`, `max_road_err_mm=0.0`, `max_pad_err_mm=0.0`, `mag_pocket_verts=192`.
+- Visor WebGL (`Visores-HTML/catan-bioma-montana.html` y espejo `Visores-HTML/preview-montana-v4-nanobanana.html`, `--nx 390`): `V=875,110 | F=1,750,216 Δ`, `29.03 MB` (`< 50 MB`).
+- Auditoría 2D→3D y navegación WebGL Chromium sin caché (`http://127.0.0.1:8766/Visores-HTML/catan-bioma-montana.html?v4=202611170050`, `0` errores de consola/shader): validados Hero 0° PBR (`final_step_32.png`), `Cara Norte ≥44°` (`step_28_shot_1.png`, muros 3D triplanares nítidos sin estiramiento UV), `Arcilla CAD` (`step_30_shot_1.png`) y órbita 60° (`step_32_shot_1.png`), más paridad 2D vs. 3D en `v4_2d_vs_3d_parity_crops.png`.
+- Archivado local en `Tableros-Catan/pipeline-biomas/montana/versiones/v02_nanobanana_parity_4.64M/` y actualizados `Visores-HTML/index.html` y `docs/ia/ESTADO.md`.
+================================================================================

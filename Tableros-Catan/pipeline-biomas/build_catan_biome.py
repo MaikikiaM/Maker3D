@@ -453,7 +453,10 @@ def main():
     p.add_argument("--contour-align", action="store_true", help="Concentrate grid toward steep walls & flip Delaunay diagonals along height contours.")
     p.add_argument("--slope-cap-grad", type=float, default=0.0, help="If >0, gently cap near-vertical cliffs to max dZ/dX gradient (e.g. 1.45 -> ~55 deg scarp).")
     p.add_argument("--warp-strength", type=float, default=0.42, help="Grid slope attraction strength when --contour-align is active.")
-    p.add_argument("--triplanar-mode", choices=["none", "clay", "forest", "rock"], default="none")
+    p.add_argument("--triplanar-mode", choices=["none", "clay", "forest", "rock", "alpine"], default="none")
+    p.add_argument("--preserve-bezel", action="store_true", help="Keep custom bezel/pad ring art from input albedo while cleaning flat bezel height.")
+    p.add_argument("--snow-smooth-sculpt", action="store_true", help="Dampen micro-relief carving over pure bright snow drifts so cirques stay smooth.")
+    p.add_argument("--init-cam", choices=["iso", "hero"], default="iso", help="Initial viewer camera preset ('hero' matches 0-deg Nano Banana front shot).")
     p.add_argument("--keep-dark-rock", action="store_true", help="Preserve dark basalt/slate rock cliffs near the perimeter instead of painting warm fill.")
     p.add_argument("--sculpt-from-albedo", type=float, default=0.0, help="If >0, carve physical 3D rock fractures, cobble/pebble domes, gold clusters & wave ribs (max mm) directly into Z(x,y).")
     p.add_argument("--sculpt-crown-mm", type=float, default=0.0, help="Sub-pixel spire-crown rounding radius (mm) on sculpted pebbles/ridges.")
@@ -477,8 +480,20 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
     viewer_html = args.viewer_html or os.path.join("Visores-HTML", f"catan-bioma-{args.slug}.html")
 
-    hm_raw = np.asarray(Image.open(args.heightmap).convert("L"))
-    hm_arr = refine_heightmap(hm_raw, gamma=args.slope_gamma, blur_px=args.blur_px, ridge_clean=args.ridge_clean)
+    if args.heightmap.lower().endswith(".npy"):
+        hm_npy = np.clip(np.load(args.heightmap).astype(np.float32), 0.0, 255.0)
+        if abs(args.slope_gamma - 1.0) < 1e-4 and args.blur_px <= 0.0 and not args.ridge_clean:
+            hm_arr = hm_npy
+        else:
+            hm_arr = refine_heightmap(hm_npy, gamma=args.slope_gamma, blur_px=args.blur_px, ridge_clean=args.ridge_clean)
+    else:
+        hm_img = Image.open(args.heightmap)
+        hm_raw = np.asarray(hm_img)
+        if hm_raw.dtype == np.uint16:
+            hm_f = (hm_raw.astype(np.float32) / 65535.0) * 255.0
+            hm_arr = hm_f if (abs(args.slope_gamma - 1.0) < 1e-4 and args.blur_px <= 0.0 and not args.ridge_clean) else refine_heightmap(hm_f, gamma=args.slope_gamma, blur_px=args.blur_px, ridge_clean=args.ridge_clean)
+        else:
+            hm_arr = refine_heightmap(np.asarray(hm_img.convert("L")), gamma=args.slope_gamma, blur_px=args.blur_px, ridge_clean=args.ridge_clean)
 
     Xt, Yt, Zt, dist_t, dist_vt, dxt, dyt = nb.synthesize_dem_from_heightmap(
         hm_arr, args.tex_size, args.tex_size, relief_mm=args.relief_mm, micro_detail_mm=args.micro_detail, x_lim=nb.R, y_lim=nb.R
@@ -493,7 +508,13 @@ def main():
         alb_arr = np.asarray(Image.open(args.albedo).convert("RGB"))
         diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
         if args.sculpt_from_albedo > 0.0:
+            Zt_pre = Zt.copy() if args.snow_smooth_sculpt else None
             Zt = sculpt_albedo_microrelief(Zt, diff_raw, dist_t, dist_vt, dxt, max_bump_mm=args.sculpt_from_albedo, crown_smooth_mm=args.sculpt_crown_mm, water_mask=wmask_t)
+            if args.snow_smooth_sculpt and Zt_pre is not None:
+                lum_s = (0.2126 * diff_raw[..., 0] + 0.7152 * diff_raw[..., 1] + 0.0722 * diff_raw[..., 2]) / 255.0
+                sat_s = (np.max(diff_raw, axis=-1) - np.min(diff_raw, axis=-1)) / 255.0
+                sn_s = nb.smoothstep(0.68, 0.84, lum_s) * (1.0 - nb.smoothstep(0.10, 0.20, sat_s))
+                Zt = Zt_pre + (Zt - Zt_pre) * (1.0 - 0.88 * sn_s).astype(np.float32)
             if not args.photoreal:
                 diff_raw = deink_mineral_albedo(diff_raw, dist_t, dist_vt, dxt)
     if args.slope_cap_grad > 0.0:
@@ -538,6 +559,14 @@ def main():
             alb_arr = np.asarray(Image.open(args.albedo).convert("RGB"))
             diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
         diff_rgb, max_snow = refine_biome_albedo(diff_raw, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=args.snow_filter, keep_dark_rock=args.keep_dark_rock, photoreal=args.photoreal)
+        if args.preserve_bezel:
+            rel_bz = np.maximum(0.0, Zt - nb.Z_BASE)
+            bz_on = np.maximum(
+                1.0 - nb.smoothstep(nb.ROAD_MARGIN + 0.45, nb.ROAD_MARGIN + 1.05, dist_t),
+                1.0 - nb.smoothstep(nb.PAD_RADIUS + 0.35, nb.PAD_RADIUS + 0.95, dist_vt),
+            ) * (1.0 - nb.smoothstep(0.14, 0.62, rel_bz))
+            bz_m = np.clip(bz_on, 0.0, 1.0)[..., None]
+            diff_rgb = np.clip(diff_rgb.astype(np.float32) * (1.0 - bz_m) + diff_raw.astype(np.float32) * bz_m, 0.0, 255.0).astype(np.uint8)
         norm_u8, rough_u8 = compute_enhanced_pbr_maps(Zt, diff_rgb, dxt, dyt, micro_norm_strength=args.micro_norm, tangent_residual=args.tangent_norm, photoreal=args.photoreal, water_mask=wmask_t)
 
     nb.save_uv_aligned_png(diff_rgb, os.path.join(out_dir, "catan_mountain_diffuse_2k.png"))
@@ -612,6 +641,16 @@ def main():
     av2.TRIPLANAR_MODE = args.triplanar_mode
     av2.USE_SMOOTH_TANGENTS = args.tangent_norm
     av2.PHOTOREAL_GOLD = args.photoreal
+    if args.init_cam == "hero":
+        av2.INIT_CAM_POS = (2.4, -342.8, 317.9)
+        av2.INIT_CAM_TARGET = (1.4, -13.0, 34.2)
+        av2.INIT_FOV = 18.5
+        av2.INIT_SUN_POS = (150.0, -78.0, 152.0)
+    else:
+        av2.INIT_CAM_POS = (168.0, -172.0, 130.0)
+        av2.INIT_CAM_TARGET = (6.0, 0.0, 34.0)
+        av2.INIT_FOV = 36.0
+        av2.INIT_SUN_POS = (112.0, -96.0, 138.0)
     if args.photoreal and args.tex_size >= 4096:
         av2.DIFF_QUALITY = 91
         av2.NORM_QUALITY = 85
