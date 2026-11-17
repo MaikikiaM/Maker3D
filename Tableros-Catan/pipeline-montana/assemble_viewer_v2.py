@@ -36,6 +36,7 @@ INIT_CAM_POS = (168.0, -172.0, 130.0)
 INIT_CAM_TARGET = (6.0, 0.0, 34.0)
 INIT_FOV = 36.0
 INIT_SUN_POS = (112.0, -96.0, 138.0)
+ALPINE_WALL_TINT = (0.24, 0.21, 0.18)  # linear rgb used by the 'alpine' triplanar shader on near-vertical walls
 
 TARGET_PATHS = [
     "Tableros-Catan/Loseta_Montana_3D/catan_mountain_viewer.html",
@@ -685,7 +686,7 @@ def build_viewer():
                       vec3 upslopeCol = (u0 * 0.35 + u1 * 0.35 + u2 * 0.15 + u3 * 0.15);
                       // Softly suppress accidental snow stretch smears ONLY on near-vertical >64 deg rock walls
                       float snowStreak = smoothstep(0.62, 0.85, max(upslopeCol.r, max(upslopeCol.g, upslopeCol.b))) * smoothstep(0.14, 0.04, max(upslopeCol.r, max(upslopeCol.g, upslopeCol.b)) - min(upslopeCol.r, min(upslopeCol.g, upslopeCol.b)));
-                      vec3 wallBase = mix(upslopeCol, vec3(0.24, 0.21, 0.18), snowStreak * smoothstep(0.36, 0.14, absNz) * 0.55);
+                      vec3 wallBase = mix(upslopeCol, vec3({ALPINE_WALL_TINT[0]}, {ALPINE_WALL_TINT[1]}, {ALPINE_WALL_TINT[2]}), snowStreak * smoothstep(0.36, 0.14, absNz) * 0.55);
                       vec4 cr = cliffRelief3D(vObjPos * 1.38);
                       float strata = mix(0.84, 1.14, smoothstep(-0.8, 0.8, cr.y));
                       float blockS = 0.90 + 0.20 * clamp(cr.z, -0.75, 0.75);

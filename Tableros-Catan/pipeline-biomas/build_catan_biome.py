@@ -456,7 +456,9 @@ def main():
     p.add_argument("--triplanar-mode", choices=["none", "clay", "forest", "rock", "alpine"], default="none")
     p.add_argument("--preserve-bezel", action="store_true", help="Keep custom bezel/pad ring art from input albedo while cleaning flat bezel height.")
     p.add_argument("--snow-smooth-sculpt", action="store_true", help="Dampen micro-relief carving over pure bright snow drifts so cirques stay smooth.")
-    p.add_argument("--init-cam", choices=["iso", "hero"], default="iso", help="Initial viewer camera preset ('hero' matches 0-deg Nano Banana front shot).")
+    p.add_argument("--init-cam", choices=["iso", "hero", "south"], default="iso", help="Initial viewer camera preset ('hero' matches 0-deg Nano Banana front shot; 'south' = lower 34-deg 3/4 south view of the concept sheet).")
+    p.add_argument("--snowline-mm", type=float, default=15.0, help="Min relief (mm) above which physical snow is allowed when --snow-filter is active (default 15.0; lower for snow in saddles/cirques).")
+    p.add_argument("--alpine-wall-tint", default="0.24,0.21,0.18", help="Rock tint (linear r,g,b) used by the alpine triplanar shader to replace streaked snow on vertical walls (dark slate: 0.115,0.12,0.13).")
     p.add_argument("--keep-dark-rock", action="store_true", help="Preserve dark basalt/slate rock cliffs near the perimeter instead of painting warm fill.")
     p.add_argument("--sculpt-from-albedo", type=float, default=0.0, help="If >0, carve physical 3D rock fractures, cobble/pebble domes, gold clusters & wave ribs (max mm) directly into Z(x,y).")
     p.add_argument("--sculpt-crown-mm", type=float, default=0.0, help="Sub-pixel spire-crown rounding radius (mm) on sculpted pebbles/ridges.")
@@ -513,8 +515,12 @@ def main():
             if args.snow_smooth_sculpt and Zt_pre is not None:
                 lum_s = (0.2126 * diff_raw[..., 0] + 0.7152 * diff_raw[..., 1] + 0.0722 * diff_raw[..., 2]) / 255.0
                 sat_s = (np.max(diff_raw, axis=-1) - np.min(diff_raw, axis=-1)) / 255.0
-                sn_s = nb.smoothstep(0.68, 0.84, lum_s) * (1.0 - nb.smoothstep(0.10, 0.20, sat_s))
-                Zt = Zt_pre + (Zt - Zt_pre) * (1.0 - 0.88 * sn_s).astype(np.float32)
+                sn_s = nb.smoothstep(0.54, 0.76, lum_s) * (1.0 - nb.smoothstep(0.10, 0.20, sat_s))
+                sn_filled = ndi.binary_fill_holes(sn_s > 0.35).astype(np.float32)
+                sn_base = np.maximum(sn_s, sn_filled * 0.90)
+                sn_dil = ndi.maximum_filter(sn_base, size=max(3, int(round(0.95 / dxt))))
+                sn_halo = np.clip(ndi.gaussian_filter(sn_dil, sigma=max(2.0, 0.65 / dxt)) * 1.15, 0.0, 1.0)
+                Zt = Zt_pre + (Zt - Zt_pre) * (1.0 - 0.95 * sn_halo).astype(np.float32)
             if not args.photoreal:
                 diff_raw = deink_mineral_albedo(diff_raw, dist_t, dist_vt, dxt)
     if args.slope_cap_grad > 0.0:
@@ -558,7 +564,7 @@ def main():
         if diff_raw is None:
             alb_arr = np.asarray(Image.open(args.albedo).convert("RGB"))
             diff_raw = np.clip(nb.sample_square_domain(alb_arr, Xt, Yt), 0, 255).astype(np.uint8)
-        diff_rgb, max_snow = refine_biome_albedo(diff_raw, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=args.snow_filter, keep_dark_rock=args.keep_dark_rock, photoreal=args.photoreal)
+        diff_rgb, max_snow = refine_biome_albedo(diff_raw, Zt, dist_t, dist_vt, dxt, dyt, snow_filter=args.snow_filter, snowline_mm=args.snowline_mm, keep_dark_rock=args.keep_dark_rock, photoreal=args.photoreal)
         if args.preserve_bezel:
             rel_bz = np.maximum(0.0, Zt - nb.Z_BASE)
             bz_on = np.maximum(
@@ -641,7 +647,13 @@ def main():
     av2.TRIPLANAR_MODE = args.triplanar_mode
     av2.USE_SMOOTH_TANGENTS = args.tangent_norm
     av2.PHOTOREAL_GOLD = args.photoreal
-    if args.init_cam == "hero":
+    av2.ALPINE_WALL_TINT = tuple(float(v) for v in args.alpine_wall_tint.split(","))
+    if args.init_cam == "south":
+        av2.INIT_CAM_POS = (1.4, -373.6, 277.5)
+        av2.INIT_CAM_TARGET = (1.4, -13.0, 34.2)
+        av2.INIT_FOV = 18.5
+        av2.INIT_SUN_POS = (150.0, -78.0, 152.0)
+    elif args.init_cam == "hero":
         av2.INIT_CAM_POS = (2.4, -342.8, 317.9)
         av2.INIT_CAM_TARGET = (1.4, -13.0, 34.2)
         av2.INIT_FOV = 18.5
