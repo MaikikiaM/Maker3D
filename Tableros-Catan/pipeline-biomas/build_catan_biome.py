@@ -456,13 +456,17 @@ def main():
     p.add_argument("--triplanar-mode", choices=["none", "clay", "forest", "rock", "alpine"], default="none")
     p.add_argument("--preserve-bezel", action="store_true", help="Keep custom bezel/pad ring art from input albedo while cleaning flat bezel height.")
     p.add_argument("--snow-smooth-sculpt", action="store_true", help="Dampen micro-relief carving over pure bright snow drifts so cirques stay smooth.")
-    p.add_argument("--init-cam", choices=["iso", "hero", "south"], default="iso", help="Initial viewer camera preset ('hero' matches 0-deg Nano Banana front shot; 'south' = lower 34-deg 3/4 south view of the concept sheet).")
+    p.add_argument("--init-cam", choices=["iso", "hero", "south", "south30"], default="iso", help="Initial viewer camera preset ('hero' matches 0-deg Nano Banana front shot; 'south' = lower 34-deg 3/4 south view; 'south30' = 30-deg azimuth perpendicular to flat edge).")
     p.add_argument("--snowline-mm", type=float, default=15.0, help="Min relief (mm) above which physical snow is allowed when --snow-filter is active (default 15.0; lower for snow in saddles/cirques).")
     p.add_argument("--alpine-wall-tint", default="0.24,0.21,0.18", help="Rock tint (linear r,g,b) used by the alpine triplanar shader to replace streaked snow on vertical walls (dark slate: 0.115,0.12,0.13).")
     p.add_argument("--keep-dark-rock", action="store_true", help="Preserve dark basalt/slate rock cliffs near the perimeter instead of painting warm fill.")
     p.add_argument("--sculpt-from-albedo", type=float, default=0.0, help="If >0, carve physical 3D rock fractures, cobble/pebble domes, gold clusters & wave ribs (max mm) directly into Z(x,y).")
     p.add_argument("--sculpt-crown-mm", type=float, default=0.0, help="Sub-pixel spire-crown rounding radius (mm) on sculpted pebbles/ridges.")
     p.add_argument("--cliff-sculpt", type=float, default=0.0, help="Normal-direction (nx,ny,nz) 3D cliff strata/block/crack sculpting (mm) on steep rock walls.")
+    p.add_argument("--cliff-sculpt-map", default=None, help="Optional float32 .npy (-1..1) texture-relief field for normal-direction 3D cliff wall & feature carving.")
+    p.add_argument("--cliff-albedo-weight", type=float, default=0.0, help="Amplitude (mm) of --cliff-sculpt-map lateral normal displacement.")
+    p.add_argument("--diff-quality", type=int, default=0, help="Override diffuse image quality (e.g. 92..96) for WebGL HTML embedding.")
+    p.add_argument("--norm-quality", type=int, default=0, help="Override normal/roughness image quality (e.g. 85..92) for WebGL HTML embedding.")
     p.add_argument("--tangent-norm", action="store_true", help="Emit pure residual tangent-space normalMap + analytic per-vertex tangents in Three.js (kills dFdx/dFdy wall facets).")
     p.add_argument("--photoreal", action="store_true", help="Preserve photorealistic Nano Banana 4K contrast/vibrancy (skip comic deink, boost specular & exposure).")
     p.add_argument("--water-mask", default=None, help="Optional river water-channel mask PNG to prevent whitewater foam spikes & apron back-slope.")
@@ -579,6 +583,10 @@ def main():
     nb.save_uv_aligned_png(norm_u8, os.path.join(out_dir, "catan_mountain_normal_2k.png"))
     nb.save_uv_aligned_png(rough_u8, os.path.join(out_dir, "catan_mountain_roughness_2k.png"))
 
+    cliff_field_arr = None
+    if args.cliff_sculpt_map:
+        cliff_field_arr = np.flipud(np.load(args.cliff_sculpt_map).astype(np.float32))
+
     def build_lod_mesh(nx_val, subdiv_p, edge_max, curv_th, label="Mesh"):
         ny_val = int(round(nx_val * (nb.R / nb.APOTHEM)))
         Xm, Ym, Zm, dist_m, dist_vm, dxm, _ = nb.synthesize_dem_from_heightmap(
@@ -599,6 +607,7 @@ def main():
                 curv_deg_thresh=curv_th, relax_passes=args.relax_passes,
                 taubin_passes=args.taubin_passes, Z_dem=Zt, morton_sort=args.morton_sort,
                 cliff_sculpt=args.cliff_sculpt, water_mask_arr=(wm_arr if args.water_mask else None),
+                cliff_albedo_field=cliff_field_arr, cliff_albedo_weight=args.cliff_albedo_weight,
             )
             print(f"[{label}] nx={nx_val} ny={ny_val} flips={n_flips} subdiv={subdiv_p} taubin={args.taubin_passes} V={len(v_out)} F={len(f_out)}")
         else:
@@ -653,6 +662,12 @@ def main():
         av2.INIT_CAM_TARGET = (1.4, -13.0, 34.2)
         av2.INIT_FOV = 18.5
         av2.INIT_SUN_POS = (150.0, -78.0, 152.0)
+    elif args.init_cam == "south30":
+        # az=30° (perpendicular a la arista plana inferior, exactamente alineado a FRONT 3/4 VIEW 0°)
+        av2.INIT_CAM_POS = (176.0, -304.8, 245.0)
+        av2.INIT_CAM_TARGET = (0.0, 0.0, 32.0)
+        av2.INIT_FOV = 21.0
+        av2.INIT_SUN_POS = (150.0, -78.0, 152.0)
     elif args.init_cam == "hero":
         av2.INIT_CAM_POS = (2.4, -342.8, 317.9)
         av2.INIT_CAM_TARGET = (1.4, -13.0, 34.2)
@@ -664,8 +679,13 @@ def main():
         av2.INIT_FOV = 36.0
         av2.INIT_SUN_POS = (112.0, -96.0, 138.0)
     if args.photoreal and args.tex_size >= 4096:
-        av2.DIFF_QUALITY = 91
-        av2.NORM_QUALITY = 85
+        av2.DIFF_QUALITY = args.diff_quality if args.diff_quality > 0 else 91
+        av2.NORM_QUALITY = args.norm_quality if args.norm_quality > 0 else 85
+    elif args.diff_quality > 0 or args.norm_quality > 0:
+        if args.diff_quality > 0:
+            av2.DIFF_QUALITY = args.diff_quality
+        if args.norm_quality > 0:
+            av2.NORM_QUALITY = args.norm_quality
     if args.tangent_norm:
         av2.SHADOW_BIAS = -0.00025
         av2.SHADOW_NORMAL_BIAS = 0.08

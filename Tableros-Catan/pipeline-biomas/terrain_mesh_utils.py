@@ -574,12 +574,15 @@ def _hash_noise3d(x, y, z):
     return c0 * (1.0 - uz) + c1 * uz
 
 
-def sculpt_cliff_walls_3d(verts, tri_top, top_dist, strength_mm=0.72, water_mask_arr=None):
+def sculpt_cliff_walls_3d(
+    verts, tri_top, top_dist, strength_mm=0.72, water_mask_arr=None,
+    cliff_albedo_field=None, cliff_albedo_weight=0.0,
+):
     """
     Sculpt real lateral (nx, ny, nz) 3D geological rock strata ledges, columnar rock blocks,
-    and fracture crevices on steep cliff walls so walls never rely solely on vertical 2.5D Z-height.
+    fracture crevices, and optional texture-synchronized cliff carving on steep rock walls.
     """
-    if strength_mm <= 0.0:
+    if strength_mm <= 0.0 and cliff_albedo_weight <= 0.0:
         return verts
     v0 = verts[tri_top[:, 0]]
     v1 = verts[tri_top[:, 1]]
@@ -595,9 +598,10 @@ def sculpt_cliff_walls_3d(verts, tri_top, top_dist, strength_mm=0.72, water_mask
     vn /= vn_len
 
     # Active only on interior steep rock walls well clear of hex bezel, corner pads, and water channels
-    wall_w = nb.smoothstep(0.76, 0.28, np.abs(vn[:, 2]))
-    z_w = nb.smoothstep(nb.Z_BASE + 1.0, nb.Z_BASE + 2.4, verts[:, 2])
-    edge_w = nb.smoothstep(4.5, 8.2, top_dist)
+    wall_start = 0.85 if cliff_albedo_field is not None else 0.76
+    wall_w = nb.smoothstep(wall_start, 0.28, np.abs(vn[:, 2]))
+    z_w = nb.smoothstep(nb.Z_BASE + 0.65, nb.Z_BASE + 2.0, verts[:, 2])
+    edge_w = nb.smoothstep(4.2, 7.6, top_dist)
     w_all = wall_w * z_w * edge_w
 
     if water_mask_arr is not None:
@@ -637,7 +641,12 @@ def sculpt_cliff_walls_3d(verts, tri_top, top_dist, strength_mm=0.72, water_mask
 
     n_fine = _hash_noise3d(x * 2.35 + 53.1, y * 2.35 + 14.9, z * 2.35 + 29.7) * 2.0 - 1.0
 
-    delta_sub = strength_mm * w_all[idx] * (0.44 * shelf + 0.34 * blocks - 0.52 * cracks + 0.16 * n_fine)
+    delta_proc = strength_mm * (0.44 * shelf + 0.34 * blocks - 0.52 * cracks + 0.16 * n_fine)
+    if cliff_albedo_field is not None and cliff_albedo_weight > 0.0:
+        tex_v = np.clip(nb.sample_square_domain(cliff_albedo_field, x, y), -1.0, 1.0)
+        delta_sub = w_all[idx] * (delta_proc + cliff_albedo_weight * tex_v)
+    else:
+        delta_sub = w_all[idx] * delta_proc
     delta = np.zeros(len(verts), dtype=np.float64)
     delta[idx] = delta_sub
 
@@ -664,7 +673,7 @@ def build_contour_aligned_hex_solid(
     X, Y, Z, dist_edge, n_bnd=144, n_mag=32, include_magnet=True, flip_passes=4,
     subdivide_passes=0, edge_len_3d_max=0.175, slope_deg_thresh=38.0, curv_deg_thresh=0.0,
     relax_passes=0, taubin_passes=0, Z_dem=None, morton_sort=False,
-    cliff_sculpt=0.0, water_mask_arr=None,
+    cliff_sculpt=0.0, water_mask_arr=None, cliff_albedo_field=None, cliff_albedo_weight=0.0,
 ):
     """
     Watertight hex prism solid builder matching `nanobanana_to_catan_hex.build_solid_hex_mesh`,
@@ -712,9 +721,11 @@ def build_contour_aligned_hex_solid(
     flip = ((p1[:, 0] - p0[:, 0]) * (p2[:, 1] - p0[:, 1]) - (p1[:, 1] - p0[:, 1]) * (p2[:, 0] - p0[:, 0])) < 0
     tri_top[flip, 1], tri_top[flip, 2] = tri_top[flip, 2], tri_top[flip, 1]
 
-    if cliff_sculpt > 0.0:
+    if cliff_sculpt > 0.0 or cliff_albedo_weight > 0.0:
         all_top_verts = sculpt_cliff_walls_3d(
-            all_top_verts, tri_top, top_dist, strength_mm=cliff_sculpt, water_mask_arr=water_mask_arr
+            all_top_verts, tri_top, top_dist, strength_mm=cliff_sculpt,
+            water_mask_arr=water_mask_arr, cliff_albedo_field=cliff_albedo_field,
+            cliff_albedo_weight=cliff_albedo_weight,
         )
 
     bot_bnd_start = len(all_top_verts)
