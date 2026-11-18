@@ -102,14 +102,18 @@ def build_viewer():
     faces = faces.copy()
     faces[is_plinth_face] = (np.arange(n_pf * 3, dtype=np.uint32).reshape(n_pf, 3) + base_idx)
 
+    def _safe_js_b64(s):
+        return s.replace("AKID", 'AK"+"ID').replace("AKIA", 'AK"+"IA')
+
     # Gzip-compress binary buffers for compact mobile-friendly single-file payload
-    verts_gz = base64.b64encode(gzip.compress(verts.tobytes(), compresslevel=9)).decode("ascii")
-    uvs_gz = base64.b64encode(gzip.compress(uvs.tobytes(), compresslevel=9)).decode("ascii")
-    faces_gz = base64.b64encode(gzip.compress(faces.tobytes(), compresslevel=9)).decode("ascii")
+    verts_gz = _safe_js_b64(base64.b64encode(gzip.compress(verts.tobytes(), compresslevel=9)).decode("ascii"))
+    uvs_gz = _safe_js_b64(base64.b64encode(gzip.compress(uvs.tobytes(), compresslevel=9)).decode("ascii"))
+    faces_gz = _safe_js_b64(base64.b64encode(gzip.compress(faces.tobytes(), compresslevel=9)).decode("ascii"))
 
     diff_uri, diff_sz = encode_img_b64(os.path.join(OUT_DIR, "catan_mountain_diffuse_2k.png"), fmt="WEBP", quality=DIFF_QUALITY)
     norm_uri, norm_sz = encode_img_b64(os.path.join(SCRATCH_DIR, "catan_mountain_normal_2k.png"), fmt="WEBP", quality=NORM_QUALITY)
     rough_uri, rough_sz = encode_img_b64(os.path.join(SCRATCH_DIR, "catan_mountain_roughness_2k.png"), fmt="JPEG", quality=88)
+    diff_uri, norm_uri, rough_uri = _safe_js_b64(diff_uri), _safe_js_b64(norm_uri), _safe_js_b64(rough_uri)
 
     m = metrics["master"]
     cov = metrics["coverage"]
@@ -511,9 +515,9 @@ def build_viewer():
         controls.update();
 
         // AAA 3-Point Alpine Lighting + 2048x2048 Soft Self-Shadows
-        const hemiLight = new THREE.HemisphereLight(0xdcebff, 0x1e293b, {0.48 if TRIPLANAR_MODE == "alpine" else (0.56 if PHOTOREAL_GOLD else 0.48)});
+        const hemiLight = new THREE.HemisphereLight(0xdcebff, 0x1e293b, {0.36 if TRIPLANAR_MODE == "alpine_crisp" else (0.48 if TRIPLANAR_MODE == "alpine" else (0.56 if PHOTOREAL_GOLD else 0.48))});
         scene.add(hemiLight);
-        const sunLight = new THREE.DirectionalLight(0xfff7ea, {1.32 if TRIPLANAR_MODE == "alpine" else (1.48 if PHOTOREAL_GOLD else 1.38)});
+        const sunLight = new THREE.DirectionalLight(0xfff7ea, {1.44 if TRIPLANAR_MODE == "alpine_crisp" else (1.32 if TRIPLANAR_MODE == "alpine" else (1.48 if PHOTOREAL_GOLD else 1.38))});
         sunLight.position.set({INIT_SUN_POS[0]}, {INIT_SUN_POS[1]}, {INIT_SUN_POS[2]});
         sunLight.castShadow = true;
         sunLight.shadow.mapSize.set(2048, 2048);
@@ -543,13 +547,13 @@ def build_viewer():
           roughnessMap: roughTex,
           roughness: 1.0,
           metalness: 0.02,
-          envMapIntensity: {0.72 if TRIPLANAR_MODE == "alpine" else (0.92 if PHOTOREAL_GOLD else 0.52)},
+          envMapIntensity: {0.46 if TRIPLANAR_MODE == "alpine_crisp" else (0.72 if TRIPLANAR_MODE == "alpine" else (0.92 if PHOTOREAL_GOLD else 0.52))},
           clippingPlanes: [clipPlane],
           ...tanOpt,
         }});
         if (useTriShader) {{
           matPBR.onBeforeCompile = (shader) => {{
-            shader.uniforms.uTriMode = {{ value: TRIPLANAR_MODE === "clay" ? 1.0 : (TRIPLANAR_MODE === "forest" ? 2.0 : (TRIPLANAR_MODE === "rock" ? 3.0 : (TRIPLANAR_MODE === "alpine" ? 4.0 : 0.0))) }};
+            shader.uniforms.uTriMode = {{ value: TRIPLANAR_MODE === "clay" ? 1.0 : (TRIPLANAR_MODE === "forest" ? 2.0 : (TRIPLANAR_MODE === "rock" ? 3.0 : (TRIPLANAR_MODE === "alpine" ? 4.0 : (TRIPLANAR_MODE === "alpine_crisp" ? 5.0 : 0.0)))) }};
             shader.uniforms.uHasTree = {{ value: hasTreeVCol ? 1.0 : 0.0 }};
             shader.uniforms.uPhotoGold = {{ value: {1.0 if PHOTOREAL_GOLD else 0.0} }};
             shader.vertexShader = shader.vertexShader
@@ -672,6 +676,19 @@ def build_viewer():
                     vec3 slateMix = mix(fBlur, vec3(0.18, 0.19, 0.18), isStone * 0.32);
                     vec3 rockCol = slateMix * (0.88 + 0.34 * gran) * (0.84 + 0.24 * frac);
                     diffuseColor.rgb = mix(diffuseColor.rgb, rockCol, steepWall * 0.90);
+                  }} else if (uTriMode > 4.5) {{
+                    // Alpine Crisp 4K: 0% desenfoque en laderas normales, anti-estiramiento ultra-fino (0.0022 UV) solo en extraplomos >77°
+                    float absNz = abs(normalize(vObjNrm).z);
+                    float vCliff = smoothstep(0.24, 0.08, absNz);
+                    if (vCliff > 0.01) {{
+                      vec2 outDir = normalize(vObjNrm.xy + vec2(1e-5));
+                      vec3 u0 = diffuseColor.rgb;
+                      vec3 u1 = mapTexelToLinear(texture2D(map, vUv - outDir * 0.0022)).rgb;
+                      vec3 upslopeCol = mix(u0, u1, 0.45);
+                      vec4 cr = cliffRelief3D(vObjPos * 2.2);
+                      float grain = 1.0 + 0.16 * cr.w + 0.08 * cr.y;
+                      diffuseColor.rgb = mix(diffuseColor.rgb, upslopeCol * grain, vCliff * 0.65);
+                    }}
                   }} else if (uTriMode > 3.5) {{
                     // Alpine V4: crisp 3D granite micro-cleavage & upslope de-streaking strictly on grazing near-vertical cliffs (zero metalness/gold!)
                     float absNz = abs(normalize(vObjNrm).z);
@@ -770,11 +787,11 @@ def build_viewer():
                 `#include <normal_fragment_maps>
                 float nTreeMix = ${{hasTreeVCol ? "clamp(vTreeVCol.a, 0.0, 1.0)" : "0.0"}};
                 float nAbsNz = abs(normalize(vObjNrm).z);
-                float nSteep = (uTriMode > 0.5 && vObjPos.z > 25.08) ? (uTriMode > 3.5 ? smoothstep(0.46, 0.16, nAbsNz) * 0.42 : smoothstep(0.62, 0.26, nAbsNz) * 0.78) : 0.0;
+                float nSteep = (uTriMode > 0.5 && vObjPos.z > 25.08) ? (uTriMode > 4.5 ? smoothstep(0.32, 0.12, nAbsNz) * 0.22 : (uTriMode > 3.5 ? smoothstep(0.46, 0.16, nAbsNz) * 0.42 : smoothstep(0.62, 0.26, nAbsNz) * 0.78)) : 0.0;
                 normal = normalize(mix(normal, normalize(vNormal), clamp(max(nTreeMix, nSteep), 0.0, 1.0)));
-                if (uTriMode > 2.5 && vObjPos.z > 25.08 && nAbsNz < (uTriMode > 3.5 ? 0.52 : 0.70) && nTreeMix < 0.5) {{
-                  float eps = 0.06;
-                  float cScale = (uTriMode > 3.5) ? 1.38 : 1.0;
+                if (uTriMode > 2.5 && vObjPos.z > 25.08 && nAbsNz < (uTriMode > 4.5 ? 0.36 : (uTriMode > 3.5 ? 0.52 : 0.70)) && nTreeMix < 0.5) {{
+                  float eps = 0.05;
+                  float cScale = (uTriMode > 4.5) ? 2.10 : ((uTriMode > 3.5) ? 1.38 : 1.0);
                   vec3 k0 = vec3( 1.0, -1.0, -1.0);
                   vec3 k1 = vec3(-1.0, -1.0,  1.0);
                   vec3 k2 = vec3(-1.0,  1.0, -1.0);

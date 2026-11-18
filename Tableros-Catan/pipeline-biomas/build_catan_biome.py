@@ -453,7 +453,7 @@ def main():
     p.add_argument("--contour-align", action="store_true", help="Concentrate grid toward steep walls & flip Delaunay diagonals along height contours.")
     p.add_argument("--slope-cap-grad", type=float, default=0.0, help="If >0, gently cap near-vertical cliffs to max dZ/dX gradient (e.g. 1.45 -> ~55 deg scarp).")
     p.add_argument("--warp-strength", type=float, default=0.42, help="Grid slope attraction strength when --contour-align is active.")
-    p.add_argument("--triplanar-mode", choices=["none", "clay", "forest", "rock", "alpine"], default="none")
+    p.add_argument("--triplanar-mode", choices=["none", "clay", "forest", "rock", "alpine", "alpine_crisp"], default="none")
     p.add_argument("--preserve-bezel", action="store_true", help="Keep custom bezel/pad ring art from input albedo while cleaning flat bezel height.")
     p.add_argument("--snow-smooth-sculpt", action="store_true", help="Dampen micro-relief carving over pure bright snow drifts so cirques stay smooth.")
     p.add_argument("--init-cam", choices=["iso", "hero", "south", "south30"], default="iso", help="Initial viewer camera preset ('hero' matches 0-deg Nano Banana front shot; 'south' = lower 34-deg 3/4 south view; 'south30' = 30-deg azimuth perpendicular to flat edge).")

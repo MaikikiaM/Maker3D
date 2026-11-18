@@ -413,8 +413,22 @@ def optimize_dual_skyline(X, Y, Z, taper, cam_f, cam_b, fg_f, fg_b, iters=16):
     return Z
 
 
-def project_single_view(Z_2k, cam_p, img_rgb, fg_mask, X, Y, dist_h, dist_v):
-    """Proyecta una vista perspectiva 1368x1536 sobre el campo Z_2k preservando 100% la nieve real y bloqueando oclusiones/plinto."""
+def sharpen_panel_2x(panel_rgb):
+    """Upscala 2x (1368x1536 -> 2736x3072) con realce multi-banda restringido sin halos para proyectar líneas 2x más nítidas."""
+    h, w, _ = panel_rgb.shape
+    pil = Image.fromarray((np.clip(panel_rgb, 0.0, 1.0) * 255.0).astype(np.uint8))
+    up = np.asarray(pil.resize((w * 2, h * 2), Image.LANCZOS), dtype=np.float32) / 255.0
+    b1 = ndi.gaussian_filter(up, (1.1, 1.1, 0.0))
+    b2 = ndi.gaussian_filter(up, (2.8, 2.8, 0.0))
+    enh = up + 0.65 * (up - b1) + 0.35 * (b1 - b2)
+    # Limitar overshoot al min/max local de 3x3 para evitar halos blancos o negros en grietas
+    lo = ndi.minimum_filter(up, size=(3, 3, 1)) - 0.03
+    hi = ndi.maximum_filter(up, size=(3, 3, 1)) + 0.03
+    return np.clip(enh, np.maximum(0.0, lo), np.minimum(1.0, hi)).astype(np.float32)
+
+
+def project_single_view(Z_2k, cam_p, img_rgb, fg_mask, X, Y, dist_h, dist_v, img_hi=None):
+    """Proyecta vista 2x nítida sobre Z_2k preservando nieve interna y evitando doble exposición borrosa."""
     _, _, _, hx, hy, hz, cam_xyz, nx_g, ny_g, nz_g = m4.ray_march_heightfield(Z_2k, cam_p, out_w=PAN_W, out_h=PAN_H)
     u_all, v_all, _ = m4.project_pts_vec(cam_p, X, Y, Z_2k, float(PAN_W), float(PAN_H))
     cam_dist_1k = np.sqrt((hx - cam_xyz[0]) ** 2 + (hy - cam_xyz[1]) ** 2 + (hz - cam_xyz[2]) ** 2)
@@ -442,7 +456,7 @@ def project_single_view(Z_2k, cam_p, img_rgb, fg_mask, X, Y, dist_h, dist_v):
         & (~occ_dil[vi, ui])
         & (dist_h >= 6.8)
         & (dist_v >= 11.8)
-        & (ndotv > 0.26)
+        & (ndotv > 0.24)
     )
 
     # Evitar capturar el borde gris/negro del plinto en el perímetro exterior (sin tocar jamás la nieve blanca!)
@@ -452,25 +466,31 @@ def project_single_view(Z_2k, cam_p, img_rgb, fg_mask, X, Y, dist_h, dist_v):
     rel_z_m = np.maximum(0.0, Z_2k - Z_BASE)
     near_edge_img = (u_all < 140.0) | (u_all > PAN_W - 140.0) | (v_all > 1055.0)
     vis_raw &= ~(((dist_h < 19.5) | (dist_v < 20.5) | (rel_z_m < 7.0) | near_edge_img) & is_dark_bezel[vi, ui])
-    vis_er = ndi.binary_erosion(vis_raw, iterations=2)
-    vis_w = ndi.gaussian_filter((vis_er * np.power(np.maximum(ndotv - 0.14, 0.0), 1.7)).astype(np.float32), sigma=2.4)
+    vis_er = ndi.binary_erosion(vis_raw, iterations=1)
+    vis_w = ndi.gaussian_filter((vis_er * np.power(np.maximum(ndotv - 0.12, 0.0), 2.1)).astype(np.float32), sigma=0.85)
 
-    # Muestreo bicúbico suave sobre img_rgb
+    # Muestreo nítido sobre panel 2x realzado si está disponible
+    if img_hi is not None:
+        v_q, u_q = v_all * 2.0, u_all * 2.0
+        src = img_hi
+    else:
+        v_q, u_q = v_all, u_all
+        src = img_rgb
     proj = np.stack(
-        [ndi.map_coordinates(img_rgb[..., c], [v_all, u_all], order=3, mode="nearest") for c in range(3)],
+        [ndi.map_coordinates(src[..., c], [v_q, u_q], order=3, mode="nearest") for c in range(3)],
         axis=-1,
     )
     proj = np.clip(proj, 0.0, 1.0).astype(np.float32)
 
-    # De-lighting suave por iluminación de estudio (~+X, -Y/+Z suave) para homogeneizar Sur/Norte
+    # De-lighting suave por iluminación de estudio (~+X, -Y/+Z suave) sin lavar contraste local
     dx = 2.0 * R / (Z_2k.shape[0] - 1)
     gy_s, gx_s = np.gradient(ndi.gaussian_filter(Z_2k, 2.5 / dx), dx, dx)
     nlen = np.sqrt(1.0 + gx_s * gx_s + gy_s * gy_s)
     ld = np.array([0.48, -0.25, 0.84], dtype=np.float32)
     ld /= np.linalg.norm(ld)
     ndotl = np.clip((-gx_s * ld[0] - gy_s * ld[1] + ld[2]) / nlen, 0.0, 1.0)
-    illum = np.clip(0.76 + 0.30 * ndotl, 0.68, 1.06)
-    proj_delit = np.clip(proj / (illum[..., None] ** 0.42), 0.0, 1.0).astype(np.float32)
+    illum = np.clip(0.78 + 0.28 * ndotl, 0.70, 1.06)
+    proj_delit = np.clip(proj / (illum[..., None] ** 0.36), 0.0, 1.0).astype(np.float32)
     return proj_delit, vis_w
 
 
@@ -763,65 +783,82 @@ def sculpt_2d_3d_synchronized(Z_2k, alb_2k, q_granite, q_snow, X, Y, dist_h, dis
         * (1.0 - smoothstep(8.0, 20.0, rel_z))
     )
 
-    # Contraste normalizado local multi-escala (micro 0.065mm + meso 0.24mm / 0.95mm para esculpir costillas reales en flancos graníticos!)
-    l_loc = np.maximum(ndi.gaussian_filter(lum, 2.4 / dx), 0.14)
-    lum_eq = np.clip((lum / l_loc) * 0.55, 0.08, 1.45)
-    l_fine = ndi.gaussian_filter(lum_eq, max(1.0, 0.065 / dx))
-    l_m1 = ndi.gaussian_filter(lum_eq, max(2.2, 0.24 / dx))
-    l_m2 = ndi.gaussian_filter(lum_eq, max(5.5, 0.95 / dx))
-    l_broad = ndi.gaussian_filter(lum_eq, max(10.0, 1.85 / dx))
+    # Normalización local ambiental + extracción morfológica Black/White Top-Hat en 3 escalas (TODO trazo de la textura -> forma 3D!)
+    l_loc = np.maximum(ndi.gaussian_filter(lum, 3.6 / dx), 0.13)
+    lum_eq = np.clip((lum / l_loc) * 0.55, 0.05, 1.50).astype(np.float32)
 
-    # Esculpir contrafuertes graníticos cincelados equilibrando aristas agudas (48-65° sin exceso vertical >70°)
+    # Compensación por inclinación de pared para que grietas en muros de 60° tallen profundidad perpendicular real
+    gy_sc, gx_sc = np.gradient(ndi.gaussian_filter(Z_work, 0.85 / dx), dx, dx)
+    cos_sl = 1.0 / np.sqrt(1.0 + gx_sc * gx_sc + gy_sc * gy_sc)
+    slope_comp = np.clip(1.0 / np.maximum(cos_sl, 0.44), 1.0, 2.25).astype(np.float32)
+
+    # Banda 1 (Macro cañones/grietas principales ~2.6mm y aristas salientes): evaluada en 1024x1024 (<0.1s)
+    lum1 = ndi.zoom(lum_eq, 0.5, order=1)
+    tr_mac_1k = np.clip((ndi.grey_closing(lum1, size=21) - lum1) - 0.032, 0.0, 0.62) / 0.62
+    fn_mac_1k = np.clip((lum1 - ndi.grey_opening(lum1, size=21)) - 0.032, 0.0, 0.58) / 0.58
+    trench_macro = ndi.gaussian_filter(np.power(ndi.zoom(tr_mac_1k, 2.0, order=1), 0.80), max(1.0, 0.18 / dx))
+    fin_macro = ndi.gaussian_filter(np.power(ndi.zoom(fn_mac_1k, 2.0, order=1), 0.82), max(1.0, 0.20 / dx))
+
+    # Banda 2 (Fracturas medianas y costillas graníticas ~0.95mm) + Banda 3 (Micro estrías ~0.44mm)
+    trench_meso = ndi.gaussian_filter(np.power(np.clip((ndi.grey_closing(lum_eq, size=15) - lum_eq) - 0.025, 0.0, 0.55) / 0.55, 0.78), max(0.8, 0.08 / dx))
+    fin_meso = ndi.gaussian_filter(np.power(np.clip((lum_eq - ndi.grey_opening(lum_eq, size=15)) - 0.025, 0.0, 0.55) / 0.55, 0.82), max(0.8, 0.09 / dx))
+    trench_micro = ndi.gaussian_filter(np.clip((ndi.grey_closing(lum_eq, size=7) - lum_eq) - 0.018, 0.0, 0.45) / 0.45, max(0.7, 0.045 / dx))
+    fin_micro = ndi.gaussian_filter(np.clip((lum_eq - ndi.grey_opening(lum_eq, size=7)) - 0.018, 0.0, 0.45) / 0.45, max(0.7, 0.05 / dx))
+
+    # --- CAPA A: Cincelado 3D profundo línea-por-línea en TODA la roca granítica ---
     is_rock = np.clip((1.0 - 0.96 * np.maximum(snow_zone, snow_basin_mask * 0.85)) * (1.0 - 0.85 * is_meadow) * (1.0 - 0.60 * is_terracotta), 0.0, 1.0)
-    rock_hp = np.clip((l_fine - l_m1) * 2.1 + (l_m1 - l_m2) * 2.2 + (l_m2 - l_broad) * 1.4, -1.0, 1.0)
-    rock_cracks = np.clip((l_m2 - l_m1) * 1.15 + (l_m1 - l_fine) * 0.80 - 0.015, 0.0, 0.78) * 2.15
-    f_chisel = m4.ridge_fbm(X, Y, [0.34, 0.78, 1.75], [0.44, 0.36, 0.20], seed=733).astype(np.float32)
-    f_ribs = m4.ridge_fbm(X * 0.85 + Y * 0.45, -X * 0.45 + Y * 0.85, [0.45, 1.15, 2.4], [0.48, 0.34, 0.18], seed=744).astype(np.float32)
+    f_chisel = m4.ridge_fbm(X, Y, [0.36, 0.82, 1.85], [0.44, 0.36, 0.20], seed=733).astype(np.float32)
+    f_ribs = m4.ridge_fbm(X * 0.85 + Y * 0.45, -X * 0.45 + Y * 0.85, [0.48, 1.25, 2.6], [0.48, 0.34, 0.18], seed=744).astype(np.float32)
     az_flute = np.arctan2(Y - 2.0, X + 2.0) * 7.5 + 0.14 * np.hypot(X + 2.0, Y - 2.0)
-    column_facets = (np.abs(np.sin(az_flute * 3.0)) - 0.48) * 0.75 + (f_chisel - 0.46) * 1.40 + (f_ribs - 0.46) * 1.05
-    chisel_dz = is_rock * smoothstep(2.2, 8.5, rel_z) * column_facets
-    rock_dz = is_rock * (1.32 * rock_hp - 1.32 * rock_cracks) + chisel_dz
+    column_facets = (np.abs(np.sin(az_flute * 3.0)) - 0.48) * 0.42 + (f_chisel - 0.46) * 0.90 + (f_ribs - 0.46) * 0.70
 
-    # --- CAPA B: Cantos terracota del barranco (bordes de camino encajados + piedras redondeadas hacia arriba) ---
-    cob_hp = np.clip((l_fine - l_m2) * 2.8 + np.maximum(0.0, l_m2 - l_broad) * 0.95, -0.25, 0.95)
-    cobble_domes = ndi.gaussian_filter(np.maximum(0.0, cob_hp), max(1.2, 0.11 / dx))
-    cobble_gaps = np.clip((l_m1 - l_fine) * 1.6, 0.0, 0.45)
-    terra_dz = is_terracotta * (0.90 * cobble_domes - 0.42 * cobble_gaps)
+    rock_lines_dz = (
+        (-2.25 * trench_macro + 1.38 * fin_macro) * (0.60 + 0.40 * slope_comp)
+        + (-1.30 * trench_meso + 0.88 * fin_meso) * (0.65 + 0.35 * slope_comp)
+        + (-0.52 * trench_micro + 0.40 * fin_micro) * (0.75 + 0.25 * slope_comp)
+    )
+    rock_dz = is_rock * (rock_lines_dz + smoothstep(3.0, 10.0, rel_z) * column_facets)
 
-    # --- CAPA C: Matas de musgo oscuro + piedrecitas grises en las praderas bajas (SIEMPRE hacia +Z!) ---
+    # --- CAPA B: Cantos terracota del barranco (cajeados de camino + piedras convexas con surco nítido) ---
+    cob_domes = np.maximum(fin_meso, fin_micro * 0.9) * 1.15 + 0.45 * np.clip(fin_macro, 0.0, 0.8)
+    cob_joints = np.maximum(trench_meso * 0.85, trench_micro * 0.70)
+    terra_dz = is_terracotta * (1.28 * cob_domes - 0.75 * cob_joints - 0.38 * trench_macro)
+
+    # --- CAPA C: Matas botánicas + piedrecitas grises en las praderas bajas (SIEMPRE hacia +Z!) ---
     l_raw_fine = ndi.gaussian_filter(lum, max(1.0, 0.075 / dx))
     l_raw_meso = ndi.gaussian_filter(lum, max(3.5, 0.65 / dx))
-    shrub_clusters = np.clip((l_raw_meso - l_raw_fine) * 5.6, 0.0, 0.95) * smoothstep(0.03, 0.12, g - b)
-    pebble_dots = np.clip((l_raw_fine - l_raw_meso) * 6.2, 0.0, 0.98) * (1.0 - smoothstep(0.10, 0.22, sat))
-    meadow_dz = is_meadow * (0.62 * shrub_clusters + 0.72 * pebble_dots)
+    shrub_wth = np.clip((ndi.grey_closing(lum_eq, size=13) - lum_eq) * 2.8, 0.0, 1.0) * smoothstep(0.025, 0.11, g - b)
+    shrub_clusters = np.maximum(shrub_wth, np.clip((l_raw_meso - l_raw_fine) * 5.8, 0.0, 0.95) * smoothstep(0.025, 0.11, g - b))
+    pebble_dots = np.maximum(fin_meso, np.clip((l_raw_fine - l_raw_meso) * 6.5, 0.0, 0.98)) * (1.0 - smoothstep(0.10, 0.22, sat))
+    meadow_dz = is_meadow * (0.88 * shrub_clusters + 0.96 * pebble_dots)
 
-    # --- CAPA D: Compuesto final + relajación suave exclusivamente en los bordes de nevero >= 38° ---
+    # --- CAPA D: Compuesto final + límite seguro anti-agujas (>= 73.5°) y protección de nieve < 39° ---
     Z_out = Z_work + core * (rock_dz + terra_dz + meadow_dz)
 
-    # Micro-púas extremas >= 68° relajadas suavemente (preservando aristas agudas de 45°-66°)
-    g_cap = math.tan(math.radians(68.0))
+    g_cap = math.tan(math.radians(73.0))
     for _ in range(7):
         gy_e, gx_e = np.gradient(Z_out, dx, dx)
         ge = np.hypot(gx_e, gy_e)
-        ex_e = np.clip((ge - g_cap) / (g_cap * 0.32), 0.0, 1.0) * core
+        ex_e = np.clip((ge - g_cap) / (g_cap * 0.30), 0.0, 1.0) * core
         if ex_e.max() < 0.02:
             break
-        Z_out = Z_out + (ndi.gaussian_filter(Z_out, 0.38 / dx) - Z_out) * np.clip(ndi.gaussian_filter(ex_e, 0.26 / dx) * 1.35, 0.0, 1.0) * 0.40
+        Z_out = Z_out + (ndi.gaussian_filter(Z_out, 0.36 / dx) - Z_out) * np.clip(ndi.gaussian_filter(ex_e, 0.25 / dx) * 1.35, 0.0, 1.0) * 0.40
 
-    for _ in range(35):
+    for _ in range(36):
         gy_c, gx_c = np.gradient(ndi.gaussian_filter(Z_out, 0.35 / dx), dx, dx)
         sl_c = np.degrees(np.arctan(np.hypot(gx_c, gy_c)))
         viol = (snow_zone > 0.25) & (sl_c >= 39.0)
         if not np.any(viol):
             break
         vw = np.clip(ndi.gaussian_filter(viol.astype(np.float32), 0.85 / dx) * 2.4, 0.0, 1.0) * snow_zone
-        Z_out = Z_out + (ndi.gaussian_filter(Z_out, 1.50 / dx) - Z_out) * vw * 0.60
+        Z_out = Z_out + (ndi.gaussian_filter(Z_out, 1.45 / dx) - Z_out) * vw * 0.62
 
-    # Campo normalizado 3D [-1, +1] para sculpt_cliff_walls_3d (esculpido perpendicular (nx,ny,nz) en paredes >= 32°)
+    # Campo normalizado 3D [-1, +1] alineado línea-por-línea para sculpt_cliff_walls_3d (desplazamiento perpendicular nx,ny,nz)
+    rock_hp = fin_meso + fin_micro * 0.5 - trench_meso - trench_micro * 0.5
     cliff_field = np.clip(
-        is_rock * (1.45 * rock_hp - 1.55 * rock_cracks + 0.65 * column_facets)
-        + is_terracotta * (1.10 * cobble_domes - 0.52 * cobble_gaps)
-        + is_meadow * (0.85 * shrub_clusters + 0.98 * pebble_dots),
+        is_rock * (-1.35 * trench_macro + 0.85 * fin_macro - 1.40 * trench_meso + 0.95 * fin_meso - 0.80 * trench_micro + 0.65 * fin_micro + 0.45 * column_facets)
+        + is_terracotta * (1.20 * cob_domes - 0.85 * cob_joints)
+        + is_meadow * (0.90 * shrub_clusters + 1.00 * pebble_dots),
         -1.0,
         1.0,
     ) * (1.0 - 0.96 * snow_zone) * core
@@ -887,7 +924,9 @@ def run_prep():
         Z_1k = optimize_dual_skyline(X, Y, Z_1k, taper, cam_f, cam_b, fg_f, fg_b, iters=16)
         np.save(sky_cache, Z_1k.astype(np.float32))
 
-    print("[Prep 2/5] Reproyectando textura dual 2048x2048 desde FRONT (0°) y BACK (180°)...")
+    print("[Prep 2/5] Reproyectando textura dual 2x nítida y esculpiendo 3D en 2 pasadas (corte línea-a-línea + re-proyección exacta)...")
+    front_hi = sharpen_panel_2x(front)
+    back_hi = sharpen_panel_2x(back)
     N2 = 2048
     Z_2k = ndi.zoom(Z_1k, N2 / 1024.0, order=3)
     lin2 = np.linspace(-R, R, N2)
@@ -895,18 +934,53 @@ def run_prep():
     dist_h2 = m4.hex_dist(X2, Y2)
     dist_v2 = m4.vert_dist(X2, Y2)
 
-    proj_f, wf = project_single_view(Z_2k, cam_f, front, fg_f, X2, Y2, dist_h2, dist_v2)
-    proj_b, wb = project_single_view(Z_2k, cam_b, back, fg_b, X2, Y2, dist_h2, dist_v2)
-    w_tot = wf + wb + 1e-6
-    alb_raw = (proj_f * (wf[..., None] ** 1.3) + proj_b * (wb[..., None] ** 1.3)) / (
-        (wf[..., None] ** 1.3) + (wb[..., None] ** 1.3) + 1e-6
+    proj_f, wf = project_single_view(Z_2k, cam_f, front, fg_f, X2, Y2, dist_h2, dist_v2, img_hi=front_hi)
+    proj_b, wb = project_single_view(Z_2k, cam_b, back, fg_b, X2, Y2, dist_h2, dist_v2, img_hi=back_hi)
+    alb_raw = (proj_f * (wf[..., None] ** 2.3) + proj_b * (wb[..., None] ** 2.3)) / (
+        (wf[..., None] ** 2.3) + (wb[..., None] ** 2.3) + 1e-6
     )
     alb_2k, q_granite, q_snow = infill_unseen_regions(alb_raw, wf + wb, Z_2k, X2, Y2, dist_h2, dist_v2, front, back)
 
-    print("[Prep 3/5] Esculpiendo sincronía 2D↔3D en 4 capas (roca, cantos, matas, nieve)...")
+    print("[Prep 3/5] Esculpiendo todas las grietas, contrafuertes, cantos y matas en 3D...")
     Z_sync, alb_clean, cliff_field, slope_f = sculpt_2d_3d_synchronized(Z_2k, alb_2k, q_granite, q_snow, X2, Y2, dist_h2, dist_v2)
 
-    # Bisel grafito Catan con cajeados circulares sutiles y aros limpios (100% compatible con Catan R=64, road=3.5mm, pads Ø20mm)
+    print("[Prep 3B] Re-proyectando 2ª pasada sobre Z_sync esculpido (sincronía píxel↔vértice cero paralaje)...")
+    proj_f2, wf2 = project_single_view(Z_sync, cam_f, front, fg_f, X2, Y2, dist_h2, dist_v2, img_hi=front_hi)
+    proj_b2, wb2 = project_single_view(Z_sync, cam_b, back, fg_b, X2, Y2, dist_h2, dist_v2, img_hi=back_hi)
+    w_comb = np.maximum(wf2 + wb2, (wf + wb) * 0.85)
+    alb_raw2 = np.where(
+        (wf2 + wb2)[..., None] >= 0.08,
+        (proj_f2 * (wf2[..., None] ** 2.4) + proj_b2 * (wb2[..., None] ** 2.4)) / ((wf2[..., None] ** 2.4) + (wb2[..., None] ** 2.4) + 1e-6),
+        alb_raw,
+    )
+    alb_reproj, q_gran2, q_sn2 = infill_unseen_regions(alb_raw2, w_comb, Z_sync, X2, Y2, dist_h2, dist_v2, front, back)
+    # Garantía final nieve >=43.4° == 0 y cero musgo en paredes altas sobre la textura re-proyectada
+    rel_fin = np.maximum(0.0, Z_sync - Z_BASE)
+    dx2 = 2.0 * R / (N2 - 1)
+    gy_f2, gx_f2 = np.gradient(ndi.gaussian_filter(Z_sync, 0.35 / dx2), dx2, dx2)
+    slope_f = np.degrees(np.arctan(np.hypot(gx_f2, gy_f2)))
+    lum_r = 0.2126 * alb_reproj[..., 0] + 0.7152 * alb_reproj[..., 1] + 0.0722 * alb_reproj[..., 2]
+    sat_r = alb_reproj.max(-1) - alb_reproj.min(-1)
+    # Limpiar musgo en crestas (sin tocar el canal terracota)
+    not_ter = (alb_reproj[..., 0] - alb_reproj[..., 2]) < 0.16
+    moss_fin = not_ter & ((rel_fin > 5.6) | ((slope_f > 30.0) & (rel_fin > 2.8))) & (alb_reproj[..., 1] >= alb_reproj[..., 0] * 0.86) & (alb_reproj[..., 1] - alb_reproj[..., 2] > 0.028)
+    if np.any(moss_fin):
+        mw = np.clip(ndi.gaussian_filter(moss_fin.astype(np.float32), 0.7) * 1.6, 0.0, 1.0)[..., None]
+        alb_reproj = alb_reproj * (1.0 - mw) + q_gran2 * mw
+    bad_sn2 = (lum_r > 0.64) & (sat_r < 0.13) & (slope_f >= 43.2)
+    if np.any(bad_sn2):
+        bw2 = np.clip(ndi.gaussian_filter(bad_sn2.astype(np.float32), 0.6) * 1.8, 0.0, 1.0)[..., None]
+        alb_reproj = alb_reproj * (1.0 - bw2) + q_gran2 * bw2
+    # Sellar cuencas glaciares suaves (<40°) con nieve real alb_clean/q_sn2
+    is_sn_clean = ((0.2126 * alb_clean[..., 0] + 0.7152 * alb_clean[..., 1] + 0.0722 * alb_clean[..., 2]) > 0.68) & ((alb_clean.max(-1) - alb_clean.min(-1)) < 0.12)
+    alb_clean = np.where(((rel_fin > 4.8) & (slope_f < 40.0) & is_sn_clean)[..., None], alb_clean, alb_reproj)
+    lum_r2 = 0.2126 * alb_clean[..., 0] + 0.7152 * alb_clean[..., 1] + 0.0722 * alb_clean[..., 2]
+    sat_r2 = alb_clean.max(-1) - alb_clean.min(-1)
+    rem_sn2 = (lum_r2 > 0.65) & (sat_r2 < 0.13) & (slope_f >= 43.5)
+    if np.any(rem_sn2):
+        alb_clean[rem_sn2] = np.clip(q_gran2[rem_sn2], 0.10, 0.56)
+
+    # Bisel grafito oscuro fiel al concepto (sin lavado azulado claro)
     rel_z = np.maximum(0.0, Z_sync - Z_BASE)
     on_border = np.maximum(
         1.0 - smoothstep(ROAD_MARGIN + 0.45, ROAD_MARGIN + 1.05, dist_h2),
@@ -914,16 +988,16 @@ def run_prep():
     )
     collar = np.clip(on_border * (1.0 - smoothstep(0.14, 0.58, rel_z)), 0.0, 1.0)
     f_bez = m4.ridge_fbm(X2, Y2, [0.4, 1.5], [0.5, 0.5], seed=888)
-    slate = np.array([0.145, 0.152, 0.165], dtype=np.float32)[None, None, :] * (0.95 + 0.10 * f_bez[..., None])
-    rim_hi = np.exp(-0.5 * ((dist_h2 - 0.85) / 0.28) ** 2) * 0.042
-    curb_sh = np.exp(-0.5 * ((dist_h2 - 3.55) / 0.40) ** 2) * 0.052
-    pad_groove = np.exp(-0.5 * ((dist_v2 - 8.2) / 0.32) ** 2) * 0.042
-    pad_hi = np.exp(-0.5 * ((dist_v2 - 9.0) / 0.28) ** 2) * 0.028
-    slate = np.clip(slate + (rim_hi - curb_sh - pad_groove + pad_hi)[..., None], 0.06, 0.27)
+    slate = np.array([0.118, 0.124, 0.135], dtype=np.float32)[None, None, :] * (0.95 + 0.10 * f_bez[..., None])
+    rim_hi = np.exp(-0.5 * ((dist_h2 - 0.85) / 0.28) ** 2) * 0.036
+    curb_sh = np.exp(-0.5 * ((dist_h2 - 3.55) / 0.40) ** 2) * 0.044
+    pad_groove = np.exp(-0.5 * ((dist_v2 - 8.2) / 0.32) ** 2) * 0.036
+    pad_hi = np.exp(-0.5 * ((dist_v2 - 9.0) / 0.28) ** 2) * 0.024
+    slate = np.clip(slate + (rim_hi - curb_sh - pad_groove + pad_hi)[..., None], 0.05, 0.22)
     alb_final = alb_clean * (1.0 - collar[..., None]) + slate * collar[..., None]
-    alb_final[:6, :6] = np.array([0.150, 0.157, 0.170], dtype=np.float32)
+    alb_final[:6, :6] = np.array([0.120, 0.126, 0.136], dtype=np.float32)
 
-    print("[Prep 4/5] Guardando DEM, campo normal 3D y Albedo 4K ultra-nítido...")
+    print("[Prep 4/5] Sintetizando micro-detalle 4K real (32 px/mm) sincronizado 2D↔3D en Albedo y Heightfield 4K...")
     z_span = float(Z_sync.max() - Z_BASE)
     hm_norm = np.clip((Z_sync - Z_BASE) / max(z_span, 1e-5) * 255.0, 0.0, 255.0).astype(np.float32)
     np.save(os.path.join(WORK_DIR, "montana_centrada_hm_2k.npy"), np.flipud(hm_norm))
@@ -933,11 +1007,36 @@ def run_prep():
     a_u8 = np.clip(np.flipud(alb_final) * 255.0, 0, 255).astype(np.uint8)
     Image.fromarray(a_u8).save(os.path.join(WORK_DIR, "montana_centrada_albedo_2k.png"))
 
-    # Upscale 4096x4096 con realce direccional multi-escala sin halos (textura máxima resolución!)
-    alb_4k_u8 = np.asarray(Image.fromarray(a_u8).resize((4096, 4096), Image.LANCZOS), dtype=np.float32) / 255.0
-    b_4k = ndi.gaussian_filter(alb_4k_u8, (1.35, 1.35, 0.0))
-    alb_4k_sharp = np.clip(alb_4k_u8 + 0.42 * (alb_4k_u8 - b_4k), 0.0, 1.0)
-    Image.fromarray((alb_4k_sharp * 255.0).astype(np.uint8)).save(os.path.join(WORK_DIR, "montana_centrada_albedo_4k.png"))
+    # Síntesis 4096x4096 real (32 px/mm): grano cristalino mineral + micro-fisuras alineadas al campo cliff_field en Albedo + HM 4K
+    alb_4k = np.asarray(Image.fromarray(a_u8).resize((4096, 4096), Image.LANCZOS), dtype=np.float32) / 255.0
+    b4_f = ndi.gaussian_filter(alb_4k, (0.95, 0.95, 0.0))
+    b4_m = ndi.gaussian_filter(alb_4k, (2.20, 2.20, 0.0))
+    alb_4k_sh = alb_4k + 0.58 * (alb_4k - b4_f) + 0.28 * (b4_f - b4_m)
+    lo4 = ndi.minimum_filter(alb_4k, size=(3, 3, 1)) - 0.04
+    hi4 = ndi.maximum_filter(alb_4k, size=(3, 3, 1)) + 0.04
+    alb_4k_sh = np.clip(alb_4k_sh, np.maximum(0.0, lo4), np.minimum(1.0, hi4))
+
+    lin4 = np.linspace(-R, R, 4096)
+    X4, Y4 = np.meshgrid(lin4, lin4)
+    g4_crystal = m4.ridge_fbm(X4, Y4, [2.4, 5.2, 9.5], [0.46, 0.34, 0.20], seed=919).astype(np.float32)
+    g4_micro = m4.ridge_fbm(X4 * 0.7 - Y4 * 0.7, X4 * 0.7 + Y4 * 0.7, [3.2, 7.6], [0.55, 0.45], seed=929).astype(np.float32)
+    cf_4k = np.flipud(ndi.zoom(cliff_field, 2.0, order=1))
+    col_4k = np.flipud(ndi.zoom(collar, 2.0, order=1))
+    lum4 = 0.2126 * alb_4k_sh[..., 0] + 0.7152 * alb_4k_sh[..., 1] + 0.0722 * alb_4k_sh[..., 2]
+    sat4 = alb_4k_sh.max(-1) - alb_4k_sh.min(-1)
+    is_sn4 = smoothstep(0.64, 0.80, lum4) * (1.0 - smoothstep(0.10, 0.18, sat4))
+    non_bez = (1.0 - col_4k) * (1.0 - 0.92 * is_sn4)
+
+    # Acentuar oscuridad nítida en fondos de grietas 3D y micro-grano cristalino en laderas expuestas (32 px/mm reales!)
+    crevice_ao = np.clip(1.0 + 0.16 * np.clip(cf_4k, -1.0, 0.45) * non_bez, 0.78, 1.09)
+    crystal_mod = 1.0 + non_bez * (0.14 * (g4_crystal - 0.48) + 0.10 * (g4_micro - 0.48))
+    alb_4k_final = np.clip(alb_4k_sh * crevice_ao[..., None] * crystal_mod[..., None], 0.0, 1.0)
+    Image.fromarray((alb_4k_final * 255.0).astype(np.uint8)).save(os.path.join(WORK_DIR, "montana_centrada_albedo_4k.png"))
+
+    # Heightmap 4K con micro-facetas de 0.10mm perfectamente alineadas con los píxeles 4K
+    Z_4k_hi = np.flipud(ndi.zoom(Z_sync, 2.0, order=3)) + 0.14 * non_bez * (g4_crystal - 0.48)
+    hm_4k_norm = np.clip((Z_4k_hi - Z_BASE) / max(float(Z_4k_hi.max() - Z_BASE), 1e-5) * 255.0, 0.0, 255.0).astype(np.float32)
+    np.save(os.path.join(WORK_DIR, "montana_centrada_hm_4k.npy"), hm_4k_norm)
 
     lum_f = 0.2126 * alb_final[..., 0] + 0.7152 * alb_final[..., 1] + 0.0722 * alb_final[..., 2]
     sat_f = alb_final.max(-1) - alb_final.min(-1)
