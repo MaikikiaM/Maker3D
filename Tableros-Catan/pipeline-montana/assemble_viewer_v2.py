@@ -456,7 +456,7 @@ def build_viewer():
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.outputEncoding = THREE.sRGBEncoding;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = {1.10 if PHOTOREAL_GOLD else 0.96};
+        renderer.toneMappingExposure = {0.90 if TRIPLANAR_MODE == "alpine_crisp" else (1.10 if PHOTOREAL_GOLD else 0.96)};
         renderer.localClippingEnabled = true;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -515,9 +515,9 @@ def build_viewer():
         controls.update();
 
         // AAA 3-Point Alpine Lighting + 2048x2048 Soft Self-Shadows
-        const hemiLight = new THREE.HemisphereLight(0xdcebff, 0x1e293b, {0.36 if TRIPLANAR_MODE == "alpine_crisp" else (0.48 if TRIPLANAR_MODE == "alpine" else (0.56 if PHOTOREAL_GOLD else 0.48))});
+        const hemiLight = new THREE.HemisphereLight(0xdcebff, 0x1e293b, {0.28 if TRIPLANAR_MODE == "alpine_crisp" else (0.48 if TRIPLANAR_MODE == "alpine" else (0.56 if PHOTOREAL_GOLD else 0.48))});
         scene.add(hemiLight);
-        const sunLight = new THREE.DirectionalLight(0xfff7ea, {1.44 if TRIPLANAR_MODE == "alpine_crisp" else (1.32 if TRIPLANAR_MODE == "alpine" else (1.48 if PHOTOREAL_GOLD else 1.38))});
+        const sunLight = new THREE.DirectionalLight(0xfff7ea, {1.24 if TRIPLANAR_MODE == "alpine_crisp" else (1.32 if TRIPLANAR_MODE == "alpine" else (1.48 if PHOTOREAL_GOLD else 1.38))});
         sunLight.position.set({INIT_SUN_POS[0]}, {INIT_SUN_POS[1]}, {INIT_SUN_POS[2]});
         sunLight.castShadow = true;
         sunLight.shadow.mapSize.set(2048, 2048);
@@ -543,11 +543,11 @@ def build_viewer():
         const matPBR = new THREE.MeshStandardMaterial({{
           map: diffTex,
           normalMap: normTex,
-          normalScale: new THREE.Vector2({1.25 if PHOTOREAL_GOLD else 1.05}, {1.25 if PHOTOREAL_GOLD else 1.05}),
+          normalScale: new THREE.Vector2({0.85 if TRIPLANAR_MODE == "alpine_crisp" else (1.25 if PHOTOREAL_GOLD else 1.05)}, {0.85 if TRIPLANAR_MODE == "alpine_crisp" else (1.25 if PHOTOREAL_GOLD else 1.05)}),
           roughnessMap: roughTex,
           roughness: 1.0,
           metalness: 0.02,
-          envMapIntensity: {0.46 if TRIPLANAR_MODE == "alpine_crisp" else (0.72 if TRIPLANAR_MODE == "alpine" else (0.92 if PHOTOREAL_GOLD else 0.52))},
+          envMapIntensity: {0.36 if TRIPLANAR_MODE == "alpine_crisp" else (0.72 if TRIPLANAR_MODE == "alpine" else (0.92 if PHOTOREAL_GOLD else 0.52))},
           clippingPlanes: [clipPlane],
           ...tanOpt,
         }});
@@ -812,12 +812,12 @@ def build_viewer():
           matPBR.customProgramCacheKey = () => "catan-tri-" + TRIPLANAR_MODE + "-" + (hasTreeVCol ? "vc" : "uv");
         }}
         const matClay = new THREE.MeshStandardMaterial({{
-          color: 0xcbd5e1,
+          color: {"0xa8b4c4" if TRIPLANAR_MODE == "alpine_crisp" else "0xcbd5e1"},
           normalMap: normTex,
-          normalScale: new THREE.Vector2(0.75, 0.75),
-          roughness: 0.54,
+          normalScale: new THREE.Vector2({0.35 if TRIPLANAR_MODE == "alpine_crisp" else 0.75}, {0.35 if TRIPLANAR_MODE == "alpine_crisp" else 0.75}),
+          roughness: {0.64 if TRIPLANAR_MODE == "alpine_crisp" else 0.54},
           metalness: 0.04,
-          envMapIntensity: 0.75,
+          envMapIntensity: {0.40 if TRIPLANAR_MODE == "alpine_crisp" else 0.75},
           clippingPlanes: [clipPlane],
           ...tanOpt,
         }});
@@ -1000,7 +1000,7 @@ def build_viewer():
             sunLight.color.setHex(0xfff7ea); sunLight.intensity = {1.48 if PHOTOREAL_GOLD else 1.38};
             hemiLight.color.setHex(0xdcebff); hemiLight.groundColor.setHex(0x1e293b); hemiLight.intensity = {0.56 if PHOTOREAL_GOLD else 0.48};
             rimLight.color.setHex(0x7dd3fc); rimLight.intensity = {0.42 if PHOTOREAL_GOLD else 0.36};
-            renderer.toneMappingExposure = {1.10 if PHOTOREAL_GOLD else 0.96}; currentSunZ = 138;
+            renderer.toneMappingExposure = {0.90 if TRIPLANAR_MODE == "alpine_crisp" else (1.10 if PHOTOREAL_GOLD else 0.96)}; currentSunZ = 138;
           }} else if (aName === "sunset") {{
             sunLight.color.setHex(0xffb469); sunLight.intensity = 1.68;
             hemiLight.color.setHex(0x9ec5ff); hemiLight.groundColor.setHex(0x241928); hemiLight.intensity = 0.44;
