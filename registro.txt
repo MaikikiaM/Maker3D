@@ -751,3 +751,16 @@ Resultados y métricas verificadas:
 - **Auditoría `mesh_and_print_audit.py` + `Bambu Studio CLI` (`exit 0`):** `repaired=false`, `245,774 V / 491,544 Δ`, `is_watertight=true`, `euler_number=2`, `degenerate_faces=0`, `volume_cm3=311.654`, `overhang_gt_deg_pct=0.167%`, `thin_wall_lt_2nozzle_pct=0.0%`, `manifold_status=Error.NoError` (`491,544 Δ`), `pymeshlab_non_manifold_edges=0`, `pymeshlab_boundary_edges=0`, `pymeshlab_connected_components=1`, `catan_dims_ok=true`, `magnet_cavity_ok=true` (`5.2 mm`), `pads_flat_25mm_ok=true` (`[25.0, 25.0, 25.0, 25.0, 25.0, 25.0]`), `tile_master.stl=23.439 MB`, `catan_montana_maker3d2.3mf=8.243 MB` (`lib3mf`), `catan_montana_maker3d2_a1_sliced.gcode.3mf=10.751 MB` (`Bambu A1`: `12h 55m 17s`, `331` capas, `35,307.10 mm` filamento).
 - **Visor WebGL + Verificación en Chromium headless (`Visores-HTML/catan-bioma-montana-maker3d2.html`):** `58,524,248 B (55.813 MB)` GLB → `10,240,048 B` (`82.5%` ahorro `Meshopt+WebP`), HTML final `13.037 MB`. Verificado en navegador headless (`1280×800`, puerto `8766`): colores PBR reales renderizados (nieve blanca, granito/ocre, pradera oliva, sendero terracota, base pizarra), operativos `Arcilla CAD`, `Wireframe`, `Corte Z`, `Inferior / Imán`, `Isométrica`; `0` errores de consola/JS y `8/8` peticiones HTTP OK (`0` fallos).
 ================================================================================
+
+
+================================================================================
+SESIÓN: 21/11/2026 - COMPARATIVA VISUAL Y DESACTIVACIÓN DE LAMINADO BAMBU POR DEFECTO
+- Prompts literales del usuario:
+  * [21/11/2026 22:17]: "donde esta el archivo"
+  * [21/11/2026 22:18]: "Compara estos dos diseños. Cuál te parece mejor?"
+  * [21/11/2026 22:20]: "Con Trellis dices que me da para 2 diseños al dia?"
+  * [21/11/2026 22:20]: "Por que has usado bambu cli para laminar? Yo no voy a usar una bambulab para hacer full color, por lo que no deberias en general laminar nada"
+- Decisiones técnicas:
+  * Aclarada la superioridad estética del enfoque guiado por Nano Banana frente al intento procedural puro sin textura UV, así como la cuota gratuita real de ZeroGPU con `HF_TOKEN` (`300 s/día` -> ~2 piezas `TRELLIS.2`).
+  * Desactivado el laminado automático en Bambu Studio por defecto en `AGENTS.md`, `.agents/rules/maker3d-architecture.md`, `.agents/skills/print-audit-and-webgl/SKILL.md` y `docs/ia/ESTADO.md`: `--bambu-slice` queda estrictamente bajo petición explícita, manteniendo las comprobaciones geométricas (`trimesh`, `PyMeshLab`, `Manifold3D`, `lib3mf`) y visores WebGL.
+================================================================================

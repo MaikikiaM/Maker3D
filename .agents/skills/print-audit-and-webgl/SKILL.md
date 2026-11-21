@@ -7,13 +7,13 @@ description: >-
   verificados en navegador headless sin errores.
 ---
 
-# Auditoría FDM (`Bambu Studio CLI` + `lib3mf`) y Visor WebGL (`Meshopt + WebP`)
+# Auditoría Estanca (`lib3mf` + Topología) y Visor WebGL (`Meshopt + WebP`)
 
-Ningún diseño 3D en Maker3D 2.0 se da por terminado sin superar la **doble puerta de calidad**: fabricación física verificada en slicer real y visor WebGL ligero verificado sin errores.
+Ningún diseño 3D en Maker3D 2.0 se da por terminado sin superar la **doble puerta de calidad**: malla estanca verificada geométricamente (`trimesh`/`PyMeshLab`/`Manifold3D`) y visor WebGL ligero verificado sin errores. **Por defecto NO se lamina con Bambu Studio** (el usuario puede usar otra impresora o método de fabricación/pintado; usar `--bambu-slice` solo cuando lo pida expresamente).
 
 ---
 
-## 1. Puerta 1: Auditoría de Malla, Reparación, `3MF` y Laminado Real Bambu Studio
+## 1. Puerta 1: Auditoría de Malla, Reparación y `3MF` (`--bambu-slice` opcional bajo petición)
 
 Ejecuta `tools/audit/mesh_and_print_audit.py`:
 
@@ -25,10 +25,10 @@ python tools/audit/mesh_and_print_audit.py `
   --overhang-deg 45 `
   --repair `
   --catan-check `
-  --export-3mf <dir_salida>/audit/modelo.3mf `
-  --bambu-slice `
-  --printer a1
+  --export-3mf <dir_salida>/audit/modelo.3mf
 ```
+
+*(Añadir `--bambu-slice --printer a1` únicamente si el usuario solicita explícitamente laminar o estimar tiempos en Bambu Studio.)*
 
 ### Qué verifica exactamente:
 1. **Topología matemática (`trimesh` / `PyMeshLab` / `manifold3d`):**

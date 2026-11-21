@@ -27,7 +27,7 @@ Antes de escribir código o generar geometría, consultar `.agents/skills/maker3
 - **Holgura de encajes:**
   - Ajuste deslizante / ensamblaje removible: `+0.20 mm` radial / `0.25 mm` por cara (`+0.30 mm` en puentes impresos).
   - Ajuste a presión (imán / pin): `+0.10 mm` radial (p. ej. imán Ø10×5 mm → alojamiento Ø10.20 × 5.20 mm).
-- **Voladizos sin soporte:** Ángulo `<= 45°` respecto a la vertical siempre que sea posible; las caras funcionales que excedan `45°` deben incluir chaflán de transición (`45°`) o marcarse explícitamente para soportes en Bambu Studio.
+- **Voladizos sin soporte:** Ángulo `<= 45°` respecto a la vertical siempre que sea posible; las caras funcionales que excedan `45°` deben incluir chaflán de transición (`45°`) o documentarse para soportes en el slicer del usuario.
 - **Compensación de pata de elefante:** Chaflán inferior de `0.6–0.8 mm` a `45°` en piezas que requieran ajuste en zócalo/placa.
 
 ### Invariantes Canon de Losetas Catán
@@ -45,7 +45,7 @@ Antes de escribir código o generar geometría, consultar `.agents/skills/maker3
 
 1. **Tres entregables estándar por diseño terminado:**
    - Paramétrico editable (`.step` o `.scad`), si aplica geometría CAD.
-   - Malla de fabricación validada (`.stl` estanco y/o `.3mf` válido vía `lib3mf` + laminado CLI real en `bambu-studio.exe`).
+   - Malla de fabricación validada (`.stl` estanco y/o `.3mf` válido vía `lib3mf`; sin laminar con Bambu Studio por defecto salvo petición explícita del usuario).
    - Visor WebGL autónomo (`.html` con GLB comprimido mediante `Meshopt + WebP` vía `gltf-transform.cmd`, objetivo `< 20 MB`, límite estricto `< 50 MB` para `Visores-HTML/`).
 2. **Auto-auditoría visual obligatoria (nunca entregar a ciegas):**
    - Renderizar e inspeccionar visualmente mediante `read_file` los paneles `audit_6views_pbr.png`, `audit_6views_clay.png` (arcilla sin textura para auditar relieve real vs pintura 2D) y `audit_ortho.png` antes de declarar completa cualquier pieza o loseta.
