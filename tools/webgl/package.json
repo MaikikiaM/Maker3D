@@ -1,0 +1,15 @@
+{
+  "name": "maker3d-webgl-toolchain",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Meshopt, Draco, WebP and glTF-Transform pipeline for ultra-compact Maker3D WebGL viewers",
+  "dependencies": {
+    "@gltf-transform/cli": "^4.5.1",
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
+    "draco3dgltf": "^1.5.9",
+    "meshoptimizer": "^1.3.0",
+    "sharp": "latest"
+  }
+}

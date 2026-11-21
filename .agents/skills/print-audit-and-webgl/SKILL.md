@@ -1,0 +1,68 @@
+---
+name: print-audit-and-webgl
+description: >-
+  Auditoría estanca y de imprimibilidad FDM (trimesh, PyMeshLab, Manifold3D,
+  lib3mf 3MF + laminado CLI real en Bambu Studio) y optimización/empaquetado de
+  visores WebGL HTML autónomos con gltf-transform Meshopt + WebP (< 20 MB),
+  verificados en navegador headless sin errores.
+---
+
+# Auditoría FDM (`Bambu Studio CLI` + `lib3mf`) y Visor WebGL (`Meshopt + WebP`)
+
+Ningún diseño 3D en Maker3D 2.0 se da por terminado sin superar la **doble puerta de calidad**: fabricación física verificada en slicer real y visor WebGL ligero verificado sin errores.
+
+---
+
+## 1. Puerta 1: Auditoría de Malla, Reparación, `3MF` y Laminado Real Bambu Studio
+
+Ejecuta `tools/audit/mesh_and_print_audit.py`:
+
+```powershell
+python tools/audit/mesh_and_print_audit.py `
+  --input <ruta_modelo.stl> `
+  --out-dir <dir_salida>/audit `
+  --nozzle-mm 0.4 `
+  --overhang-deg 45 `
+  --repair `
+  --catan-check `
+  --export-3mf <dir_salida>/audit/modelo.3mf `
+  --bambu-slice `
+  --printer a1
+```
+
+### Qué verifica exactamente:
+1. **Topología matemática (`trimesh` / `PyMeshLab` / `manifold3d`):**
+   - `is_watertight == True`, `chi == 2` (una única envolvente cerrada), `degenerate_faces == 0`, `non_manifold_edges == 0`.
+   - Volumen en cm³, bounding box exacto y área superficial.
+2. **Reparación opcional (`--repair`):** si detecta defectos recuperables, sanea la malla automáticamente vía `Manifold3D` / `PyMeshLab` antes de exportar.
+3. **Imprimibilidad FDM:**
+   - Porcentaje de caras con voladizo severo (`> overhang_deg`, excluyendo la cara de apoyo en `Z_min` y el techo del imán si `--catan-check`).
+   - Estimación de secciones delgadas inferiores a `2 * nozzle_mm` (`0.80 mm`).
+4. **Verificación física Catán (`--catan-check`):** confirma ancho `110.8513 ± 0.15 mm`, largo `128.0000 ± 0.15 mm`, presencia de cavidad centrada en base inferior y planitud de los 6 pads `Ø20 mm`.
+5. **Contenedor `3MF` (`lib3mf`) y Laminado Real en `bambu-studio.exe` (`--bambu-slice`):**
+   - Empaqueta `.3mf` válido en milímetros con `lib3mf` y verifica su lectura.
+   - Invoca `C:\Program Files\Bambu Studio\bambu-studio.exe` en modo CLI headless con los perfiles oficiales BBL descubiertos por `tools/tool_paths.py` (`--slice 0 --debug 3 --load-settings ... --load-filaments ... --export-3mf ...`).
+   - Valida que el `.gcode.3mf` generado contiene `Metadata/plate_1.gcode` real y extrae estimación de filamento/tiempo cuando está disponible.
+
+---
+
+## 2. Puerta 2: Compresión `Meshopt + WebP` y Visor HTML Autónomo
+
+> **Regla Windows:** en PowerShell ejecutar siempre `gltf-transform.cmd` / `npm.cmd`, nunca los scripts `.ps1` bloqueados por ExecutionPolicy.
+
+Ejecuta `tools/webgl/optimize_and_build_viewer.py`:
+
+```powershell
+python tools/webgl/optimize_and_build_viewer.py `
+  --input <ruta_modelo.glb> `
+  --out-html <ruta_visor.html> `
+  --title "Título del Modelo" `
+  --compress meshopt `
+  --texture-format webp `
+  --max-texture-size 1024
+```
+
+### Características del Visor v2 Generado:
+- **Compresión real `gltf-transform.cmd optimize`:** reduce el tamaño GLB típico entre `70%–90%` mediante cuantización/Meshopt (`meshoptimizer`) y conversión de texturas a `WebP`. Objetivo `< 20 MB`, techo estricto `< 50 MB` para `Visores-HTML/`.
+- **Visor single-file autónomo (móvil + escritorio):** Three.js moderno + `GLTFLoader` + `MeshoptDecoder` + `DRACOLoader` con modos **`PBR`**, **`Arcilla CAD`** (sin texturas para auditar relieve 3D real), **`Wireframe`**, **`Corte Z`** en tiempo real, **3 Atmósferas** de iluminación y presets de cámara (incluyendo vista inferior para revisar alojamientos de imán).
+- **Verificación en navegador:** abre el HTML mediante servidor HTTP temporal e inspecciona en el subagente `browser` (`Model="flash"`) comprobando render activo y **`0` errores WebGL/consola**.

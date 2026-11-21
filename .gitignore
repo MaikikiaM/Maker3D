@@ -36,6 +36,7 @@ env/
 # Secretos y credenciales
 .env
 .env.*
+!.env.example
 *token*
 *.key
 *.pem
@@ -72,4 +73,13 @@ Thumbs.db
 !Visores-HTML/*.html
 Tableros-Catan/pipeline-biomas/*/versiones/
 *.zip
+tools/smoke_test_out/
+*.step
+*.stp
+*.blend
+*.blend1
+*.exr
+*.hdr
+*.ktx2
+*.gcode
 

@@ -685,3 +685,39 @@ Archivos creados/modificados y verificación:
 - Creado artefacto para el usuario: `informe_maestro_ia_3d_2026.md` en el directorio de artefactos de la sesión.
 - Actualizados `docs/ia/ESTADO.md` (`<= 50` líneas verificadas) y `registro.txt`.
 ================================================================================
+
+
+================================================================================
+SESIÓN: 21/11/2026 - INSTALACIÓN, DESPLIEGUE Y VERIFICACIÓN END-TO-END DE MAKER3D 2.0
+- Prompts literales del usuario:
+  * [21/11/2026 14:42]: "Quiero que hagas todo. Dedicale muchisimo tiempo y asegurate paso a paso de que estas trabajando correctamente. Hasta que no este todo listo para que en el siguiente prompt pueda ya usar el sistema nuevo de 3d no termines. Es natural si tardas incluso varias horas /goal "
+- Objetivo: Instalar, configurar, programar, integrar vía MCP y verificar de principio a fin la arquitectura modular Maker3D 2.0 (CAD B-Rep, OpenSCAD+BOSL2, Landlab geomorfología, Blender 5.3 headless, puente Image-to-3D ZeroGPU/cloud, auditoría lib3mf + Bambu Studio CLI y compresor/visor WebGL Meshopt+WebP) dejando intactos los 8 biomas Catán existentes y `nanobanana-3d-sculpt`.
+
+Decisiones técnicas y componentes desplegados:
+- **Binarios e integraciones locales (`%LOCALAPPDATA%\Programs` y `%USERPROFILE%\.local\bin`, sin UAC):**
+  * `uv / uvx 0.13.9` vía `winget` (`astral-sh.uv`).
+  * **Blender `5.3.0`** portátil (`blender.exe`) en `C:\Users\migue\AppData\Local\Programs\Blender5.3\blender-5.3.0-windows-x64\` con addon `blender_mcp.py` instalado y habilitado de forma persistente (`userpref.blend`: `['cycles', 'blender_mcp']`).
+  * **OpenSCAD Nightly `2026.11.21`** portátil (`openscad.com` / `openscad.exe`) en `C:\Users\migue\AppData\Local\Programs\OpenSCAD\OpenSCAD-2026.11.21-x86-64\` + librería **`BOSL2`** en `C:\Users\migue\Documents\OpenSCAD\libraries\BOSL2` y variable de usuario `OPENSCADPATH` + entradas en `Path` de usuario.
+  * **Python `3.12.10`** (`pip`): `build123d 0.13.0` (`cadquery-ocp-novtk`), `pymeshlab 2025.7.post1`, `landlab 2.11.0`, `lib3mf 2.5.0`, `gradio-client 2.7.2`, `fal-client 1.0.3`, `replicate 1.0.7`, `python-dotenv 1.2.4` junto a `trimesh 5.1.1`, `manifold3d 3.5.4`, `numpy 2.5.3`, `scipy 1.18.1`, `pillow 12.3.0`, `matplotlib 3.11.2`.
+  * **Node.js WebGL toolchain (`tools/webgl/`):** `@gltf-transform/cli 4.5.1`, `@gltf-transform/core`, `@gltf-transform/extensions`, `@gltf-transform/functions`, `draco3dgltf`, `meshoptimizer`, `sharp` (invocado mediante `gltf-transform.cmd` / `npm.cmd` por ExecutionPolicy de PowerShell).
+- **Servidores MCP (`C:\Users\migue\.gemini\config\mcp_config.json`):**
+  * `build123d`: `build123d-mcp.exe` (`v=0.3.91`, 48 tools).
+  * `openscad`: `openscad-mcp.exe` (`v=4.2.4`, 12 tools, configurado con `OPENSCAD_PATH` y `OPENSCADPATH`; probadas llamadas `check_openscad` y `get_libraries` reconociendo `BOSL2` y `has_manifold_backend=true`).
+  * `blender`: `mcp-for-blender.exe` (`v=1.30.0`, 10 tools).
+  * Servidores cloud con clave opcional documentados por separado en `tools/config/mcp_cloud_optional.example.json` y plantilla `.env.example`.
+- **Arquitectura de Skills, Reglas y Scripts de Producción:**
+  * Regla `.agents/rules/maker3d-architecture.md` y actualización de `AGENTS.md` (Sección 3), conservando intacta `.agents/skills/nanobanana-3d-sculpt/`.
+  * 6 skills modulares en `.agents/skills/`: `maker3d-router`, `parametric-brep-cad` (+ `references/cad-invariants.md`), `generative-3d-mesh` (+ `references/cloud-3d-workflows.md`), `terrain-geology-engine`, `blender-sculpt-bake` (+ `references/blender5-bpy-guide.md`), `print-audit-and-webgl`.
+  * 8 scripts de producción en `tools/`: `tool_paths.py`, `env_check.py`, `catan_kit/build_catan_base_brep.py`, `terrain/hydraulic_terrain_gen.py`, `blender/sculpt_fuse_bake_render.py`, `generative/cloud_3d_bridge.py`, `audit/mesh_and_print_audit.py`, `webgl/optimize_and_build_viewer.py`.
+  * Actualizado `.gitignore` (`!.env.example`, `tools/smoke_test_out/`, `*.step`, `*.stp`, `*.blend`, `*.blend1`, `*.exr`, `*.hdr`, `*.ktx2`, `*.gcode`).
+
+Resultados verificados del Smoke Test End-to-End (`tools/smoke_test_out/`):
+- `python tools/env_check.py`: **OVERALL PASS (100% READY)** — 6 binarios, 14 paquetes Python, 7 skills + regla, addon Blender activo, `mcp_config.json` y handshake JSON-RPC 2.0 real (`initialize` + `tools/list`) de los 3 servidores MCP.
+- `build_catan_base_brep.py`: `occt_valid=true`, `110.8513 × 128.0000 × 25.0000 mm` exactos (`Vol=265.49 cm³`), `watertight=true`, `chi=2`, `degen=0`, exportados STEP + STL tanto en variante circular (`Ø10.20×5.20 mm`) como hexagonal.
+- OpenSCAD Nightly `--backend=Manifold` + `BOSL2`: cubo redondeado compilado en `0.010s`, `Genus: 0`, `716` caras, `trimesh.is_watertight=True`.
+- `hydraulic_terrain_gen.py` (`alpine_canyon`, `nx=384`): erosión física `Landlab`, corregidos en iteración visual la meseta de levantamiento uniforme y el borde cerrado NW para obtener valle fluvial limpio, `max_slope_deg=86.97°`, `snow_on_steep_ge44_pct=0.0%`, `max_road_pad_deviation_mm=0.0`, `thalweg_monotonic_downhill=true` (`314` pts).
+- `sculpt_fuse_bake_render.py` (Blender `5.3.0 --background` + `CYCLES` CPU): `3,488` vértices de acantilado esculpidos en 3D sobre normales `>=45°`, 5 pinos 3D sólidos fusionados por booleano `MANIFOLD`/`EXACT` con zócalo B-Rep preservando los 4 slots PBR, `V=17,761 / F=33,678`, `non_manifold_edges=0`, `boundary_edges=0`, `bounds=110.8512×128.0×56.4493 mm`; inspeccionados visualmente con `read_file` los renders `audit_6views_pbr.png`, `audit_6views_clay.png` y `audit_ortho.png`.
+- `mesh_and_print_audit.py`: `is_watertight=true`, `euler_number=2`, `degenerate_faces=0`, `overhang_gt_deg_pct=0.726%`, `thin_wall_lt_2nozzle_pct=0.0%`, `manifold_status=Error.NoError`, `catan_dims_ok=true`, `magnet_cavity_ok=true`, `pads_flat_25mm_ok=true`, exportado `.3mf` válido vía `lib3mf` (`35,518 Δ`), y laminado CLI real con `Bambu Studio 02.08.02.61` (perfil A1 0.4) produciendo `tile_master_a1_sliced.gcode.3mf` (`3,393,826` bytes, `Metadata/plate_1.gcode`, `282` capas, `41,359.12 mm` filamento, `14h 28m 59s` estimados).
+- `optimize_and_build_viewer.py` + verificación en navegador headless: compresión real `Meshopt + WebP` de `3,659.63 KB → 817.79 KB` (`77.65%` ahorro), HTML autónomo `1.08 MB`; verificado en vivo en `http://127.0.0.1:8765/test_viewer_v2.html` (`0` errores de consola/WebGL/red, `34,970` triángulos, probados botones `PBR`, `Arcilla CAD`, `Wireframe`, `Sol Alpino`, `Inferior / Imán`, `Isométrica` y slider `Corte Z`).
+- `cloud_3d_bridge.py --doctor`: `gradio_client 2.7.2`, `fal_client` y `replicate` operativos; Spaces gratuitos ZeroGPU `microsoft/TRELLIS.2`, `tencent/Hunyuan3D-2.1` y `Stable-X/Hi3DGen` verificados en estado `RUNNING`.
+================================================================================

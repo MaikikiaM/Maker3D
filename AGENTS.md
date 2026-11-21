@@ -21,9 +21,10 @@ Toda respuesta del asistente debe iniciar con:
 ---
 
 ## 3. Reglas Específicas de Maker3D
-- **Skill de esculpido:** Seguir `.agents/skills/nanobanana-3d-sculpt/SKILL.md` para biomas/modelos orgánicos con Nano Banana, tangentes analíticas, suavizado Taubin y validación de mallas estancas (`watertight=True`, `chi=2`).
-- **Visores HTML móviles:** Todo visor en `Visores-HTML/` debe mantenerse `< 50 MB` y verificado sin errores WebGL/consola en navegador headless.
-- **Filtro Git estricto:** Nunca subir binarios pesados (`*.stl`, `*.3mf`, `*.obj`, `*.npz`, `*.npy`, carpetas `versiones/` locales) ni artefactos `> 50 MB` a GitHub; preservarlos localmente y en Google Drive.
+- **Enrutamiento y Skills Maker3D 2.0:** Usar siempre `.agents/skills/maker3d-router/SKILL.md` y `.agents/rules/maker3d-architecture.md` para clasificar cada nuevo diseño hacia el motor adecuado (`parametric-brep-cad`, `terrain-geology-engine`, `generative-3d-mesh`, `blender-sculpt-bake`, `print-audit-and-webgl`), manteniendo intacto `.agents/skills/nanobanana-3d-sculpt/SKILL.md` para las 8 losetas legacy de Catán. Verificar entorno con `python tools/env_check.py`.
+- **Auditoría e Imprimibilidad:** Toda pieza entregada requiere validación estanca (`watertight=True`, `chi=2`, `degen=0`), inspección visual de renders PBR/Arcilla y validación CLI con `tools/audit/mesh_and_print_audit.py` (incluyendo Bambu Studio cuando proceda).
+- **Visores HTML móviles:** Todo visor en `Visores-HTML/` debe generarse con compresión `Meshopt + WebP` (`tools/webgl/optimize_and_build_viewer.py`), mantenerse `< 50 MB` (objetivo `< 20 MB`) y verificarse sin errores WebGL/consola en navegador headless.
+- **Filtro Git estricto:** Nunca subir binarios pesados (`*.stl`, `*.3mf`, `*.obj`, `*.glb`, `*.step`, `*.blend`, `*.npz`, `*.npy`, carpetas `versiones/` locales, `node_modules/`, `tools/smoke_test_out/`) ni artefactos `> 50 MB` ni secretos (`.env`) a GitHub; preservarlos localmente y en Google Drive.
 
 ---
 

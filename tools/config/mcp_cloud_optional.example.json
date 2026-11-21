@@ -1,0 +1,25 @@
+{
+  "_comment": "Bloques opcionales para copiar en C:/Users/migue/.gemini/config/mcp_config.json cuando se disponga de API keys en .env o variables de entorno.",
+  "mcpServers": {
+    "fal-ai": {
+      "url": "https://mcp.fal.ai/mcp",
+      "headers": {
+        "Authorization": "Bearer ${FAL_KEY}"
+      }
+    },
+    "meshy": {
+      "command": "npx.cmd",
+      "args": ["-y", "@meshy-ai/meshy-mcp-server"],
+      "env": {
+        "MESHY_API_KEY": "${MESHY_API_KEY}"
+      }
+    },
+    "tripo": {
+      "command": "uvx.exe",
+      "args": ["tripo-mcp"],
+      "env": {
+        "TRIPO_API_KEY": "${TRIPO_API_KEY}"
+      }
+    }
+  }
+}
