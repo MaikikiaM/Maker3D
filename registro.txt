@@ -663,3 +663,25 @@ SESIÓN: 19/11/2026 - RE-ARQUITECTURA GEOMETRY-FIRST 4K MONTAÑA CENTRADA V3 (PA
   * Auditoría de malla (`montana_def_audit.py --slug montana_centrada`): `snow_total = 8.71%`, `snow on >=44deg faces = 0.6079%`, `faces>=60/70/80deg = 25.3/8.5/0.2%`, paridad 2D↔3D comprobada en `work/def_2d_vs_3d_parity_crops.png` y `work/centrada_v3_dual_vs_3d.png`.
   * Visor WebGL 4K (`Visores-HTML/catan-bioma-montana-centrada.html`, tarjeta actualizada en `Visores-HTML/index.html`): **`43.37 MB < 50 MB`** (`V = 1,171,713`, `F = 2,343,422 Δ`, `diff = 4126 KB Q97`, `norm = 3831 KB Q92`, `rough = 555 KB`), verificado en vivo en Chromium (`http://127.0.0.1:8766/Visores-HTML/catan-bioma-montana-centrada.html?v=v38`, HTTP 200, `0` errores de consola/JS/WebGL) en `FRONT 3/4 PBR`, zoom cercano 300%, `FRONT 3/4 Arcilla CAD`, `BACK 180° Arcilla CAD` y `BACK 180° PBR`, y dejado abierto para el usuario.
 ================================================================================
+
+
+================================================================================
+SESIÓN: 21/11/2026 - INVESTIGACIÓN EXHAUSTIVA DEL ESTADO DEL ARTE EN DISEÑO 3D CON IA Y ARQUITECTURA MAKER3D 2.0
+- Prompts literales del usuario:
+  * [21/11/2026 14:03]: "Informate en todos lados de cómo hace la gente para diseñar cosas con la IA en 3d utilizando distintos toolsets, skills... Todo lo que se usa para alcanzar mejores resultados.
+Actualmente solo tenemos una skill donde se hace una llamada a nano banana pero no es suficiente.
+Informate en el registro de todos los problemas que hemos tenido con el diseño de losetas del catan también.
+Quiero un trabajo excelente con cientos de fuentes y muchisimo tiempo pensando.
+/goal "
+- Objetivo: Auditar todos los fallos históricos documentados en `registro.txt` (losetas Catán y resto de subproyectos), investigar exhaustivamente el estado del arte global en diseño 3D asistido por IA (2025–2026) con cientos de fuentes primarias verificadas, evaluar las capacidades reales del hardware local y proponer una arquitectura modular multi-skill y multi-herramienta (`Maker3D 2.0`) que supere los límites del flujo actual basado únicamente en `nanobanana-3d-sculpt`.
+
+Decisiones técnicas y hallazgos principales:
+- **Auditoría forense integral (`registro.txt`, 665 líneas):** Identificados 9 modos de fallo estructurales (`P1–P9`): paradoja geométrica `2D→2.5D` sin extraplomos (`Bosque`, paredes verticales `Río de Oro v08`), alucinación física de Nano Banana al confundir brillo con altura (`muros de agua +7 mm`, saltos 8-bit, mesetas `85°`), incoherencia 360°/"Janus" y pérdida de resolución efectiva (`3–6 px/mm` con `~70%` ocluido en `Montaña Centrada V1/V2`), ausencia de tangentes/calidad `q` en rejillas (`dFdx/dFdy`, agujas XY `2.20 mm`), carencia de kernel B-Rep exacto para piezas mecánicas (`Funda-Lapiz-Xiaomi V8.1→V8.2`), bloqueos de cuota `429 RESOURCE_EXHAUSTED` (4–5 h) y saturación del tope de `50 MB` en visores WebGL Gzip (`43.37–49.69 MB`).
+- **Análisis del hardware local real (`AMD Ryzen AI 7 350 / Radeon 860M / 31.29 GB RAM / Bambu Studio instalado`):** Sin GPU NVIDIA CUDA no compensa forzar inferencia PyTorch/CUDA local sobre ROCm/DirectML en Windows; la vía óptima es **Híbrida Local-CPU (`$0`: Blender headless `bpy` + `build123d` + `OpenSCAD/BOSL2` + `Fastscape/Landlab` + `PyMeshLab` + `Manifold3D` + `Bambu CLI` + `gltf-transform Meshopt/KTX2`) + Cloud Serverless Pay-Per-Use (`fal.ai` / Replicate / HF ZeroGPU / Modal)** para inferencia neuronal (`TRELLIS.2`, `Hunyuan3D 3.1 & Omni`, `Hi3DGen`, `Hyper3D Rodin 2.5`, `PartField`, `VoxHammer`, `Depth Pro` / `DSINE`).
+- **Diseño de arquitectura `Maker3D 2.0` (6 skills modulares + MCPs):** `maker3d-router`, `parametric-brep-cad`, `generative-3d-mesh`, `terrain-geology-engine`, `blender-sculpt-bake` y `print-audit-and-webgl`, acompañada de hoja de ruta en 4 fases desde `0 €`.
+
+Archivos creados/modificados y verificación:
+- Creado informe maestro: `docs/investigacion/estado_del_arte_diseno_3d_ia_2026.md` (`818` líneas, `~14,243` palabras, `235` fuentes primarias numeradas y `240` URLs únicas verificadas en GitHub, arXiv, sitios oficiales y documentos internos).
+- Creado artefacto para el usuario: `informe_maestro_ia_3d_2026.md` en el directorio de artefactos de la sesión.
+- Actualizados `docs/ia/ESTADO.md` (`<= 50` líneas verificadas) y `registro.txt`.
+================================================================================
