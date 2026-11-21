@@ -785,3 +785,30 @@ Decisiones técnicas y hallazgos verificados:
   * Eliminado el Space roto `microsoft/TRELLIS`, añadidos alias `hunyuan3d-mv` y `hunyuan3d-2.1`, corrección de tipos `int(...)` para `TRELLIS.2` y prioridad automática a `Hunyuan3D-2mv` cuando se aporta `--back-image`.
   * Endurecido `fuse_generative_catan_tile.py`: fallback booleano `MANIFOLD -> EXACT`, flags `--tilt-x-deg` / `--tilt-y-deg`, filtrado BFS a componente conexa única, cierre de micro-agujeros, disolución degenerada `1e-6`, render previo `audit_raw_ai3d.png` y comparativa `audit_front_back_pbr_clay.png`.
 ================================================================================
+
+
+================================================================================
+SESIÓN: 21/11/2026 - REPARACIÓN TRELLIS.2 API Y MONTAÑA CENTRADA HÍBRIDA (TRELLIS.2 + B-REP)
+- Prompts literales del usuario:
+  * [21/11/2026 22:44]: "no entiendo la opcion 2"
+  * [21/11/2026 23:03]: "Hunyuang es mejor que trellis?"
+  * [21/11/2026 23:08]: "pq no puedes usar trellis desde aqui? no intentamos arreglarlo?"
+
+Decisiones técnicas y correcciones realizadas:
+- **Causa raíz real y arreglo en `tools/generative/cloud_3d_bridge.py`:**
+  * Diagnosticado que `gradio_client 2.7.2` sí conserva `gr.State` por `session_hash`/`cookies`, pero `_run_trellis2_session` pasaba `float(decimation)` (`300000.0`) y `float(texture_size)` (`2048.0`) a `/extract_glb`, lo que disparaba `AssertionError` remoto dentro de `o_voxel.postprocess.to_glb` / `nvdiffrast.dr.rasterize(..., resolution=...)` al exigir enteros estrictos (`int`).
+  * Corregidos todos los parámetros enteros a `int(...)`, normalizada la salida `prep` de `/preprocess_image`, guardado automático de la vista previa 48 ángulos `.preview.html`, reintento defensivo en la misma sesión si fallara `/extract_glb`, y añadido `traceback.print_exc()`.
+  * Resultado en 1 sola llamada real a `microsoft/TRELLIS.2`: descargado `Tableros-Catan/pipeline-biomas/montana_trellis2/work/trellis2_raw.glb` (`11,504,280 B` = `10.971 MB`, `218,903 V / 296,072 Δ`, textura PBR `2048×2048`).
+- **Pipeline Voxel + Booleano B-Rep + Bake PBR `EMIT` `2K` en `tools/blender/fuse_generative_catan_tile.py`:**
+  * Diagnosticado vía `PyMeshLab` que la malla cruda de `TRELLIS.2` presentaba `genus=-1`, `484` aristas no-2-manifold y `97` componentes por micro-cavidades internas.
+  * Implementada solidificación `OpenVDBRemesh` (`voxel_size=0.25 mm`, `adaptivity=0.006`), recorte con `catan_inner_cutter.stl` + unión `MANIFOLD` sobre `catan_base_brep.stl` (`rot_z_deg=-112.0`, `target_diameter_mm=150.0`, `target_height_mm=65.0`, `z_seat_ratio=0.225` tras inspección visual de `audit_raw_ai3d.png` y ajuste desde `0.27` para sacar toda la pradera continua al ras de `Z=25.00 mm`), `uv.smart_project` exclusivo de las caras de terreno (`slot 1`), y bake Cycles `EMIT` (`samples=1`) desde `gen_raw` a `baked_albedo.png` (`2048×2048`).
+- **Validación de mallas de alto género en `tools/audit/mesh_and_print_audit.py` y `.gitignore`:**
+  * Añadido flag `--allow-high-genus` (acepta sólidos cerrados 2-manifold estancos de género `g >= 1` con `χ = 2 - 2g <= 2`, `non_manifold_edges=0`, `boundary_edges=0`, `connected_components=1`, propio de arcos/cavidades naturales esculpidos por IA generativa).
+  * Añadido `*.preview.html` a `.gitignore` para excluir vistas previas temporales de `work/`.
+
+Métricas verificadas (`Tableros-Catan/pipeline-biomas/montana_trellis2/`):
+- **Blender `fuse_generative_catan_tile.py`:** `710,852 V / 1,422,184 Δ`, `dx=110.8512 mm`, `dy=128.0 mm`, `dz=64.3869 mm`.
+- **Auditoría `mesh_and_print_audit.py --catan-check --repair --allow-high-genus` (SIN `--bambu-slice`, `exit 0`):** `710,851 V / 1,422,182 Δ`, `is_watertight=true`, `euler_number=-240` (`genus=121`), `degenerate_faces=0`, `volume_cm3=270.115`, `overhang_gt_deg_pct=10.699%`, `thin_wall_lt_2nozzle_pct=0.0%`, `manifold_status=Error.NoError`, `pymeshlab_non_manifold_edges=0`, `pymeshlab_boundary_edges=0`, `pymeshlab_connected_components=1`, `catan_dims_ok=true`, `magnet_cavity_ok=true` (`5.2 mm`), `pads_flat_25mm_ok=true` (`6/6` pads a `25.0 mm`).
+- **Pesos:** `tile_master.stl` = `67.815 MB` (`71,109,284 B`), `tile_viewer.glb` crudo = `151.008 MB` (`158,343,072 B`), `catan_montana_trellis2.3mf` (`lib3mf`) = `22.255 MB` (`23,336,202 B`).
+- **Visor WebGL + Verificación en Chromium headless (`Visores-HTML/catan-bioma-montana-trellis2.html`):** compresión `Meshopt+WebP 2048` (`154,631.9 KB → 33,596.2 KB`, `78.27%` ahorro), HTML autónomo `43.761 MB` (`< 50 MB`). Verificado en `http://127.0.0.1:8767/` (`1,422,155 Δ`, `110.9×128.0×64.4 mm`): texturas PBR nítidas en frente y tras rotación ~180° por detrás (sin manchas ni píxeles estirados), operativos `Arcilla CAD`, `Wireframe`, `Corte Z` (`30.0 mm`), `Inferior / Imán` e `Isométrica`; `0` errores de consola, `0` excepciones JS y `0/8` peticiones fallidas.
+================================================================================

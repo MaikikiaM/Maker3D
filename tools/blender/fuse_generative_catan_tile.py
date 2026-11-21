@@ -248,9 +248,11 @@ def _keep_largest_component_bmesh(bm: bmesh.types.BMesh) -> int:
 
 
 def _sanitize_generative_mesh(obj: bpy.types.Object) -> Dict[str, int]:
-    """Triangula, poda esquirlas sueltas y cierra micro-agujeros en el GLB generativo antes del booleano."""
+    """Solda costuras UV espaciales sin perder UVs, triangula, poda esquirlas y cierra huecos."""
     bm = bmesh.new()
     bm.from_mesh(obj.data)
+    # 1. Soldar primero vértices duplicados por cortes UV conservando las UVs por esquina (loop)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
     bm.faces.ensure_lookup_table()
     bmesh.ops.triangulate(bm, faces=list(bm.faces))
     bmesh.ops.dissolve_degenerate(bm, dist=1e-6, edges=list(bm.edges))
@@ -259,18 +261,35 @@ def _sanitize_generative_mesh(obj: bpy.types.Object) -> Dict[str, int]:
         bmesh.ops.delete(bm, geom=orphan_verts, context="VERTS")
     n_comps = _keep_largest_component_bmesh(bm)
     boundary_edges = [e for e in bm.edges if e.is_boundary]
+    n_holes = len(boundary_edges)
     if boundary_edges:
-        bmesh.ops.holes_fill(bm, edges=boundary_edges, sides=24)
+        bmesh.ops.holes_fill(bm, edges=boundary_edges, sides=64)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     non_man = sum(1 for e in bm.edges if not e.is_manifold)
     boundary = sum(1 for e in bm.edges if e.is_boundary)
-    if non_man > 0 or boundary > 0:
-        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
-        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    # Fallback defensivo si quedara algún borde no-manifold aislado
+    if non_man > 0:
+        bad_faces = list({f for e in bm.edges if not e.is_manifold for f in e.link_faces})
+        if bad_faces:
+            bmesh.ops.delete(bm, geom=bad_faces, context="FACES")
+            n_comps = _keep_largest_component_bmesh(bm)
+            rem_b = [e for e in bm.edges if e.is_boundary]
+            if rem_b:
+                bmesh.ops.holes_fill(bm, edges=rem_b, sides=64)
+            bmesh.ops.triangulate(bm, faces=list(bm.faces))
+            bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+            non_man = sum(1 for e in bm.edges if not e.is_manifold)
+            boundary = sum(1 for e in bm.edges if e.is_boundary)
+    print(f"[Sanitize] V={len(bm.verts)} F={len(bm.faces)} comps={n_comps} non_man={non_man} boundary={boundary} holes_filled={n_holes}")
     bm.to_mesh(obj.data)
     bm.free()
     obj.data.update()
-    return {"raw_sanitized_components": n_comps, "raw_holes_filled": len(boundary_edges)}
+    return {
+        "raw_sanitized_components": n_comps,
+        "raw_holes_filled": n_holes,
+        "raw_non_manifold_after_sanitize": non_man,
+        "raw_boundary_after_sanitize": boundary,
+    }
 
 
 def _clean_and_verify_bmesh(obj: bpy.types.Object) -> Dict[str, int]:
@@ -303,6 +322,77 @@ def _clean_and_verify_bmesh(obj: bpy.types.Object) -> Dict[str, int]:
         "boundary_edges": boundary,
         "connected_components": n_comps,
     }
+
+
+def _voxel_remesh_object(obj: bpy.types.Object, voxel_size: float = 0.22) -> None:
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    mod = obj.modifiers.new(name="OpenVDBRemesh", type="REMESH")
+    mod.mode = "VOXEL"
+    mod.voxel_size = float(voxel_size)
+    mod.adaptivity = 0.006
+    mod.use_smooth_shade = False
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+
+
+def _prepare_emit_bake_source(gen_raw: bpy.types.Object) -> None:
+    """Convierte materiales PBR de entrada en Emission=1.0 puro para hornear albedo limpio."""
+    for mat in gen_raw.data.materials:
+        if mat is None:
+            continue
+        if not mat.use_nodes or mat.node_tree is None:
+            mat.use_nodes = True
+        nt = mat.node_tree
+        out_node = next((n for n in nt.nodes if n.type == "OUTPUT_MATERIAL"), None)
+        if out_node is None:
+            out_node = nt.nodes.new("ShaderNodeOutputMaterial")
+        bsdf = next((n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None)
+        emit = nt.nodes.new("ShaderNodeEmission")
+        emit.inputs["Strength"].default_value = 1.0
+
+        linked_socket = None
+        if bsdf is not None:
+            bc_in = bsdf.inputs.get("Base Color")
+            if bc_in is not None and bc_in.is_linked:
+                linked_socket = bc_in.links[0].from_socket
+            elif bc_in is not None:
+                emit.inputs["Color"].default_value = tuple(bc_in.default_value)
+        if linked_socket is None:
+            tex_node = next((n for n in nt.nodes if n.type == "TEX_IMAGE" and n.image is not None), None)
+            if tex_node is not None:
+                linked_socket = tex_node.outputs["Color"]
+
+        if linked_socket is not None:
+            nt.links.new(linked_socket, emit.inputs["Color"])
+        for ln in list(out_node.inputs["Surface"].links):
+            nt.links.remove(ln)
+        nt.links.new(emit.outputs["Emission"], out_node.inputs["Surface"])
+
+
+def _create_baked_material(bake_size: int = 2048) -> Tuple[bpy.types.Material, bpy.types.Image, bpy.types.ShaderNodeTexImage]:
+    baked_img = bpy.data.images.new("TRELLIS2_Baked_Albedo", width=int(bake_size), height=int(bake_size), alpha=False)
+    try:
+        baked_img.colorspace_settings.name = "sRGB"
+    except Exception:
+        pass
+    mat = bpy.data.materials.new(name="TRELLIS2_Baked_PBR")
+    if mat.node_tree is None:
+        mat.use_nodes = True
+    nt = mat.node_tree
+    nt.nodes.clear()
+    out_node = nt.nodes.new("ShaderNodeOutputMaterial")
+    bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
+    bsdf.inputs["Roughness"].default_value = 0.80
+    if "Specular IOR Level" in bsdf.inputs:
+        bsdf.inputs["Specular IOR Level"].default_value = 0.25
+    tex_node = nt.nodes.new("ShaderNodeTexImage")
+    tex_node.image = baked_img
+    tex_node.select = True
+    nt.nodes.active = tex_node
+    nt.links.new(tex_node.outputs["Color"], bsdf.inputs["Base Color"])
+    nt.links.new(bsdf.outputs["BSDF"], out_node.inputs["Surface"])
+    return mat, baked_img, tex_node
 
 
 def _setup_lighting(scene: bpy.types.Scene) -> None:
@@ -393,6 +483,8 @@ def main() -> None:
     parser.add_argument("--target-diameter-mm", type=float, default=124.0)
     parser.add_argument("--target-height-mm", type=float, default=60.0)
     parser.add_argument("--z-seat-ratio", type=float, default=0.28)
+    parser.add_argument("--voxel-size", type=float, default=0.22)
+    parser.add_argument("--bake-size", type=int, default=2048)
     parser.add_argument("--samples", type=int, default=16)
     args = parser.parse_args(argv)
 
@@ -411,14 +503,14 @@ def main() -> None:
     scene.collection.objects.link(cam_obj)
     scene.camera = cam_obj
 
-    # 1. Importar malla generativa 3D (.glb) conservando materiales y texturas PBR
+    # 1. Importar malla generativa 3D (.glb) conservando materiales y texturas PBR como fuente de bake
     bpy.ops.import_scene.gltf(filepath=str(gen_glb))
-    gen_obj = _join_meshes(list(bpy.context.scene.objects), name="GenerativeTerrain")
+    gen_raw = _join_meshes(list(bpy.context.scene.objects), name="GenerativeRawSource")
     _pack_all_images()
 
     rot_val = None if str(args.rot_z_deg).lower() == "auto" else float(args.rot_z_deg)
     fit_info = _orient_and_fit_generative(
-        gen_obj,
+        gen_raw,
         rot_z_deg=rot_val,
         target_diameter_mm=args.target_diameter_mm,
         target_peak_z_mm=args.target_height_mm,
@@ -437,13 +529,26 @@ def main() -> None:
     ]
     _render_views(scene, cam_obj, views_raw, out_dir / "audit_raw_ai3d.png", cols=2, rows=2, res_px=512, material_override=None)
 
-    raw_san = _sanitize_generative_mesh(gen_obj)
+    # Clonar fuente raw para solidificación OpenVDB 100% estanca y ocultar fuente durante booleanos
+    gen_solid = gen_raw.copy()
+    gen_solid.data = gen_raw.data.copy()
+    gen_solid.name = "GenerativeSolid"
+    scene.collection.objects.link(gen_solid)
+    gen_raw.hide_viewport = True
+    gen_raw.hide_render = True
+
+    raw_san = _sanitize_generative_mesh(gen_solid)
+    _voxel_remesh_object(gen_solid, voxel_size=args.voxel_size)
+
+    mat_baked, baked_img, tex_node = _create_baked_material(bake_size=args.bake_size)
+    gen_solid.data.materials.clear()
+    gen_solid.data.materials.append(mat_baked)
 
     # 2. Importar cutter B-Rep interior y recortar quirúrgicamente fuera de carril 3.5mm y 6 pads Ø20mm
     bpy.ops.wm.stl_import(filepath=str(cutter_stl))
     cutter_obj = bpy.context.selected_objects[0]
     cutter_obj.name = "CatanInnerCutter"
-    _boolean_op(gen_obj, cutter_obj, operation="INTERSECT")
+    _boolean_op(gen_solid, cutter_obj, operation="INTERSECT")
     bpy.data.objects.remove(cutter_obj, do_unlink=True)
 
     # 3. Importar base B-Rep exacta y registrar todos los slots de material antes de unir
@@ -453,24 +558,71 @@ def main() -> None:
     mat_plinth = _make_solid_material("Plinth_Slate", (0.032, 0.038, 0.048, 1.0), roughness=0.58)
     base_obj.data.materials.clear()
     base_obj.data.materials.append(mat_plinth)
-    for m in gen_obj.data.materials:
-        if m and m not in list(base_obj.data.materials):
-            base_obj.data.materials.append(m)
-    if not base_obj.data.uv_layers:
-        base_obj.data.uv_layers.new(name="UVMap")
+    base_obj.data.materials.append(mat_baked)
 
-    # 4. Unión booleana estanca Base B-Rep + Terreno Generativo Recortado
-    _boolean_op(base_obj, gen_obj, operation="UNION")
-    bpy.data.objects.remove(gen_obj, do_unlink=True)
+    # 4. Unión booleana estanca Base B-Rep + Terreno Solidificado Recortado
+    _boolean_op(base_obj, gen_solid, operation="UNION")
+    bpy.data.objects.remove(gen_solid, do_unlink=True)
     topo = _clean_and_verify_bmesh(base_obj)
 
-    # 5. Exportar Master STL + Viewer GLB con texturas embebidas
+    # 5. Exportar Master STL (malla estanca de impresión)
     bpy.ops.object.select_all(action="DESELECT")
     base_obj.select_set(True)
     bpy.context.view_layer.objects.active = base_obj
     master_stl = out_dir / "tile_master.stl"
     viewer_glb = out_dir / "tile_viewer.glb"
     bpy.ops.wm.stl_export(filepath=str(master_stl), export_selected_objects=True, ascii_format=False)
+
+    # 6. Desplegar UVs solo de las caras del terreno (slot 1) y hornear albedo puro (EMIT 1 muestra) desde gen_raw
+    if not base_obj.data.uv_layers:
+        base_obj.data.uv_layers.new(name="UVMap")
+    base_obj.data.uv_layers.active_index = 0
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_mode(type="FACE")
+    bpy.ops.mesh.select_all(action="DESELECT")
+    bm_uv = bmesh.from_edit_mesh(base_obj.data)
+    n_terrain_faces = 0
+    for f in bm_uv.faces:
+        if f.material_index == 1:
+            f.select = True
+            n_terrain_faces += 1
+        else:
+            f.select = False
+    bmesh.update_edit_mesh(base_obj.data)
+    print(f"[UV] Unwrapping {n_terrain_faces} terrain faces (slot 1) ...")
+    bpy.ops.uv.smart_project(angle_limit=math.radians(66.0), island_margin=0.002, scale_to_bounds=True)
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+    gen_raw.hide_viewport = False
+    gen_raw.hide_render = False
+    _prepare_emit_bake_source(gen_raw)
+    mat_baked.node_tree.nodes.active = tex_node
+    tex_node.select = True
+
+    bpy.ops.object.select_all(action="DESELECT")
+    gen_raw.select_set(True)
+    base_obj.select_set(True)
+    bpy.context.view_layer.objects.active = base_obj
+
+    scene.cycles.samples = 1
+    scene.render.bake.use_selected_to_active = True
+    scene.render.bake.cage_extrusion = 2.0
+    scene.render.bake.max_ray_distance = 4.5
+    scene.render.bake.margin = 8
+    bpy.ops.object.bake(type="EMIT")
+
+    albedo_png = out_dir / "baked_albedo.png"
+    baked_img.filepath_raw = str(albedo_png)
+    baked_img.file_format = "PNG"
+    baked_img.save()
+    baked_img.pack()
+    bpy.data.objects.remove(gen_raw, do_unlink=True)
+    scene.cycles.samples = args.samples
+
+    # 7. Exportar Viewer GLB con la textura horneada embebida
+    bpy.ops.object.select_all(action="DESELECT")
+    base_obj.select_set(True)
+    bpy.context.view_layer.objects.active = base_obj
     bpy.ops.export_scene.gltf(
         filepath=str(viewer_glb),
         export_format="GLB",

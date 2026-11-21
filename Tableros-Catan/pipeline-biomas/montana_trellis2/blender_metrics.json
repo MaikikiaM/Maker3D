@@ -1,0 +1,31 @@
+{
+  "vertices": 710852,
+  "faces": 1422184,
+  "non_manifold_edges": 1,
+  "boundary_edges": 0,
+  "connected_components": 1,
+  "raw_sanitized_components": 1,
+  "raw_holes_filled": 240,
+  "raw_non_manifold_after_sanitize": 323,
+  "raw_boundary_after_sanitize": 140,
+  "fit_info": {
+    "rot_z_deg": -112.0,
+    "scale_xy": 144.5856,
+    "z_stretch": 0.8843,
+    "z_seat_local_mm": 13.13,
+    "raw_extents": [
+      0.938,
+      1.002,
+      0.404
+    ],
+    "fitted_z_min": 12.837,
+    "fitted_z_max": 64.45
+  },
+  "bounds_mm": {
+    "dx": 110.8512,
+    "dy": 128.0,
+    "dz": 64.3869
+  },
+  "master_stl": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_trellis2\\tile_master.stl",
+  "viewer_glb": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_trellis2\\tile_viewer.glb"
+}

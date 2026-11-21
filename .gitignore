@@ -82,4 +82,5 @@ tools/smoke_test_out/
 *.hdr
 *.ktx2
 *.gcode
+*.preview.html
 

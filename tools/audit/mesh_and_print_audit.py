@@ -270,6 +270,11 @@ def main() -> None:
     parser.add_argument("--repair", action="store_true", help="Reparar defectos si existen y guardar <nombre>_repaired.stl")
     parser.add_argument("--catan-check", action="store_true", help="Validar cotas e interfaz canónica de Catán")
     parser.add_argument("--export-3mf", help="Ruta del .3mf válido generado vía lib3mf")
+    parser.add_argument(
+        "--allow-high-genus",
+        action="store_true",
+        help="Permitir sólidos cerrados 2-manifold estancos de género g>=1 (χ = 2 - 2g <= 2, 1 componente conexa) en mallas generativas 3D",
+    )
     parser.add_argument("--bambu-slice", action="store_true", help="Ejecutar laminado CLI real en bambu-studio.exe")
     parser.add_argument("--printer", choices=["a1", "p1s", "x1c"], default="a1")
     args = parser.parse_args()
@@ -358,10 +363,23 @@ def main() -> None:
     report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     print(json.dumps(report, indent=2, ensure_ascii=False))
 
+    euler_ok = (
+        report["euler_number"] == 2
+        or (
+            args.allow_high_genus
+            and report["euler_number"] <= 2
+            and (report["euler_number"] % 2 == 0)
+            and bool(topo_extra.get("manifold_valid"))
+            and topo_extra.get("pymeshlab_non_manifold_edges") == 0
+            and topo_extra.get("pymeshlab_boundary_edges") == 0
+            and topo_extra.get("pymeshlab_connected_components") == 1
+        )
+    )
+
     ok = (
         report["is_watertight"]
         and report["degenerate_faces"] == 0
-        and report["euler_number"] == 2
+        and euler_ok
         and (not args.catan_check or (
             report["catan_check"]["catan_dims_ok"]
             and report["catan_check"]["magnet_cavity_ok"]

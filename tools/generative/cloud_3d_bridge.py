@@ -12,6 +12,7 @@ import json
 import os
 import shutil
 import sys
+import traceback
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -131,32 +132,56 @@ def _run_trellis2_session(
     if "/start_session" in named and "/preprocess_image" in named and "/extract_glb" in named:
         client.predict(api_name="/start_session")
         prep = client.predict(input=handle_file(str(image_path)), api_name="/preprocess_image")
-        prep_arg = handle_file(prep) if isinstance(prep, str) else prep
+        if isinstance(prep, dict) and prep.get("path"):
+            prep_arg = handle_file(prep["path"])
+        elif isinstance(prep, str):
+            prep_arg = handle_file(prep)
+        else:
+            prep_arg = prep
         print(f"[hf-zero] {space_id} imagen preprocesada; generando geometría y PBR 3D ...")
-        client.predict(
+        preview_html = client.predict(
             image=prep_arg,
             seed=int(seed),
             resolution=str(resolution),
             ss_guidance_strength=7.5,
             ss_guidance_rescale=0.7,
-            ss_sampling_steps=12,
+            ss_sampling_steps=int(12),
             ss_rescale_t=5.0,
             shape_slat_guidance_strength=7.5,
             shape_slat_guidance_rescale=0.5,
-            shape_slat_sampling_steps=12,
+            shape_slat_sampling_steps=int(12),
             shape_slat_rescale_t=3.0,
             tex_slat_guidance_strength=1.0,
             tex_slat_guidance_rescale=0.0,
-            tex_slat_sampling_steps=12,
+            tex_slat_sampling_steps=int(12),
             tex_slat_rescale_t=3.0,
             api_name="/image_to_3d",
         )
+        if isinstance(preview_html, str) and preview_html.strip():
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            prev_file = out_path.with_suffix(".preview.html")
+            prev_file.write_text(preview_html, encoding="utf-8")
+            print(f"[hf-zero] {space_id} vista previa 48 ángulos guardada -> {prev_file}")
+
         print(f"[hf-zero] {space_id} extrayendo GLB ...")
-        res = client.predict(
-            decimation_target=int(decimation),
-            texture_size=int(texture_size),
-            api_name="/extract_glb",
-        )
+        try:
+            res = client.predict(
+                decimation_target=int(decimation),
+                texture_size=int(texture_size),
+                api_name="/extract_glb",
+            )
+        except Exception as exc_ext:
+            print(f"[hf-zero] /extract_glb ({int(decimation)}, {int(texture_size)}) falló: {exc_ext}")
+            traceback.print_exc()
+            retry_dec = min(int(decimation), 200000)
+            retry_tex = 1024
+            print(f"[hf-zero] Reintentando /extract_glb en la misma sesión ({retry_dec}, {retry_tex}) ...")
+            res = client.predict(
+                decimation_target=int(retry_dec),
+                texture_size=int(retry_tex),
+                api_name="/extract_glb",
+            )
+
         glb = _find_glb_in_result(res)
         if glb:
             _save_output_asset(glb, out_path)
@@ -305,6 +330,7 @@ def run_hf_zero(
         except Exception as exc:
             last_err = exc
             print(f"[hf-zero] Aviso en {space_id}: {exc}")
+            traceback.print_exc()
     raise RuntimeError(f"No se pudo completar hf-zero ({model}): {last_err}")
 
 
