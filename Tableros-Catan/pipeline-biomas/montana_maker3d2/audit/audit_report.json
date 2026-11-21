@@ -1,0 +1,70 @@
+{
+  "input": "Tableros-Catan\\pipeline-biomas\\montana_maker3d2\\tile_master.stl",
+  "audited_stl": "Tableros-Catan\\pipeline-biomas\\montana_maker3d2\\audit\\tile_master_work.stl",
+  "repaired": false,
+  "vertices": 245774,
+  "faces": 491544,
+  "is_watertight": true,
+  "euler_number": 2,
+  "degenerate_faces": 0,
+  "volume_cm3": 311.654,
+  "bounds_mm": [
+    [
+      -55.4256,
+      -64.0,
+      -0.0
+    ],
+    [
+      55.4256,
+      64.0,
+      66.1313
+    ]
+  ],
+  "overhang_gt_deg_pct": 0.167,
+  "thin_wall_lt_2nozzle_pct": 0.0,
+  "topology_engines": {
+    "manifold_status": "Error.NoError",
+    "manifold_valid": true,
+    "manifold_num_tri": 491544,
+    "pymeshlab_non_manifold_edges": 0,
+    "pymeshlab_boundary_edges": 0,
+    "pymeshlab_connected_components": 1
+  },
+  "catan_check": {
+    "catan_dims_ok": true,
+    "dx_mm": 110.8512,
+    "dy_mm": 128.0,
+    "height_mm": 66.1313,
+    "magnet_cavity_ok": true,
+    "magnet_roof_z_mm": 5.2,
+    "pads_flat_25mm_ok": true,
+    "pad_mean_z_mm": [
+      25.0,
+      25.0,
+      25.0,
+      25.0,
+      25.0,
+      25.0
+    ]
+  },
+  "lib3mf_export": {
+    "path": "Tableros-Catan\\pipeline-biomas\\montana_maker3d2\\audit\\catan_montana_maker3d2.3mf",
+    "size_bytes": 8643547,
+    "verified_objects": 1,
+    "verified_triangles": 491544
+  },
+  "bambu_slice": {
+    "ok": true,
+    "returncode": 0,
+    "printer": "a1",
+    "sliced_3mf_path": "Tableros-Catan\\pipeline-biomas\\montana_maker3d2\\audit\\catan_montana_maker3d2_a1_sliced.gcode.3mf",
+    "sliced_3mf_bytes": 11273255,
+    "has_plate_1_gcode": true,
+    "gcode_summary": {
+      "estimated_time": "12h 55m 17s",
+      "layer_count": "331",
+      "filament_length_mm": "35307.10",
+      "filament_weight_g": "0.00"
+    }
+  }
+}

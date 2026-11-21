@@ -1,0 +1,24 @@
+{
+  "vertices": 245774,
+  "faces": 491543,
+  "non_manifold_edges": 0,
+  "boundary_edges": 0,
+  "connected_components": 1,
+  "voxel_size_mm": 0.24,
+  "max_z_mm": 66.131,
+  "snow_coverage_pct": 5.03,
+  "snow_on_steep_ge44_pct": 0.0,
+  "steep_ge44_area_pct": 64.73,
+  "props": {
+    "cobbles": 66,
+    "moss_cushions": 78,
+    "pebbles": 32
+  },
+  "bounds_mm": {
+    "dx": 110.8512,
+    "dy": 128.0,
+    "dz": 66.1313
+  },
+  "master_stl": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_maker3d2\\tile_master.stl",
+  "viewer_glb": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_maker3d2\\tile_viewer.glb"
+}

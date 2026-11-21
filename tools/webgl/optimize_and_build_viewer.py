@@ -160,6 +160,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
     import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
     const GLB_B64 = "__GLB_BASE64__";
     const drawer = document.getElementById("drawer");
@@ -188,15 +189,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0b111b);
+    const pmremGen = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmremGen.fromScene(new RoomEnvironment(), 0.04).texture;
+    if ("environmentIntensity" in scene) scene.environmentIntensity = 0.55;
+    pmremGen.dispose();
     const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.2, 5000);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.07;
 
-    const hemi = new THREE.HemisphereLight(0xeef6ff, 0x1e293b, 0.9);
-    const keyLight = new THREE.DirectionalLight(0xfff8ed, 1.8);
+    const hemi = new THREE.HemisphereLight(0xeef6ff, 0x1e293b, 0.72);
+    const keyLight = new THREE.DirectionalLight(0xfff8ed, 1.85);
     keyLight.position.set(140, 180, 120);
-    const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.75);
+    const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.70);
     fillLight.position.set(-140, 90, -110);
     const rimLight = new THREE.DirectionalLight(0xffffff, 0.85);
     rimLight.position.set(0, -120, 140);
@@ -207,6 +212,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       color: 0xc2beb6,
       roughness: 0.62,
       metalness: 0.04,
+      vertexColors: false,
       side: THREE.DoubleSide,
       clippingPlanes: [clipPlane],
     });
@@ -214,6 +220,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       color: 0x38bdf8,
       roughness: 0.45,
       metalness: 0.1,
+      vertexColors: false,
       wireframe: true,
       clippingPlanes: [clipPlane],
     });
@@ -391,6 +398,7 @@ def optimize_glb(
     texture_format: str = "webp",
     max_texture_size: int = 1024,
     simplify_ratio: float | None = None,
+    no_simplify: bool = False,
 ) -> Dict[str, float | str]:
     webgl_tools = tp.find_webgl_tools()
     cli = webgl_tools.get("gltf_transform_cmd")
@@ -409,7 +417,9 @@ def optimize_glb(
     ]
     if compress == "meshopt":
         cmd.extend(["--meshopt-level", "high"])
-    if simplify_ratio is not None and 0.05 <= simplify_ratio < 1.0:
+    if no_simplify:
+        cmd.extend(["--simplify", "false"])
+    elif simplify_ratio is not None and 0.05 <= simplify_ratio < 1.0:
         cmd.extend(["--simplify", "true", "--simplify-error", f"{max(0.0001, (1.0 - simplify_ratio) * 0.01):.5f}"])
 
     res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
@@ -436,6 +446,7 @@ def build_viewer_html(
     texture_format: str = "webp",
     max_texture_size: int = 1024,
     simplify_ratio: float | None = None,
+    no_simplify: bool = False,
     save_opt_glb: Path | None = None,
 ) -> Dict[str, float | str]:
     out_html.parent.mkdir(parents=True, exist_ok=True)
@@ -448,6 +459,7 @@ def build_viewer_html(
             texture_format=texture_format,
             max_texture_size=max_texture_size,
             simplify_ratio=simplify_ratio,
+            no_simplify=no_simplify,
         )
         glb_b64 = base64.b64encode(opt_glb.read_bytes()).decode("ascii")
 
@@ -481,6 +493,7 @@ def main() -> None:
     parser.add_argument("--texture-format", choices=["webp", "ktx2", "avif"], default="webp")
     parser.add_argument("--max-texture-size", type=int, default=1024)
     parser.add_argument("--simplify-ratio", type=float, default=None)
+    parser.add_argument("--no-simplify", action="store_true", help="Desactivar simplificación de malla en optimize")
     parser.add_argument("--save-opt-glb", default=None, help="Opcional: guardar GLB optimizado en disco")
     args = parser.parse_args()
 
@@ -492,6 +505,7 @@ def main() -> None:
         texture_format=args.texture_format,
         max_texture_size=args.max_texture_size,
         simplify_ratio=args.simplify_ratio,
+        no_simplify=args.no_simplify,
         save_opt_glb=Path(args.save_opt_glb) if args.save_opt_glb else None,
     )
     print(json.dumps(stats, indent=2, ensure_ascii=False))

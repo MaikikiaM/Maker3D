@@ -1,0 +1,64 @@
+{
+    "error_string": "Success.",
+    "export_time": 2053,
+    "layer_height": 0.20000000298023224,
+    "plate_index": 0,
+    "prepare_time": 665,
+    "return_code": 0,
+    "sliced_plates": [
+        {
+            "feature_type_times": {
+                "Bottom surface": 1015.8350219726563,
+                "Bridge": 1052.3798828125,
+                "Custom": 1.5742846727371216,
+                "Inner wall": 3082.135498046875,
+                "Internal solid infill": 4464.95361328125,
+                "Outer wall": 3564.483154296875,
+                "Overhang wall": 0.6616907119750977,
+                "Skirt": 14.15374755859375,
+                "Sparse infill": 29235.787109375,
+                "Top surface": 962.905517578125,
+                "Travel": 3113.251708984375,
+                "Undefined": 3112.36669921875
+            },
+            "filament_change_times": 0,
+            "filaments": [
+                {
+                    "filament_id": "",
+                    "id": 1,
+                    "main_used_g": 0.0,
+                    "total_used_g": 0.0
+                }
+            ],
+            "generate_support_material_time": 333,
+            "id": 1,
+            "infill_time": 1828,
+            "layer_filament_change": 0,
+            "main_predication": 46516.75,
+            "make_perimeters_time": 1309,
+            "obj_cached_cnt": 0,
+            "objects": [
+                {
+                    "bbox": {
+                        "depth": 166.27688598632813,
+                        "height": 66.13129425048828,
+                        "width": 160.0,
+                        "x": 19.999996185302734,
+                        "y": 16.86155891418457,
+                        "z": 0.0
+                    },
+                    "id": 5,
+                    "name": "Maker3D_Part",
+                    "triangle_count": 491544
+                }
+            ],
+            "sliced_time": 4613,
+            "sliced_time_with_cache": 1027,
+            "total_predication": 46517.4375,
+            "triangle_count": 491544,
+            "warning_message": "It seems object Maker3D_Part has floating regions. Please re-orient the object or enable support generation."
+        }
+    ],
+    "sparse_infill_density": 20.0,
+    "wall_loops": 2
+}

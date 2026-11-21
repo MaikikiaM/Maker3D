@@ -1,0 +1,15 @@
+{
+  "magnet_shape": "circle",
+  "occt_valid": true,
+  "dx_mm": 110.85125168440817,
+  "dy_mm": 128.00000000000003,
+  "dz_mm": 25.000000000000014,
+  "volume_mm3": 265493.1779994233,
+  "stl_faces": 1138,
+  "stl_vertices": 571,
+  "stl_watertight": true,
+  "stl_euler_chi": 2,
+  "stl_degenerate_faces": 0,
+  "step_path": "Tableros-Catan\\pipeline-biomas\\montana_maker3d2\\work\\catan_base_brep.step",
+  "stl_path": "Tableros-Catan\\pipeline-biomas\\montana_maker3d2\\work\\catan_base_brep.stl"
+}

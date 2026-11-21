@@ -109,10 +109,141 @@ def doctor() -> Dict[str, Any]:
     }
 
 
-def run_hf_zero(model: str, image_path: Path, out_path: Path, seed: int = 42) -> Path:
+def _run_trellis2_session(
+    space_id: str,
+    image_path: Path,
+    out_path: Path,
+    seed: int = 42,
+    resolution: str = "1024",
+    decimation: int = 300000,
+    texture_size: int = 2048,
+    hf_token: Optional[str] = None,
+) -> Path:
     from gradio_client import Client, handle_file
 
-    candidates = HF_SPACES.get(model)
+    print(f"[hf-zero] Conectando con {space_id} (res={resolution}, tri={decimation}, tex={texture_size}) ...")
+    client = Client(space_id, token=hf_token)
+    api_info = client.view_api(return_format="dict")
+    named = api_info.get("named_endpoints", {})
+
+    if "/start_session" in named and "/preprocess_image" in named and "/extract_glb" in named:
+        client.predict(api_name="/start_session")
+        prep = client.predict(input=handle_file(str(image_path)), api_name="/preprocess_image")
+        prep_arg = handle_file(prep) if isinstance(prep, str) else prep
+        print(f"[hf-zero] {space_id} imagen preprocesada; generando geometría y PBR 3D ...")
+        client.predict(
+            image=prep_arg,
+            seed=float(seed),
+            resolution=str(resolution),
+            ss_guidance_strength=7.5,
+            ss_guidance_rescale=0.7,
+            ss_sampling_steps=12,
+            ss_rescale_t=5.0,
+            shape_slat_guidance_strength=7.5,
+            shape_slat_guidance_rescale=0.5,
+            shape_slat_sampling_steps=12,
+            shape_slat_rescale_t=3.0,
+            tex_slat_guidance_strength=1.0,
+            tex_slat_guidance_rescale=0.0,
+            tex_slat_sampling_steps=12,
+            tex_slat_rescale_t=3.0,
+            api_name="/image_to_3d",
+        )
+        print(f"[hf-zero] {space_id} extrayendo GLB ...")
+        res = client.predict(
+            decimation_target=float(decimation),
+            texture_size=float(texture_size),
+            api_name="/extract_glb",
+        )
+        glb = _find_glb_in_result(res)
+        if glb:
+            _save_output_asset(glb, out_path)
+            print(f"[hf-zero] Guardado GLB desde {space_id}/extract_glb -> {out_path}")
+            return out_path
+    raise RuntimeError(f"Endpoints de sesión no encontrados en {space_id}: {list(named.keys())}")
+
+
+def _run_hunyuan_session(
+    space_id: str,
+    image_path: Path,
+    out_path: Path,
+    back_image: Optional[Path] = None,
+    left_image: Optional[Path] = None,
+    right_image: Optional[Path] = None,
+    seed: int = 42,
+    octree_resolution: int = 384,
+    hf_token: Optional[str] = None,
+) -> Path:
+    from gradio_client import Client, handle_file
+
+    print(f"[hf-zero] Conectando con {space_id} (multivista={bool(back_image)}, octree={octree_resolution}) ...")
+    client = Client(space_id, token=hf_token)
+    api_info = client.view_api(return_format="dict")
+    named = api_info.get("named_endpoints", {})
+
+    ep = "/generation_all" if "/generation_all" in named else "/shape_generation"
+    param_names = {p.get("parameter_name") for p in named[ep].get("parameters", []) if p.get("parameter_name")}
+    kwargs: Dict[str, Any] = {
+        "steps": 30,
+        "guidance_scale": 5.0,
+        "seed": seed,
+        "octree_resolution": octree_resolution,
+        "check_box_rembg": True,
+        "num_chunks": 8000,
+        "randomize_seed": False,
+    }
+    if back_image or left_image or right_image:
+        kwargs["image"] = None
+        kwargs["mv_image_front"] = handle_file(str(image_path))
+        if back_image:
+            kwargs["mv_image_back"] = handle_file(str(back_image))
+        if left_image:
+            kwargs["mv_image_left"] = handle_file(str(left_image))
+        if right_image:
+            kwargs["mv_image_right"] = handle_file(str(right_image))
+    else:
+        kwargs["image"] = handle_file(str(image_path))
+
+    filtered = {k: v for k, v in kwargs.items() if k in param_names}
+    res = client.predict(api_name=ep, **filtered)
+
+    # En /generation_all la salida suele ser (malla_blanca, malla_texturizada, html, stats, seed) -> preferir el último .glb
+    glbs: List[str] = []
+    if isinstance(res, (list, tuple)):
+        for item in res:
+            g = _find_glb_in_result(item)
+            if g:
+                glbs.append(g)
+    else:
+        g = _find_glb_in_result(res)
+        if g:
+            glbs.append(g)
+
+    chosen = glbs[-1] if glbs else None
+    if not chosen:
+        raise RuntimeError(f"Sin GLB devuelto por {space_id}{ep}: {res}")
+    _save_output_asset(chosen, out_path)
+    print(f"[hf-zero] Guardado GLB desde {space_id}{ep} -> {out_path}")
+    return out_path
+
+
+def run_hf_zero(
+    model: str,
+    image_path: Path,
+    out_path: Path,
+    seed: int = 42,
+    resolution: str = "1024",
+    decimation: int = 300000,
+    texture_size: int = 2048,
+    back_image: Optional[Path] = None,
+    left_image: Optional[Path] = None,
+    right_image: Optional[Path] = None,
+) -> Path:
+    from gradio_client import Client, handle_file
+
+    candidates = list(HF_SPACES.get(model, []))
+    if model == "hunyuan3d" and back_image and "tencent/Hunyuan3D-2mv" not in candidates:
+        candidates.append("tencent/Hunyuan3D-2mv")
     if not candidates:
         raise ValueError(f"Modelo hf-zero desconocido: {model}. Usa: {list(HF_SPACES.keys())}")
     hf_token = os.environ.get("HF_TOKEN", "").strip() or None
@@ -120,12 +251,24 @@ def run_hf_zero(model: str, image_path: Path, out_path: Path, seed: int = 42) ->
     last_err: Optional[Exception] = None
     for space_id in candidates:
         try:
+            if space_id == "microsoft/TRELLIS.2":
+                return _run_trellis2_session(
+                    space_id, image_path, out_path,
+                    seed=seed, resolution=resolution, decimation=decimation,
+                    texture_size=texture_size, hf_token=hf_token,
+                )
+            if "Hunyuan3D" in space_id:
+                return _run_hunyuan_session(
+                    space_id, image_path, out_path,
+                    back_image=back_image, left_image=left_image, right_image=right_image,
+                    seed=seed, hf_token=hf_token,
+                )
+
             print(f"[hf-zero] Conectando con Space {space_id} ...")
             client = Client(space_id, token=hf_token)
             api_info = client.view_api(return_format="dict")
             named = api_info.get("named_endpoints", {})
 
-            # Descubrir endpoint principal de generación 3D
             ep_candidates = [
                 ep for ep in named.keys()
                 if any(k in ep.lower() for k in ("image_to_3d", "gen", "shape", "run", "extract_glb", "predict"))
@@ -211,6 +354,12 @@ def main() -> None:
     parser.add_argument("--provider", choices=["hf-zero", "fal", "replicate"], default="hf-zero")
     parser.add_argument("--model", default="trellis2")
     parser.add_argument("--image", help="Imagen de referencia limpia (Nano Banana)")
+    parser.add_argument("--back-image", help="Vista trasera opcional (multivista Hunyuan3D)")
+    parser.add_argument("--left-image", help="Vista izquierda opcional (multivista Hunyuan3D)")
+    parser.add_argument("--right-image", help="Vista derecha opcional (multivista Hunyuan3D)")
+    parser.add_argument("--resolution", default="1024", choices=["512", "1024", "1536"])
+    parser.add_argument("--decimation", type=int, default=300000)
+    parser.add_argument("--texture-size", type=int, default=2048)
     parser.add_argument("--out", help="Ruta de salida .glb")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
@@ -229,7 +378,18 @@ def main() -> None:
         raise FileNotFoundError(f"Imagen no encontrada: {img_p}")
 
     if args.provider == "hf-zero":
-        run_hf_zero(args.model, img_p, out_p, seed=args.seed)
+        run_hf_zero(
+            args.model,
+            img_p,
+            out_p,
+            seed=args.seed,
+            resolution=args.resolution,
+            decimation=args.decimation,
+            texture_size=args.texture_size,
+            back_image=Path(args.back_image) if args.back_image else None,
+            left_image=Path(args.left_image) if args.left_image else None,
+            right_image=Path(args.right_image) if args.right_image else None,
+        )
     elif args.provider == "fal":
         run_fal(args.model, img_p, out_p)
     else:

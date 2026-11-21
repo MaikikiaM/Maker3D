@@ -209,18 +209,44 @@ def check_catan_geometry(mesh: trimesh.Trimesh) -> Dict[str, Any]:
     magnet_roof_z = float(np.min(center_low[:, 2])) if len(center_low) else 0.0
     magnet_cavity_ok = magnet_roof_z >= (z_min + 4.0)
 
-    # Comprobar pads planos alrededor de Z = 25.00 mm en los 6 vértices (r_pad < 8.5 mm, z in [24.8..25.2])
+    # Comprobar los 6 pads planos en Z = 25.00 mm mediante raycast vertical exacto en NumPy (sin dependencia rtree)
+    tris = v[mesh.faces]  # (F, 3, 3)
+    tri_xmin = tris[:, :, 0].min(axis=1)
+    tri_xmax = tris[:, :, 0].max(axis=1)
+    tri_ymin = tris[:, :, 1].min(axis=1)
+    tri_ymax = tris[:, :, 1].max(axis=1)
+
     pad_ok = True
     pad_zs = []
     for k in range(6):
         ang = math.radians(30.0 + 60.0 * k)
-        vx, vy = CATAN_R * math.cos(ang), CATAN_R * math.sin(ang)
-        near_pad = c_tri[np.hypot(c_tri[:, 0] - vx, c_tri[:, 1] - vy) < 8.0]
-        top_hits = near_pad[(near_pad[:, 2] > z_min + 24.5) & (near_pad[:, 2] < z_min + 25.5)]
-        if len(top_hits) == 0:
+        ca, sa = math.cos(ang), math.sin(ang)
+        top_per_ray = []
+        for d_in in (3.5, 6.0, 8.2):
+            qx, qy = (CATAN_R - d_in) * ca, (CATAN_R - d_in) * sa
+            cand = tris[(tri_xmin <= qx + 1e-6) & (tri_xmax >= qx - 1e-6) & (tri_ymin <= qy + 1e-6) & (tri_ymax >= qy - 1e-6)]
+            if len(cand) == 0:
+                continue
+            x0, y0, z0 = cand[:, 0, 0], cand[:, 0, 1], cand[:, 0, 2]
+            v0x, v0y = cand[:, 1, 0] - x0, cand[:, 1, 1] - y0
+            v1x, v1y = cand[:, 2, 0] - x0, cand[:, 2, 1] - y0
+            det = v0x * v1y - v1x * v0y
+            valid = np.abs(det) > 1e-12
+            if not np.any(valid):
+                continue
+            px, py = qx - x0[valid], qy - y0[valid]
+            inv_d = 1.0 / det[valid]
+            u_b = (px * v1y[valid] - v1x[valid] * py) * inv_d
+            v_b = (v0x[valid] * py - px * v0y[valid]) * inv_d
+            w_b = 1.0 - u_b - v_b
+            inside = (u_b >= -1e-5) & (v_b >= -1e-5) & (w_b >= -1e-5)
+            if np.any(inside):
+                z_hits = w_b[inside] * z0[valid][inside] + u_b[inside] * cand[valid, 1, 2][inside] + v_b[inside] * cand[valid, 2, 2][inside]
+                top_per_ray.append(float(np.max(z_hits)))
+        if len(top_per_ray) != 3 or any(abs(z_h - (z_min + 25.0)) > 0.25 for z_h in top_per_ray):
             pad_ok = False
-        else:
-            pad_zs.append(round(float(np.mean(top_hits[:, 2])), 3))
+        if top_per_ray:
+            pad_zs.append(round(float(np.mean(top_per_ray)), 3))
 
     dims_ok = (abs(dx - CATAN_W) <= 0.25) and (abs(dy - CATAN_D) <= 0.25) and (z_max - z_min >= 24.8)
     return {

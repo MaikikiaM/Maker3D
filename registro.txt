@@ -721,3 +721,33 @@ Resultados verificados del Smoke Test End-to-End (`tools/smoke_test_out/`):
 - `optimize_and_build_viewer.py` + verificación en navegador headless: compresión real `Meshopt + WebP` de `3,659.63 KB → 817.79 KB` (`77.65%` ahorro), HTML autónomo `1.08 MB`; verificado en vivo en `http://127.0.0.1:8765/test_viewer_v2.html` (`0` errores de consola/WebGL/red, `34,970` triángulos, probados botones `PBR`, `Arcilla CAD`, `Wireframe`, `Sol Alpino`, `Inferior / Imán`, `Isométrica` y slider `Corte Z`).
 - `cloud_3d_bridge.py --doctor`: `gradio_client 2.7.2`, `fal_client` y `replicate` operativos; Spaces gratuitos ZeroGPU `microsoft/TRELLIS.2`, `tencent/Hunyuan3D-2.1` y `Stable-X/Hi3DGen` verificados en estado `RUNNING`.
 ================================================================================
+
+
+================================================================================
+SESIÓN: 21/11/2026 - PRUEBA REAL MONTAÑA CENTRADA 100% LOCAL CON MAKER3D 2.0
+- Prompts literales del usuario:
+  * [21/11/2026 16:18]: "Ahora el sistema es mucho mejor?"
+  * [21/11/2026 16:22]: "Van a salir mejor las piezas visuales/esteticas?"
+  * [21/11/2026 16:26]: "Pues prueba a hacer una montaña como las que estabamos haciendo todo el rato. La ultima que te pedi"
+  * [21/11/2026 16:34]: "Explicame el problema un poco mas para tontos xfa"
+  * [21/11/2026 16:36]: "Y tengo cuota ilimitada gratis?"
+  * [21/11/2026 16:37]: "Y por que no se puede hacer sin cosas en la nube con la misma calidad? No puede Hydrogen hacer exactamente lo mismo que hace Trellis? es opensource. Y obviamente hydrogen funciona en tarjetas graficas fuera de mi ordenador, por lo que sigue siendo psoible"
+  * [21/11/2026 16:39]: "Si, probemos 100% local primero"
+- Objetivo: Recrear la loseta `Montaña Centrada` en `Tableros-Catan/pipeline-biomas/montana_maker3d2/` usando únicamente herramientas locales (`build123d` OCCT + Blender `5.3.0` OpenVDB/MANIFOLD + `mesh_and_print_audit.py` + `Bambu Studio CLI` + visor WebGL `Meshopt`), tras diagnosticar el límite anónimo de cuota ZeroGPU en la nube (`microsoft/TRELLIS.2` `0s left`, `tencent/Hunyuan3D-2.1` `270s > allowed`), dejando intactos los 8 biomas legacy y `.agents/skills/nanobanana-3d-sculpt/`.
+
+Decisiones técnicas y cambios implementados:
+- **`tools/generative/cloud_3d_bridge.py`:** Actualizado el contrato Gradio real de `microsoft/TRELLIS.2` (`/start_session`, `/preprocess_image`, `/image_to_3d`, `/extract_glb`) y soporte multi-vista de `tencent/Hunyuan3D-2.1`/`Hunyuan3D-2mv` (`--back-image`, `--left-image`, `--right-image`). Se deja listo para uso futuro en cuanto exista `HF_TOKEN` en `.env`.
+- **`tools/catan_kit/build_catan_base_brep.py`:** Añadida función `build_catan_inner_cutter(road_margin=3.50, pad_radius=10.00, z_min=20.0, z_max=120.0)` y flag `--export-cutter`, generando `catan_base_brep.step`, `catan_base_brep.stl` y `catan_inner_cutter.stl` en `montana_maker3d2/work/` (`occt_valid=true`, `110.8513 × 128.0000 × 25.0000 mm`, hueco de imán inferior centrado).
+- **`tools/blender/fuse_generative_catan_tile.py`:** Script híbrido preparado para fusionar futuras mallas generativas `.glb` (`TRELLIS.2`/`Hunyuan3D`) sobre zócalo/cortador B-Rep de Catán.
+- **`tools/blender/build_hero_mountain_local.py` (iteraciones V1 → V5.1 hasta cierre estanco puro):**
+  * Sustituidos conos estrella aislados (`V1`) y sesgo `_smax(0,0)` (`V2`) por red continua de aristas tectónicas piramidales en V (`exp(-1.12*u^0.92)`), 6 grandes contrafuertes piramidales estriados y enraizados (`_add_summit_overhang_crag`), remate suave del sendero en S (`trail_fade`), voxelizado `OpenVDB` a `0.24 mm`, esculpido 3D en normales (`flute_noise` y `strata_noise` centrados en `0.68`) + vértice PBR `COLOR_0`.
+  * En `_create_discrete_3d_props`, eliminados el segundo lóbulo solapado de musgo (evitando auto-intersecciones intra-operando antes del booleano `MANIFOLD`) y anclados los `176` props 3D (`66` cantos de sendero, `78` matas de musgo, `32` guijarros) a `-0.14*rad` en superficie.
+  * Añadida triangulación explícita, `bmesh.ops.dissolve_degenerate(dist=1e-6)` (en lugar de borrar caras abriendo micro-huecos) y filtrado BFS conservando únicamente la componente conexa principal (`1` micro-componente de `29` vértices podada).
+- **`tools/audit/mesh_and_print_audit.py`:** Reemplazado en `check_catan_geometry` el filtro frágil de centroides `c_tri < 8.0` (que descartó por `8.01 mm` un pad B-Rep de triángulos planos largos) por raycast vertical exacto en NumPy puro (sin dependencia `rtree`) sobre 3 puntos interiores de cada uno de los 6 pads a `Z = 25.00 mm`.
+- **`tools/webgl/optimize_and_build_viewer.py`:** Integrada iluminación IBL `RoomEnvironment` + `PMREMGenerator` (`scene.environmentIntensity = 0.55`), desactivado `vertexColors` en modos `Arcilla CAD`/`Wireframe`, y añadido flag `--no-simplify` (`--simplify false` en `gltf-transform optimize`) para preservar íntegros los micro-relieves y el atributo `COLOR_0`.
+
+Resultados y métricas verificadas:
+- **Blender `build_hero_mountain_local.py` V5.1:** `vertices=245,774`, `faces=491,543`, `non_manifold_edges=0`, `boundary_edges=0`, `connected_components=1`, `max_z_mm=66.131`, `snow_coverage_pct=5.03%`, `snow_on_steep_ge44_pct=0.0%` (`steep_ge44_area_pct=64.73%`), `bounds_mm=110.8512 × 128.0 × 66.1313 mm`.
+- **Auditoría `mesh_and_print_audit.py` + `Bambu Studio CLI` (`exit 0`):** `repaired=false`, `245,774 V / 491,544 Δ`, `is_watertight=true`, `euler_number=2`, `degenerate_faces=0`, `volume_cm3=311.654`, `overhang_gt_deg_pct=0.167%`, `thin_wall_lt_2nozzle_pct=0.0%`, `manifold_status=Error.NoError` (`491,544 Δ`), `pymeshlab_non_manifold_edges=0`, `pymeshlab_boundary_edges=0`, `pymeshlab_connected_components=1`, `catan_dims_ok=true`, `magnet_cavity_ok=true` (`5.2 mm`), `pads_flat_25mm_ok=true` (`[25.0, 25.0, 25.0, 25.0, 25.0, 25.0]`), `tile_master.stl=23.439 MB`, `catan_montana_maker3d2.3mf=8.243 MB` (`lib3mf`), `catan_montana_maker3d2_a1_sliced.gcode.3mf=10.751 MB` (`Bambu A1`: `12h 55m 17s`, `331` capas, `35,307.10 mm` filamento).
+- **Visor WebGL + Verificación en Chromium headless (`Visores-HTML/catan-bioma-montana-maker3d2.html`):** `58,524,248 B (55.813 MB)` GLB → `10,240,048 B` (`82.5%` ahorro `Meshopt+WebP`), HTML final `13.037 MB`. Verificado en navegador headless (`1280×800`, puerto `8766`): colores PBR reales renderizados (nieve blanca, granito/ocre, pradera oliva, sendero terracota, base pizarra), operativos `Arcilla CAD`, `Wireframe`, `Corte Z`, `Inferior / Imán`, `Isométrica`; `0` errores de consola/JS y `8/8` peticiones HTTP OK (`0` fallos).
+================================================================================
