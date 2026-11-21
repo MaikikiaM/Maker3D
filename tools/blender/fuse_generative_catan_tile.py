@@ -72,6 +72,7 @@ def _pack_all_images() -> None:
 
 
 def _boolean_op(target: bpy.types.Object, tool: bpy.types.Object, operation: str = "UNION") -> None:
+    backup_mesh = target.data.copy()
     bpy.ops.object.select_all(action="DESELECT")
     target.select_set(True)
     bpy.context.view_layer.objects.active = target
@@ -80,11 +81,25 @@ def _boolean_op(target: bpy.types.Object, tool: bpy.types.Object, operation: str
     mod.operation = operation
     mod.object = tool
     solvers = [e.identifier for e in mod.bl_rna.properties["solver"].enum_items]
-    if "MANIFOLD" in solvers:
+    used_manifold = "MANIFOLD" in solvers
+    if used_manifold:
         mod.solver = "MANIFOLD"
     elif "EXACT" in solvers:
         mod.solver = "EXACT"
     bpy.ops.object.modifier_apply(modifier=mod.name)
+
+    if used_manifold and len(target.data.polygons) < 100 and "EXACT" in solvers:
+        print(f"[Boolean] MANIFOLD produjo {len(target.data.polygons)} caras en {operation}; reintentando con EXACT ...")
+        bad_mesh = target.data
+        target.data = backup_mesh
+        bpy.data.meshes.remove(bad_mesh)
+        mod2 = target.modifiers.new(name=f"BoolFallback_{operation}_{tool.name}", type="BOOLEAN")
+        mod2.operation = operation
+        mod2.object = tool
+        mod2.solver = "EXACT"
+        bpy.ops.object.modifier_apply(modifier=mod2.name)
+    else:
+        bpy.data.meshes.remove(backup_mesh)
 
 
 def _join_meshes(objs: List[bpy.types.Object], name: str = "GenJoined") -> bpy.types.Object:
@@ -115,24 +130,33 @@ def _orient_and_fit_generative(
     target_diameter_mm: float,
     target_peak_z_mm: float,
     z_seat_ratio: float,
+    tilt_x_deg: float = 0.0,
+    tilt_y_deg: float = 0.0,
 ) -> Dict[str, float]:
     """
-    Reorienta de Y-up (glTF) a Z-up solo si Y-up o si detecta plano base en otro eje,
-    alinea el hexágono pointy-top y asienta la base bajo Z=25mm.
+    Reorienta, nivela inclinaciones opcionales en X/Y, alinea el hexágono pointy-top
+    y asienta la base generativa bajo Z_BASE=25.00 mm.
     """
     mesh = gen_obj.data
     coords = np.array([v.co[:] for v in mesh.vertices], dtype=np.float32)
 
-    # glTF importado en Blender ya viene convertido por import_scene.gltf a Z-up (Blender),
-    # pero validamos qué eje es más corto (normalmente la altura Z de una loseta ~55% del diámetro)
     ext = coords.max(axis=0) - coords.min(axis=0)
-    # Centrar en XY y apoyar mínimo en Z=0 temporalmente
     cx = float(0.5 * (coords[:, 0].min() + coords[:, 0].max()))
     cy = float(0.5 * (coords[:, 1].min() + coords[:, 1].max()))
     z0 = float(coords[:, 2].min())
     coords[:, 0] -= cx
     coords[:, 1] -= cy
     coords[:, 2] -= z0
+
+    if abs(tilt_x_deg) > 1e-4 or abs(tilt_y_deg) > 1e-4:
+        rmat = np.array(
+            mathutils.Euler((math.radians(tilt_x_deg), math.radians(tilt_y_deg), 0.0), "XYZ").to_matrix(),
+            dtype=np.float32,
+        )
+        coords = coords @ rmat.T
+        coords[:, 0] -= float(0.5 * (coords[:, 0].min() + coords[:, 0].max()))
+        coords[:, 1] -= float(0.5 * (coords[:, 1].min() + coords[:, 1].max()))
+        coords[:, 2] -= float(coords[:, 2].min())
 
     # Auto-rotación en Z buscando simetría de 6 vértices cada 60° (pointy-top = picos en 30° + 60°·k)
     r_xy = np.hypot(coords[:, 0], coords[:, 1])
@@ -196,14 +220,77 @@ def _orient_and_fit_generative(
     }
 
 
-def _clean_and_verify_bmesh(obj: bpy.types.Object) -> Dict[str, int]:
+def _keep_largest_component_bmesh(bm: bmesh.types.BMesh) -> int:
+    visited = set()
+    components: List[List[bmesh.types.BMVert]] = []
+    for v_start in bm.verts:
+        if v_start in visited:
+            continue
+        comp: List[bmesh.types.BMVert] = []
+        stack = [v_start]
+        visited.add(v_start)
+        while stack:
+            cur = stack.pop()
+            comp.append(cur)
+            for edge in cur.link_edges:
+                other = edge.other_vert(cur)
+                if other not in visited:
+                    visited.add(other)
+                    stack.append(other)
+        components.append(comp)
+    if len(components) > 1:
+        largest = max(components, key=len)
+        keep_set = set(largest)
+        drop_verts = [v for v in bm.verts if v not in keep_set]
+        bmesh.ops.delete(bm, geom=drop_verts, context="VERTS")
+        print(f"[BFS] Eliminadas {len(components) - 1} micro-componentes desconectadas ({len(drop_verts)} verts).")
+    return 1 if len(bm.verts) > 0 else 0
+
+
+def _sanitize_generative_mesh(obj: bpy.types.Object) -> Dict[str, int]:
+    """Triangula, poda esquirlas sueltas y cierra micro-agujeros en el GLB generativo antes del booleano."""
     bm = bmesh.new()
     bm.from_mesh(obj.data)
-    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
-    bm.normal_update()
+    bm.faces.ensure_lookup_table()
+    bmesh.ops.triangulate(bm, faces=list(bm.faces))
+    bmesh.ops.dissolve_degenerate(bm, dist=1e-6, edges=list(bm.edges))
+    orphan_verts = [v for v in bm.verts if not v.link_faces]
+    if orphan_verts:
+        bmesh.ops.delete(bm, geom=orphan_verts, context="VERTS")
+    n_comps = _keep_largest_component_bmesh(bm)
+    boundary_edges = [e for e in bm.edges if e.is_boundary]
+    if boundary_edges:
+        bmesh.ops.holes_fill(bm, edges=boundary_edges, sides=24)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     non_man = sum(1 for e in bm.edges if not e.is_manifold)
     boundary = sum(1 for e in bm.edges if e.is_boundary)
+    if non_man > 0 or boundary > 0:
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+    return {"raw_sanitized_components": n_comps, "raw_holes_filled": len(boundary_edges)}
+
+
+def _clean_and_verify_bmesh(obj: bpy.types.Object) -> Dict[str, int]:
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.faces.ensure_lookup_table()
+    bmesh.ops.triangulate(bm, faces=list(bm.faces))
+    bmesh.ops.dissolve_degenerate(bm, dist=1e-6, edges=list(bm.edges))
+    orphan_verts = [v for v in bm.verts if not v.link_faces]
+    if orphan_verts:
+        bmesh.ops.delete(bm, geom=orphan_verts, context="VERTS")
+    n_comps = _keep_largest_component_bmesh(bm)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    non_man = sum(1 for e in bm.edges if not e.is_manifold)
+    boundary = sum(1 for e in bm.edges if e.is_boundary)
+    if non_man > 0 or boundary > 0:
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        non_man = sum(1 for e in bm.edges if not e.is_manifold)
+        boundary = sum(1 for e in bm.edges if e.is_boundary)
     verts = len(bm.verts)
     faces = len(bm.faces)
     bm.to_mesh(obj.data)
@@ -214,6 +301,7 @@ def _clean_and_verify_bmesh(obj: bpy.types.Object) -> Dict[str, int]:
         "faces": faces,
         "non_manifold_edges": non_man,
         "boundary_edges": boundary,
+        "connected_components": n_comps,
     }
 
 
@@ -224,8 +312,8 @@ def _setup_lighting(scene: bpy.types.Scene) -> None:
         world.use_nodes = True
     bg = world.node_tree.nodes.get("Background")
     if bg:
-        bg.inputs["Color"].default_value = (0.16, 0.18, 0.22, 1.0)
-        bg.inputs["Strength"].default_value = 1.1
+        bg.inputs["Color"].default_value = (0.38, 0.40, 0.44, 1.0)
+        bg.inputs["Strength"].default_value = 1.25
 
     suns = [
         ("KeySun", (55.0, -50.0, 82.0), 3.3, (1.0, 0.96, 0.91), math.radians(7.0)),
@@ -300,6 +388,8 @@ def main() -> None:
     parser.add_argument("--gen-glb", required=True)
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--rot-z-deg", default="auto", help="Rotación Z en grados o 'auto'")
+    parser.add_argument("--tilt-x-deg", type=float, default=0.0, help="Nivelación opcional en eje X (grados)")
+    parser.add_argument("--tilt-y-deg", type=float, default=0.0, help="Nivelación opcional en eje Y (grados)")
     parser.add_argument("--target-diameter-mm", type=float, default=124.0)
     parser.add_argument("--target-height-mm", type=float, default=60.0)
     parser.add_argument("--z-seat-ratio", type=float, default=0.28)
@@ -315,6 +405,11 @@ def main() -> None:
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     _ensure_cycles_cpu(scene, samples=args.samples)
+    _setup_lighting(scene)
+    cam_data = bpy.data.cameras.new("AuditCam")
+    cam_obj = bpy.data.objects.new("AuditCam", cam_data)
+    scene.collection.objects.link(cam_obj)
+    scene.camera = cam_obj
 
     # 1. Importar malla generativa 3D (.glb) conservando materiales y texturas PBR
     bpy.ops.import_scene.gltf(filepath=str(gen_glb))
@@ -328,7 +423,21 @@ def main() -> None:
         target_diameter_mm=args.target_diameter_mm,
         target_peak_z_mm=args.target_height_mm,
         z_seat_ratio=args.z_seat_ratio,
+        tilt_x_deg=args.tilt_x_deg,
+        tilt_y_deg=args.tilt_y_deg,
     )
+
+    # Render previo 2x2 de la malla generativa cruda (frente -60°, derecha 30°, detrás 120°, cenital) antes del recorte
+    z_mid_raw = 0.5 * (fit_info["fitted_z_min"] + fit_info["fitted_z_max"])
+    views_raw = [
+        (175.0 * math.cos(math.radians(-60)), 175.0 * math.sin(math.radians(-60)), z_mid_raw + 75.0, (0.0, 0.0, z_mid_raw)),
+        (175.0 * math.cos(math.radians(30)), 175.0 * math.sin(math.radians(30)), z_mid_raw + 75.0, (0.0, 0.0, z_mid_raw)),
+        (175.0 * math.cos(math.radians(120)), 175.0 * math.sin(math.radians(120)), z_mid_raw + 75.0, (0.0, 0.0, z_mid_raw)),
+        (0.0, -25.0, z_mid_raw + 195.0, (0.0, 0.0, z_mid_raw)),
+    ]
+    _render_views(scene, cam_obj, views_raw, out_dir / "audit_raw_ai3d.png", cols=2, rows=2, res_px=512, material_override=None)
+
+    raw_san = _sanitize_generative_mesh(gen_obj)
 
     # 2. Importar cutter B-Rep interior y recortar quirúrgicamente fuera de carril 3.5mm y 6 pads Ø20mm
     bpy.ops.wm.stl_import(filepath=str(cutter_stl))
@@ -369,37 +478,52 @@ def main() -> None:
         export_apply=True,
     )
 
-    # 6. Renders de auditoría (6 vistas PBR, 6 vistas Arcilla, Orto cenital y Comparación FRONT/BACK)
-    _setup_lighting(scene)
-    cam_data = bpy.data.cameras.new("AuditCam")
-    cam_obj = bpy.data.objects.new("AuditCam", cam_data)
-    scene.collection.objects.link(cam_obj)
-    scene.camera = cam_obj
-    mat_clay = _make_solid_material("Clay_CAD", (0.72, 0.70, 0.67, 1.0), roughness=0.62)
+    # 6. Renders de auditoría (6 vistas PBR, 6 vistas Arcilla, Frente/Trasera PBR+Arcilla y Orto cenital)
+    mat_clay = _make_solid_material("Clay_CAD", (0.58, 0.56, 0.54, 1.0), roughness=0.55)
 
     views_6 = [
+        (168.0 * math.cos(math.radians(-60)), 168.0 * math.sin(math.radians(-60)), 112.0, (0.0, 0.0, 28.0)),
         (168.0 * math.cos(math.radians(30)), 168.0 * math.sin(math.radians(30)), 112.0, (0.0, 0.0, 28.0)),
-        (168.0 * math.cos(math.radians(150)), 168.0 * math.sin(math.radians(150)), 112.0, (0.0, 0.0, 28.0)),
+        (168.0 * math.cos(math.radians(120)), 168.0 * math.sin(math.radians(120)), 112.0, (0.0, 0.0, 28.0)),
         (168.0 * math.cos(math.radians(210)), 168.0 * math.sin(math.radians(210)), 112.0, (0.0, 0.0, 28.0)),
-        (168.0 * math.cos(math.radians(330)), 168.0 * math.sin(math.radians(330)), 112.0, (0.0, 0.0, 28.0)),
         (0.0, -95.0, 185.0, (0.0, 0.0, 28.0)),
         (20.0, -40.0, -170.0, (0.0, 0.0, 8.0)),
     ]
     _render_views(scene, cam_obj, views_6, out_dir / "audit_6views_pbr.png", cols=3, rows=2, res_px=512, material_override=None)
     _render_views(scene, cam_obj, views_6, out_dir / "audit_6views_clay.png", cols=3, rows=2, res_px=512, material_override=mat_clay)
 
-    # Comparación directa FRONT (0° -> az 30° / frente inferior) vs BACK (180°) en PBR
+    # Comparación directa 2x2: Frente/Trasera PBR (arriba) + Frente/Trasera Arcilla CAD (abajo)
+    fx, fy = 152.0 * math.cos(math.radians(-60)), 152.0 * math.sin(math.radians(-60))
+    bx, by = 152.0 * math.cos(math.radians(120)), 152.0 * math.sin(math.radians(120))
     views_fb = [
-        (165.0 * math.cos(math.radians(-60)), 165.0 * math.sin(math.radians(-60)), 112.0, (0.0, 0.0, 29.0)),
-        (165.0 * math.cos(math.radians(120)), 165.0 * math.sin(math.radians(120)), 112.0, (0.0, 0.0, 29.0)),
+        (fx, fy, 92.0, (0.0, 0.0, 29.0)),
+        (bx, by, 92.0, (0.0, 0.0, 29.0)),
     ]
-    _render_views(scene, cam_obj, views_fb, out_dir / "audit_front_back_compare.png", cols=2, rows=1, res_px=768, material_override=None)
+    with tempfile.TemporaryDirectory() as td_fb:
+        tp_fb = Path(td_fb)
+        pbr_tmp = tp_fb / "fb_pbr.png"
+        clay_tmp = tp_fb / "fb_clay.png"
+        _render_views(scene, cam_obj, views_fb, pbr_tmp, cols=2, rows=1, res_px=640, material_override=None)
+        _render_views(scene, cam_obj, views_fb, clay_tmp, cols=2, rows=1, res_px=640, material_override=mat_clay)
+        im_pbr = bpy.data.images.load(str(pbr_tmp), check_existing=False)
+        im_clay = bpy.data.images.load(str(clay_tmp), check_existing=False)
+        arr_pbr = np.array(im_pbr.pixels[:], dtype=np.float32).reshape((640, 1280, 4))
+        arr_clay = np.array(im_clay.pixels[:], dtype=np.float32).reshape((640, 1280, 4))
+        bpy.data.images.remove(im_pbr)
+        bpy.data.images.remove(im_clay)
+        canvas_fb = np.concatenate([arr_clay, arr_pbr], axis=0)
+        out_fb = bpy.data.images.new("audit_front_back_pbr_clay", width=1280, height=1280, alpha=True)
+        out_fb.pixels.foreach_set(canvas_fb.ravel())
+        out_fb.filepath_raw = str(out_dir / "audit_front_back_pbr_clay.png")
+        out_fb.file_format = "PNG"
+        out_fb.save()
+        bpy.data.images.remove(out_fb)
 
     # Ortográfico cenital
     cam_obj.data.type = "ORTHO"
     cam_obj.data.ortho_scale = 138.0
     cam_obj.location = (0.0, 0.0, 180.0)
-    cam_obj.rotation_euler = (0.0, 0.0, 0.0)
+    cam_obj.rotation_euler = (0.0, 0.0, math.radians(-30.0))
     scene.render.resolution_x = 1024
     scene.render.resolution_y = 1024
     scene.render.filepath = str(out_dir / "audit_ortho.png")
@@ -410,6 +534,7 @@ def main() -> None:
     zs = [v.co.z for v in base_obj.data.vertices]
     metrics = {
         **topo,
+        **raw_san,
         "fit_info": fit_info,
         "bounds_mm": {
             "dx": round(max(xs) - min(xs), 4),

@@ -764,3 +764,24 @@ SESIÓN: 21/11/2026 - COMPARATIVA VISUAL Y DESACTIVACIÓN DE LAMINADO BAMBU POR 
   * Aclarada la superioridad estética del enfoque guiado por Nano Banana frente al intento procedural puro sin textura UV, así como la cuota gratuita real de ZeroGPU con `HF_TOKEN` (`300 s/día` -> ~2 piezas `TRELLIS.2`).
   * Desactivado el laminado automático en Bambu Studio por defecto en `AGENTS.md`, `.agents/rules/maker3d-architecture.md`, `.agents/skills/print-audit-and-webgl/SKILL.md` y `docs/ia/ESTADO.md`: `--bambu-slice` queda estrictamente bajo petición explícita, manteniendo las comprobaciones geométricas (`trimesh`, `PyMeshLab`, `Manifold3D`, `lib3mf`) y visores WebGL.
 ================================================================================
+
+
+================================================================================
+SESIÓN: 21/11/2026 - CONFIGURACIÓN HF_TOKEN Y DIAGNÓSTICO DE SPACES ZEROGPU (TRELLIS.2 / HUNYUAN3D)
+- Prompts literales del usuario:
+  * [21/11/2026 22:22]: "Dame un tutorial para sacar lo de trellis dos modelos al dia gratis"
+  * [21/11/2026 22:25]: "Este es el token, metelo tu: hf_[REDACTADO]"
+  * [21/11/2026 22:26]: "El problema con esa imagen es que por detras se generaron unas texturas de mierda. Ahora saldria mejor?"
+  * [21/11/2026 22:28]: "Busco el mejor resultado. Qué recomiendas"
+  * [21/11/2026 22:29]: "Pues adelante, procede. Si necesitas mas info dimelo"
+
+Decisiones técnicas y hallazgos verificados:
+- Configurado `.env` local (excluido por `.gitignore:37`) con `HF_TOKEN` del usuario y comprobado con `cloud_3d_bridge.py --doctor` (`ready: true`).
+- **Diagnóstico real de Spaces gratuitos HF ZeroGPU con `gradio_client`:**
+  * `microsoft/TRELLIS.2` completó `/start_session`, `/preprocess_image` y `/image_to_3d` con `HF_TOKEN`, pero su servidor remoto devolvió `AssertionError` dentro de `/extract_glb` (y el Space fallback `microsoft/TRELLIS` figura en `CONFIG_ERROR`). Causa identificada en su `app.py` / `gradio_client`: pérdida/desincronización del estado `gr.State` (`output_buf`) entre llamadas independientes o fallo interno en `o_voxel.postprocess.to_glb`.
+  * `tencent/Hunyuan3D-2mv` (`/generation_all` multivista frente+trasera) falló en el Space remoto tras ~13 s con `'Unknown format for load: ply'` (dependencia antigua del pipeline de reducción/textura en ese Space).
+  * `tencent/Hunyuan3D-2.1` (pipeline PBR nuevo vía `obj2gltf` sin `.ply`) rechazó la petición sin consumir cuota por reserva mínima (`270s requested vs. 247s left`), quedando **`247 s`** gratuitos disponibles en la cuenta del usuario hoy.
+- **Endurecimiento preventivo en código (`tools/generative/cloud_3d_bridge.py` y `tools/blender/fuse_generative_catan_tile.py`):**
+  * Eliminado el Space roto `microsoft/TRELLIS`, añadidos alias `hunyuan3d-mv` y `hunyuan3d-2.1`, corrección de tipos `int(...)` para `TRELLIS.2` y prioridad automática a `Hunyuan3D-2mv` cuando se aporta `--back-image`.
+  * Endurecido `fuse_generative_catan_tile.py`: fallback booleano `MANIFOLD -> EXACT`, flags `--tilt-x-deg` / `--tilt-y-deg`, filtrado BFS a componente conexa única, cierre de micro-agujeros, disolución degenerada `1e-6`, render previo `audit_raw_ai3d.png` y comparativa `audit_front_back_pbr_clay.png`.
+================================================================================

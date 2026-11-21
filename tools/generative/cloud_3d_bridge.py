@@ -22,8 +22,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 load_dotenv(REPO_ROOT / ".env", override=False)
 
 HF_SPACES: Dict[str, List[str]] = {
-    "trellis2": ["microsoft/TRELLIS.2", "microsoft/TRELLIS"],
+    "trellis2": ["microsoft/TRELLIS.2"],
     "hunyuan3d": ["tencent/Hunyuan3D-2.1", "tencent/Hunyuan3D-2"],
+    "hunyuan3d-2.1": ["tencent/Hunyuan3D-2.1"],
+    "hunyuan3d-mv": ["tencent/Hunyuan3D-2mv"],
     "hi3dgen": ["Stable-X/Hi3DGen"],
 }
 
@@ -133,7 +135,7 @@ def _run_trellis2_session(
         print(f"[hf-zero] {space_id} imagen preprocesada; generando geometría y PBR 3D ...")
         client.predict(
             image=prep_arg,
-            seed=float(seed),
+            seed=int(seed),
             resolution=str(resolution),
             ss_guidance_strength=7.5,
             ss_guidance_rescale=0.7,
@@ -151,8 +153,8 @@ def _run_trellis2_session(
         )
         print(f"[hf-zero] {space_id} extrayendo GLB ...")
         res = client.predict(
-            decimation_target=float(decimation),
-            texture_size=float(texture_size),
+            decimation_target=int(decimation),
+            texture_size=int(texture_size),
             api_name="/extract_glb",
         )
         glb = _find_glb_in_result(res)
@@ -171,7 +173,7 @@ def _run_hunyuan_session(
     left_image: Optional[Path] = None,
     right_image: Optional[Path] = None,
     seed: int = 42,
-    octree_resolution: int = 384,
+    octree_resolution: int = 320,
     hf_token: Optional[str] = None,
 ) -> Path:
     from gradio_client import Client, handle_file
@@ -184,12 +186,12 @@ def _run_hunyuan_session(
     ep = "/generation_all" if "/generation_all" in named else "/shape_generation"
     param_names = {p.get("parameter_name") for p in named[ep].get("parameters", []) if p.get("parameter_name")}
     kwargs: Dict[str, Any] = {
-        "steps": 30,
-        "guidance_scale": 5.0,
+        "steps": 20,
+        "guidance_scale": 5.5,
         "seed": seed,
         "octree_resolution": octree_resolution,
         "check_box_rembg": True,
-        "num_chunks": 8000,
+        "num_chunks": 20000,
         "randomize_seed": False,
     }
     if back_image or left_image or right_image:
@@ -242,8 +244,10 @@ def run_hf_zero(
     from gradio_client import Client, handle_file
 
     candidates = list(HF_SPACES.get(model, []))
-    if model == "hunyuan3d" and back_image and "tencent/Hunyuan3D-2mv" not in candidates:
-        candidates.append("tencent/Hunyuan3D-2mv")
+    if model == "hunyuan3d" and (back_image or left_image or right_image):
+        if "tencent/Hunyuan3D-2mv" in candidates:
+            candidates.remove("tencent/Hunyuan3D-2mv")
+        candidates.insert(0, "tencent/Hunyuan3D-2mv")
     if not candidates:
         raise ValueError(f"Modelo hf-zero desconocido: {model}. Usa: {list(HF_SPACES.keys())}")
     hf_token = os.environ.get("HF_TOKEN", "").strip() or None
