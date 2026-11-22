@@ -1033,3 +1033,19 @@ Resultados y métricas verificadas:
 - **Visor WebGL `4K HD Studio` (`Visores-HTML/catan-bioma-montana-hero360.html`):** `105,962,980 B -> 14,760,960 B` (`86.07%` ahorro), HTML autónomo de **`18.787 MB`**.
 - **Verificación visual completa en Chromium (`http://localhost:8792`, `0` errores consola/JS/HTTP):** inspeccionadas vistas `Isométrica 0°`, frontal directa PBR, zoom cercano frontal PBR y `Arcilla CAD`, espalda `~180°` PBR, y zoom cercano trasero `~180°` PBR y `Arcilla CAD`, junto con el showcase actualizado (`montana_hero360_showcase.md`).
 ================================================================================
+
+
+SESIÓN: 22/11/2026 - VERSIÓN SIN COMPRIMIR (--compress none) Y VERSIONADO ESTRICTO EN VISORES
+- Prompts literales del usuario:
+  * [22/11/2026 19:59]: "Podrias un momento dar una version de hero 360 que este sin comprimir? Por cierto, llevamos varias versiones y sigues llamandolas a todas hero 360. Es una mierda pq eso anula el sistema de versiones"
+- Objetivo: Añadir soporte `--compress none` en el constructor WebGL para generar una versión `v04-raw` totalmente sin comprimir (float32 + PNG 4K sin Meshopt ni WebP), y corregir el protocolo y el archivado del proyecto para versionar cada iteración de forma incremental (`-vNN-<etiqueta>` + `versiones/vNN_<etiqueta>/`) sin sobrescribir nunca builds anteriores.
+
+Decisiones técnicas y archivos creados/modificados:
+- **`tools/webgl/optimize_and_build_viewer.py`:** Añadida la opción `--compress none` (`choices=["meshopt", "draco", "none"]`) en `optimize_glb` y `main`; cuando se selecciona `none`, omite `gltf-transform optimize`, devuelve `compress: "raw+png (uncompressed)"`, `savings_pct: 0.0`, y embebe los bytes exactos del GLB fuente (`105,962,980 B`) sin recorte alguno.
+- **`.gitignore`:** Añadidas las reglas `Visores-HTML/*-raw.html` y `Visores-HTML/*-uncompressed.html` bajo `!Visores-HTML/*.html` para preservar los HTML pesados sin comprimir (`> 50 MB`) en local sin romper el límite de GitHub.
+- **`AGENTS.md`:** Actualizada la regla `Visores HTML y Versionado Estricto` exigiendo sufijo de versión incremental (`-v01-...`, `-v02-...`, `-v03-meshopt`, `-v04-raw`) y archivado en `versiones/vNN_<etiqueta>/` sin sobrescribir iteraciones previas.
+- **Versionado y generación de artefactos (`montana_hero360`):**
+  * Preservada la entrega anterior (`19,699,909 B` / `18.787 MB`) como `Visores-HTML/catan-bioma-montana-hero360-v03-meshopt.html` y archivada en `Tableros-Catan/pipeline-biomas/montana_hero360/versiones/v03_2p52m_4k_meshopt/`.
+  * Generada la nueva versión sin comprimir `Visores-HTML/catan-bioma-montana-hero360-v04-raw.html` (`134.757 MB` / `141,302,663 B`, GLB `105,962,980 B` `0.0%` compresión) y archivada en `Tableros-Catan/pipeline-biomas/montana_hero360/versiones/v04_2p52m_4k_raw/`.
+- **Verificación visual en Chromium headless (`http://localhost:8793`):** Carga íntegra de `catan-bioma-montana-hero360-v04-raw.html` (`134.76 MB`), `0` errores de consola, `0` errores de página, `0` errores HTTP en `8` peticiones de red, HUD verificado (`2.521.320` triángulos, `103479.5 KB`, `HTML Total: 134.76 MB`) e inspección visual directa de la captura `final_step_6.png`.
+================================================================================

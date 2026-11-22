@@ -436,12 +436,24 @@ def optimize_glb(
     simplify_ratio: float | None = None,
     no_simplify: bool = False,
 ) -> Dict[str, float | str]:
+    raw_bytes = in_glb.stat().st_size
+    if compress == "none":
+        import shutil
+        if in_glb.resolve() != out_glb.resolve():
+            shutil.copy2(in_glb, out_glb)
+        return {
+            "raw_bytes": raw_bytes,
+            "opt_bytes": raw_bytes,
+            "raw_kb": round(raw_bytes / 1024.0, 2),
+            "opt_kb": round(raw_bytes / 1024.0, 2),
+            "savings_pct": 0.0,
+            "compress": "raw+png (uncompressed)",
+        }
+
     webgl_tools = tp.find_webgl_tools()
     cli = webgl_tools.get("gltf_transform_cmd")
     if not cli or not Path(cli).exists():
         raise FileNotFoundError("gltf-transform.cmd no encontrado en tools/webgl/node_modules/.bin")
-
-    raw_bytes = in_glb.stat().st_size
     cmd = [
         cli,
         "optimize",
@@ -487,17 +499,29 @@ def build_viewer_html(
 ) -> Dict[str, float | str]:
     out_html.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp_d:
-        opt_glb = save_opt_glb or (Path(tmp_d) / f"{in_glb.stem}_opt.glb")
-        stats = optimize_glb(
-            in_glb=in_glb,
-            out_glb=opt_glb,
-            compress=compress,
-            texture_format=texture_format,
-            max_texture_size=max_texture_size,
-            simplify_ratio=simplify_ratio,
-            no_simplify=no_simplify,
-        )
-        glb_b64 = base64.b64encode(opt_glb.read_bytes()).decode("ascii")
+        if compress == "none" and not save_opt_glb:
+            stats = optimize_glb(
+                in_glb=in_glb,
+                out_glb=in_glb,
+                compress="none",
+                texture_format=texture_format,
+                max_texture_size=max_texture_size,
+                simplify_ratio=simplify_ratio,
+                no_simplify=no_simplify,
+            )
+            glb_b64 = base64.b64encode(in_glb.read_bytes()).decode("ascii")
+        else:
+            opt_glb = save_opt_glb or (Path(tmp_d) / f"{in_glb.stem}_opt.glb")
+            stats = optimize_glb(
+                in_glb=in_glb,
+                out_glb=opt_glb,
+                compress=compress,
+                texture_format=texture_format,
+                max_texture_size=max_texture_size,
+                simplify_ratio=simplify_ratio,
+                no_simplify=no_simplify,
+            )
+            glb_b64 = base64.b64encode(opt_glb.read_bytes()).decode("ascii")
 
     # Primera pasada estimada para conocer tamaño HTML final y rellenar marcador exacto
     safe_title = html.escape(title)
@@ -528,7 +552,7 @@ def main() -> None:
     parser.add_argument("--input", required=True, help="Archivo .glb de entrada")
     parser.add_argument("--out-html", required=True, help="Ruta HTML de salida")
     parser.add_argument("--title", default="Maker3D 2.0 — Visor WebGL PBR")
-    parser.add_argument("--compress", choices=["meshopt", "draco"], default="meshopt")
+    parser.add_argument("--compress", choices=["meshopt", "draco", "none"], default="meshopt")
     parser.add_argument("--texture-format", choices=["webp", "ktx2", "avif"], default="webp")
     parser.add_argument("--max-texture-size", type=int, default=4096)
     parser.add_argument("--simplify-ratio", type=float, default=None)

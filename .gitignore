@@ -71,6 +71,8 @@ Thumbs.db
 *.jpg
 *.jpeg
 !Visores-HTML/*.html
+Visores-HTML/*-raw.html
+Visores-HTML/*-uncompressed.html
 Tableros-Catan/pipeline-biomas/*/versiones/
 *.zip
 tools/smoke_test_out/
