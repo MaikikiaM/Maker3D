@@ -976,3 +976,15 @@ Resultados y métricas verificadas:
 - **Visor WebGL 4K (`Visores-HTML/catan-bioma-montana-hero360.html`):** Generado con `--max-texture-size 4096 --no-simplify` (`74,559,188 B -> 11,242,840 B`, `84.92%` ahorro, HTML autónomo de `14.312 MB`).
 - **Verificación en Chromium headless (`http://localhost:8789/catan-bioma-montana-hero360.html`):** `0` errores de consola/página/HTTP (`8/8` peticiones `200 OK`); verificadas capturas de vista frontal `0°` PBR, zoom cercano frontal `PBR`, zoom cercano frontal `Arcilla CAD`, espalda `~180°` `Arcilla CAD`, espalda `~180°` `PBR` y zoom cercano de ladera/borde trasero `~180°` PBR sin facetas, dientes de sierra ni borde gris.
 ================================================================================
+
+SESIÓN: 22/11/2026 - SHOWCASE VISUAL COMPLETO Y CIERRE DE AUDITORÍA 360° (/goal)
+- Prompts literales del usuario:
+  * [22/11/2026 14:00]: "Saca todo y te doy mi opinion /goal "
+- Objetivo: Recopilar y verificar en navegador headless todas las vistas restantes de `montana_hero360` (`Planta`, `Inferior / Imán`, zoom trasero `~180° Arcilla CAD`) más la comparativa directa frente a `preview-montana-v4-nanobanana.html`, y consolidar todas las capturas, renders Cycles 4K y enlaces de entregables en un reporte visual (`montana_hero360_showcase.md`).
+
+Acciones y verificaciones realizadas:
+- **Captura integral en Chromium headless (`http://localhost:8790` — `0` errores JS/HTTP en ambos visores):**
+  * `catan-bioma-montana-hero360.html`: capturadas vistas `Planta`, `Inferior / Imán` (cavidad Ø10.20×5.20 mm limpia) y zoom cercano espalda `~180° Arcilla CAD`.
+  * `preview-montana-v4-nanobanana.html` (`4,637,626` tris): capturadas vistas `0°` frontal y `~180°` espalda para comparativa directa frente a `Hero 360°`.
+- **Artefacto Showcase (`montana_hero360_showcase.md`):** Empaquetadas 15 imágenes verificadas (`audit_*` Cycles 4K + 9 capturas WebGL `Hero 360` + 2 capturas `V4`) junto con métricas de auditoría y enlaces directos a `.html`, `.3mf`, `.stl` y `.glb`.
+================================================================================
