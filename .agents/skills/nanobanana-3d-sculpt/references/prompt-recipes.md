@@ -72,3 +72,22 @@ silhouette, chunky 3D-printable proportions (no hair-thin antennas or floating
 parts), sharp beveled armor/architectural panel lines, uniform scale across all
 three views.
 ```
+
+---
+
+## 5. Single-View → Multi-View Partial-Texture Completion Pass (Branch C)
+> Pass BOTH: (1) `partial_view_XXX.png` (3D clay render at `XXX°` with already-projected `0°` texture on visible edges + gray clay on blind faces) and (2) the original `0°` hero reference image so Nano Banana extends the exact same material palette, fracture crispness, and lighting seamlessly onto the gray clay without shifting the silhouette.
+
+```text
+Complete the unpainted gray 3D clay areas in Image 1 (angle [XXX]° studio render)
+so they seamlessly match the already-painted edges in Image 1 and the exact artistic
+style, rock fracture crispness, color palette, and flat diffuse studio lighting of
+Image 2 (the 0° hero reference). Strictly preserve the EXACT 3D silhouette, peaks,
+ridges, valleys, dark gunmetal hexagonal plinth, and 6 corner pads of Image 1 with
+ZERO extra peaks, ZERO shifted outlines, and ZERO background changes. Paint crisp
+[MATERIAL/BIOME DETAILS, e.g., fractured cold steel-grey granite crags, clean white
+snow settled naturally in high concave bowls, warm olive-moss meadow foothills, and
+scattered small stones] over every gray clay region so the painted edges and newly
+painted areas fuse invisibly under uniform flat studio light with zero harsh cast
+shadows.
+```
