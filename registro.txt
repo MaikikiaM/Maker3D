@@ -988,3 +988,20 @@ Acciones y verificaciones realizadas:
   * `preview-montana-v4-nanobanana.html` (`4,637,626` tris): capturadas vistas `0°` frontal y `~180°` espalda para comparativa directa frente a `Hero 360°`.
 - **Artefacto Showcase (`montana_hero360_showcase.md`):** Empaquetadas 15 imágenes verificadas (`audit_*` Cycles 4K + 9 capturas WebGL `Hero 360` + 2 capturas `V4`) junto con métricas de auditoría y enlaces directos a `.html`, `.3mf`, `.stl` y `.glb`.
 ================================================================================
+
+SESIÓN: 22/11/2026 - AUDITORÍA CRÍTICA DE RESOLUCIÓN 4K, ATLAS UV Y SOMBRAS WEBGL (`/learn`)
+- Prompts literales del usuario:
+  * [22/11/2026 14:05]: "El HTML montaña hero 360 es el nuevo achivo?"
+  * [22/11/2026 14:07]: "Si te das cuenta aun no ha logrado la espectacularidad que deberia. Razona por que, reflexionalo y te tiro un barra learn"
+  * [22/11/2026 14:08]: "Pero tb hay una falta de calidad total eh. Hay muy poca resolucion"
+  * [22/11/2026 14:10]: "/learn "
+  * [22/11/2026 14:12]: (Aprobación de `learning_proposal.md` en UI)
+- Objetivo: Aislar las causas raíz exactas de la diferencia visual entre `montana_hero360` (`1.88M` / `14.31 MB`) y `preview-montana-v4-nanobanana.html` (`4.64M` / `30.4 MB`), y persistir vía `/learn` los estándares de atlas UV dedicado, super-resolución de cámaras fuente, micro-detalle e iluminación WebGL con sombras reales en reglas y skills.
+
+Hallazgos medidos y cambios persistidos:
+- **Medición de resolución y atlas UV:** Confirmado que `hero_nanobanana.jpg` y `views/view_000..300.png` tienen origen `1024×1024` (~`5 px/mm`), y que [baked_albedo.png](Tableros-Catan/pipeline-biomas/montana_hero360/baked_albedo.png) (`4096×4096`) desperdiciaba `38.7%` en fondo negro vacío y `35.0%` en `Plinth_Gunmetal`, dejando solo `26.3%` (`~4.4 Mpx`) para todo el relieve 360°; además `optimize_and_build_viewer.py` tenía `shadowMap` desactivado con exceso de luz ambiente (`RoomEnvironment 0.55` + `HemisphereLight 0.72` + `fillLight 0.70`) y zócalo sin anillos CAD ni oscuridad suficiente.
+- **`.agents/rules/maker3d-architecture.md`:** Añadidos guardrails de presupuesto real de texels `4K` (prohibido proyectar `1024×1024` crudo sin super-resolución/micro-detalle, separar UV del zócalo para dedicar `>= 80%` del atlas `4K` al terreno) y obligatoriedad de `PCFSoftShadowMap` + iluminación direccional contrastada en visores WebGL.
+- **`.agents/skills/blender-sculpt-bake/SKILL.md`:** Actualizada sección `§4` con subdivisión adaptativa (`> 0.24 mm`), `use_smooth=True` exclusivo del relieve, aislamiento UV de zócalo `#1E2228` vs terreno (`>= 80%` del mapa `4K`), super-resolución/micro-grano mineral sin suavizado `W_cams` sobre `0°`, esculpido bilineal e interfaz limpia en `ROAD_MARGIN` sin `rim_pull` radial estirado.
+- **`.agents/skills/print-audit-and-webgl/SKILL.md`:** Añadido estándar de iluminación de estudio (`PCFSoftShadowMap 2048×2048`, `bias=-0.00025`, `normalBias=0.08`, sol rasante, `RoomEnvironment <= 0.15`, rugosidad diferenciada en grietas y peana pizarra oscura).
+- **`.agents/skills/nanobanana-3d-sculpt/SKILL.md`:** Actualizado paso 4 de Branch C alineándolo con aislamiento UV `4K`, super-resolución de cámaras `1024×1024` y sombras `PCFSoftShadowMap`.
+================================================================================

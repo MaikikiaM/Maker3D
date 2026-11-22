@@ -28,5 +28,5 @@ Suite modular CAD/Mesh/Escultura 3D con IA (**Maker3D 2.0**) para piezas paramé
 - Los **8/8 biomas Catán** (`Montaña V4/DEF/Centrada V3`, `Bosque 3D`, `Colinas`, `Pastos`, `Campos`, `Desierto`, `Río de Oro v08`, `Océano`), visores en `Visores-HTML/` y la skill `.agents/skills/nanobanana-3d-sculpt/` permanecen intactos y plenamente operativos.
 
 ## Próximas Tareas Prioritarias
-1. Revisar con el usuario la nota visual de `montana_hero360` (frente, espalda `180°` y `Arcilla CAD`) y, tras validación, replicar `montana_hero360_prep.py` + `tools/blender/catan_hero360_bake.py` al resto de biomas Catán.
+1. Aplicar los criterios persistidos vía `/learn` en `catan_hero360_bake.py` y `optimize_and_build_viewer.py` (aislamiento UV `>=80%` terreno vs zócalo `#1E2228`, super-resolución/micro-detalle `2K–4K`, sombras `PCFSoftShadowMap` e iluminación direccional) y re-hornear `montana_hero360` antes de replicar al resto de biomas Catán.
 2. Opcional para el usuario: añadir `FAL_KEY` o `REPLICATE_API_TOKEN` en `.env` solo si desea superar el límite diario gratuito de ZeroGPU (`300 s/día`, ya conectado con `HF_TOKEN`).
