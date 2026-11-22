@@ -812,3 +812,55 @@ Métricas verificadas (`Tableros-Catan/pipeline-biomas/montana_trellis2/`):
 - **Pesos:** `tile_master.stl` = `67.815 MB` (`71,109,284 B`), `tile_viewer.glb` crudo = `151.008 MB` (`158,343,072 B`), `catan_montana_trellis2.3mf` (`lib3mf`) = `22.255 MB` (`23,336,202 B`).
 - **Visor WebGL + Verificación en Chromium headless (`Visores-HTML/catan-bioma-montana-trellis2.html`):** compresión `Meshopt+WebP 2048` (`154,631.9 KB → 33,596.2 KB`, `78.27%` ahorro), HTML autónomo `43.761 MB` (`< 50 MB`). Verificado en `http://127.0.0.1:8767/` (`1,422,155 Δ`, `110.9×128.0×64.4 mm`): texturas PBR nítidas en frente y tras rotación ~180° por detrás (sin manchas ni píxeles estirados), operativos `Arcilla CAD`, `Wireframe`, `Corte Z` (`30.0 mm`), `Inferior / Imán` e `Isométrica`; `0` errores de consola, `0` excepciones JS y `0/8` peticiones fallidas.
 ================================================================================
+
+
+================================================================================
+SESIÓN: 22/11/2026 - DIAGNÓSTICO INVALID_MEDIA, PROTOCOLO BRANCH C EN NANOBANANA-3D-SCULPT Y MONTAÑA GRANITO V5
+- Prompts literales del usuario:
+  * [22/11/2026 00:28]: "Trajectory ID: 5b0b18bd-d30b-4394-88da-190f0c04ec99
+Error: HTTP 400 Bad Request
+Sherlog: 
+TraceID: 0xa4a645f9c0d3a9a7
+Headers: {"Alt-Svc":["h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000"],"Content-Length":["422"],"Content-Type":["text/event-stream"],"Date":["Sat, 21 Nov 2026 23:26:30 GMT"],"Server":["ESF"],"Server-Timing":["gfet4t7; dur=5449"],"Vary":["Origin","X-Origin","Referer"],"X-Cloudaicompanion-Trace-Id":["a4a645f9c0d3a9a7"],"X-Content-Type-Options":["nosniff"],"X-Frame-Options":["SAMEORIGIN"],"X-Xss-Protection":["0"]}
+
+{
+  "error": {
+    "code": 400,
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "error_number": "2011"
+        },
+        "reason": "INVALID_MEDIA"
+      }
+    ],
+    "message": "Unable to process input: the file or media data is empty, corrupted, or malformed.",
+    "status": "INVALID_ARGUMENT"
+  }
+}
+Que esta pasando aqui"
+  * [22/11/2026 00:30]: "Y sabes qué estabamos hablando exactamente en la conversacion anterior?"
+  * [22/11/2026 00:31]: "No has especificado suficientemente qué estabamos haciendo. Especifica aun mas el objetivo"
+  * [22/11/2026 00:33]: "En efecto. Te ves capaz? Me preocupa que ya fueras un poc desviado porque viendo la foto del albedo ya se ve un bajon de caldiad muy importante"
+  * [22/11/2026 00:37]: "De hecho, si te das cuenta en la V4 justo la parte de calidad 9/10 se ve 9/10 el albedo y la parte que no es 9/10 se ve como estaba el albedo del nuevo diseño. En v5texturesvshero tb debo decir que ademas de fatar nieve la calidad es algo deficiente, se ha perdido mucho por el camino. Clayvshero y v5albedo son, en efecto, horribles"
+  * [22/11/2026 00:39]: "De hecho, en las 6 views de la montaña todo lo que no sea la perspectiva inicial es horrible, empeora a cada momento. Seguramente haga falta apoyo por parte de nano banana para completar las partes no visibles. La skill 3d deberia incluir precisamente ese tipo de cosas, como si solo tenemos una perspectiva, rellenar el resto con llamadas a nano banana y correcciones muy detalladas por parte del ya modelo workhorse (en este caso Hydrogen 4) para empastar de forma *PERFECTA* todo"
+  * [22/11/2026 00:40]: "Si, procede y demuestrame qué resultados consigue /goal "
+- Objetivo: Diagnosticar el fallo `INVALID_MEDIA` de la sesión `46954104-c3d5-4b73-9839-08a3a662aa2f`, formalizar en `.agents/skills/nanobanana-3d-sculpt/` el protocolo Branch C (completado multi-vista 360° desde una única perspectiva hero guiado por arcilla + textura parcial y empaste `Winner-Takes-Most` supervisado por el modelo workhorse), y reconstruir desde cero `montana_granito_v5` demostrando la mejora en las 6 vistas, malla estanca y visor WebGL.
+
+Decisiones técnicas y cambios implementados:
+- **Diagnóstico de `46954104-c3d5-4b73-9839-08a3a662aa2f`:** Confirmado en `transcript_full.jsonl` que en el paso `1346` se ejecutó `read_file` sobre `montana_granito_v5_albedo_4k.png` mientras `task-1345` aún lo escribía, dejando un PNG truncado (`393,317 B`, `incomplete checksum in b'IDAT'`) en `step_1347_media_0.png` y causando el bucle `HTTP 400 INVALID_MEDIA` con el stop hook de `/goal`.
+- **Actualización de Skill `.agents/skills/nanobanana-3d-sculpt/`:**
+  * Añadida **Branch C (Single-Perspective Hero-to-360° Completion)** en `SKILL.md`: bloqueo de cámara + arcilla antes de texturizar, generación secuencial de vistas faltantes guiadas por `Clay + Partial-Texture` (`partial_view_XXX.png`), auditoría visual por cada vista (`read_file`), erosión de silueta `3–5 px` (cero halos y cero borrado de nieve por luminancia) y fusión `Winner-Takes-Most` (`ndotv^3.4`).
+  * Añadida **Receta 5** en `references/prompt-recipes.md` para pasadas de completado multi-vista ancladas a textura parcial + referencia hero `0°`.
+- **Reconstrucción completa de `Tableros-Catan/pipeline-biomas/montana_granito_v5_sculpt.py`:**
+  * **Stage 1 (`--stage clay`):** Eliminadas las estrías horizontales (`sin(base_rock*1.15)`) y las aletas estrechas (`rib_amp=0.24 -> 0.04`); reconstruido el macizo con núcleo piramidal sólido estilo V4, crestas prismáticas anchas, bastión frontal bajo para despejar el circo glaciar nevado central y estribaciones traseras 360° (`Z=[25.00, 70.20] mm`, `skyline MAE=2.74 px`).
+  * **Stage 2 Multi-Vista (`--stage guide-180` + `--stage guide-sides`):** Proyectada la vista hero `0°` (`hero_sq.png`, `view_cov=0.388`) para generar `partial_view_180.png` (zócalo gunmetal + arcilla suave + bordes `0°` pintados); generado y validado `view_180_nb.png` con Nano Banana (`IoU 0.9339`), y con `0°+180°` (`73.2%` cobertura) generadas las 4 guías de flanco (`060°`, `120°`, `240°`, `300°`) y completadas con 4 llamadas paralelas a `image-generator` (`IoU 0.954–0.982`).
+  * **Stage 3 (`--stage fuse`):** Corregido `np.flipud(hm_norm)` al exportar `montana_granito_v5_hm_2k.npy` (estaba invertido respecto a `build_catan_biome.py`), implementada armonización cromática en solapes, erosión `3 px` (`0°`) / `5 px` (NB) + filtro `is_low_sky`, fusión `Winner-Takes-Most` (`94.93%` cobertura fotográfica real) e inpainting armónico multiescala solo en el `5.07%` de micro-rendijas ocultas.
+  * **Compilación CAD + WebGL (`build_catan_biome.py`):** Esculpido físico `2D → 3D` (`--sculpt-from-albedo 0.85 --sculpt-crown-mm 0.165 --snow-smooth-sculpt --tangent-norm --photoreal --keep-dark-rock --preserve-bezel --triplanar-mode alpine_crisp --init-cam south30 --stl-nx 700 --nx 390`).
+
+Resultados y métricas verificadas:
+- **Auditoría `tools/audit/mesh_and_print_audit.py --catan-check --export-3mf` (`exit 0`, sin laminar):** `repaired=false`, `1,721,039 V / 3,442,074 Δ`, `is_watertight=true`, `euler_number=2` (`genus=0`), `degenerate_faces=0`, `volume_cm3=342.154`, `overhang_gt_deg_pct=0.0%`, `thin_wall_lt_2nozzle_pct=0.0%`, `manifold_status=Error.NoError`, `pymeshlab_non_manifold_edges=0`, `pymeshlab_boundary_edges=0`, `pymeshlab_connected_components=1`, `catan_dims_ok=true` (`110.8512 × 128.0 × 70.2078 mm`), `magnet_cavity_ok=true` (`5.2 mm`), `pads_flat_25mm_ok=true` (`6/6` pads `25.0 mm`), `catan_montana_granito_v5.3mf` (`52,771,516 B` = `50.33 MB`).
+- **Visor WebGL (`Visores-HTML/catan-bioma-montana-granito-v5.html`, `20.20 MB`):** Verificado en navegador vivo (`http://127.0.0.1:8769/catan-bioma-montana-granito-v5.html`): `1,203,220` triángulos WebGL (`3,442,074` Master), `0` errores de consola/JS/WebGL, `0` peticiones fallidas; verificadas vistas frontal `0°` PBR, trasera `~180°` PBR y modo `Arcilla CAD` (micro-relieve 3D físico nítido).
+================================================================================

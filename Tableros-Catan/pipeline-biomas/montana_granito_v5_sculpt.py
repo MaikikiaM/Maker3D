@@ -409,20 +409,22 @@ def project_view_clean(Z_2k, X, Y, dist_h, dist_v, dx, view_rgb, view_cam_p, min
     vdir /= np.linalg.norm(vdir, axis=-1, keepdims=True)
     ndotv = nx_g * vdir[..., 0] + ny_g * vdir[..., 1] + nz_g * vdir[..., 2]
 
-    # Guard outer rim against dark slate plinth pixels (without ever touching white snow inside mountain!)
+    # Guard outer rim against dark slate plinth pixels & low-altitude studio sky bleed (never touching high snow!)
     lum_v = 0.2126 * view_rgb[..., 0] + 0.7152 * view_rgb[..., 1] + 0.0722 * view_rgb[..., 2]
     sat_v = np.max(view_rgb, axis=-1) - np.min(view_rgb, axis=-1)
     rel_z_m = np.maximum(0.0, Z_2k - Z_BASE)
     warm_chroma = view_rgb[vi, ui, 0] + view_rgb[vi, ui, 1] - 2.0 * view_rgb[vi, ui, 2]
-    is_slate = (warm_chroma < 0.04) & (lum_v[vi, ui] < 0.42) & (sat_v[vi, ui] < 0.09) & (rel_z_m < 3.2) & ((dist_h < 9.5) | (dist_v < 13.5))
+    is_slate = (warm_chroma < 0.05) & (lum_v[vi, ui] < 0.50) & (sat_v[vi, ui] < 0.11) & (rel_z_m < 4.5) & ((dist_h < 12.0) | (dist_v < 15.5))
+    is_low_sky = (lum_v[vi, ui] > 0.66) & (sat_v[vi, ui] < 0.06) & (rel_z_m < 4.8) & ((not is_hero) or (dist_h < 9.0))
 
     vis_raw = (
         hit_ter_safe[vi, ui]
         & (dist_grid <= cam_dist_1k[vi, ui] + 0.35)
-        & (dist_h >= 4.4)
-        & (dist_v >= 10.7)
+        & (dist_h >= 4.5)
+        & (dist_v >= 10.8)
         & (ndotv > min_ndotv)
         & (~is_slate)
+        & (~is_low_sky)
     )
     vis_er = ndi.binary_erosion(vis_raw, iterations=2)
     lbl_v, n_v = ndi.label(vis_er)
@@ -813,12 +815,12 @@ def blend_views_winner_takes_most(Z_2k, X, Y, dist_h, dist_v, dx, cam_p, views):
     for ang, rgb, is_hero in views:
         vcam = cam_p if ang == 0.0 else compute_cam_p_angle(cam_p, ang)
         delit, vis_w, ndotv, vc = project_view_clean(
-            Z_2k, X, Y, dist_h, dist_v, dx, rgb, vcam, min_ndotv=0.22, erode_px=3, is_hero=is_hero
+            Z_2k, X, Y, dist_h, dist_v, dx, rgb, vcam, min_ndotv=(0.14 if is_hero else 0.22), erode_px=(3 if is_hero else 5), is_hero=is_hero
         )
-        # Winner-takes-most weight: perpendicular views dominate cleanly without ghosting
-        wt = vis_w * np.power(np.clip(ndotv, 0.0, 1.0), 3.2)
+        # Winner-takes-most weight: perpendicular views dominate cleanly, with ground-truth 0-deg boosted on front
+        wt = vis_w * np.power(np.clip(ndotv, 0.0, 1.0), 3.4)
         if is_hero:
-            wt *= 1.35
+            wt *= 2.6
 
         if not is_hero and np.any(acc_den > 0.08):
             cur_est = acc_num / np.maximum(acc_den[..., None], 1e-5)
@@ -836,7 +838,8 @@ def blend_views_winner_takes_most(Z_2k, X, Y, dist_h, dist_v, dx, cam_p, views):
         cov_i = float(vc[dist_h >= 4.2].mean())
         print(f"    Projected {ang:03.0f} deg (is_hero={is_hero}): view_cov={cov_i:.3f}")
 
-    w_cov = np.clip(acc_den / 0.18, 0.0, 1.0)
+    # Smooth continuous transition weight across covered regions
+    w_cov = np.clip(ndi.gaussian_filter(np.clip(acc_den / 0.10, 0.0, 1.0), sigma=2.0), 0.0, 1.0)
     w_cov = np.maximum(w_cov, vis_max)
     albedo_views = np.where(acc_den[..., None] > 1e-4, acc_num / np.maximum(acc_den[..., None], 1e-4), 0.5)
     return np.clip(albedo_views, 0.0, 1.0).astype(np.float32), np.clip(w_cov, 0.0, 1.0).astype(np.float32), acc_den
@@ -914,14 +917,19 @@ def run_stage_fuse():
     cov_pct = float((w_cov > 0.25)[in_ter].mean()) * 100.0
     print(f"    Multi-view photographic coverage across terrain: {cov_pct:.2f}%")
 
-    valid_px = (acc_den > 0.08) & in_ter
+    valid_px = (acc_den > 0.06) & in_ter
     if np.any(valid_px) and not np.all(valid_px[in_ter]):
+        # Harmonic multi-scale diffusion inpainting for tiny residual occluded crevices (zero polygon edges!)
         _, nn_idx = ndi.distance_transform_edt(~valid_px, return_indices=True)
-        nearest_fill = albedo_views[nn_idx[0], nn_idx[1]]
-        # Subtle fine granite grain on tiny occluded pockets so they never look flat
-        f_crev = ridge_fbm(X, Y, [0.9, 2.1], [0.55, 0.45], seed=709)
-        nearest_fill = np.clip(nearest_fill * (0.90 + 0.14 * f_crev[..., None]), 0.0, 1.0)
-        albedo_2k = albedo_views * w_cov[..., None] + nearest_fill * (1.0 - w_cov[..., None])
+        fill_col = albedo_views[nn_idx[0], nn_idx[1]].copy()
+        for sig in (10.0, 5.0, 2.5):
+            sm_fill = ndi.gaussian_filter(fill_col, (sig, sig, 0.0))
+            fill_col = np.where(valid_px[..., None], albedo_views, sm_fill)
+        f_crev = ridge_fbm(X, Y, [0.95, 2.25], [0.55, 0.45], seed=709)
+        fill_col = np.clip(fill_col * (0.92 + 0.12 * f_crev[..., None]), 0.0, 1.0)
+        w_smooth = np.clip(ndi.gaussian_filter(valid_px.astype(np.float32), sigma=3.0), 0.0, 1.0)
+        w_blend = np.maximum(w_cov, w_smooth)
+        albedo_2k = albedo_views * w_blend[..., None] + fill_col * (1.0 - w_blend[..., None])
     else:
         albedo_2k = albedo_views
 
@@ -942,16 +950,19 @@ def run_stage_fuse():
     slate_col = np.clip(slate_col + (rim_hi - curb_sh - pad_groove + pad_hi)[..., None], 0.06, 0.30)
     albedo_2k = albedo_2k * (1.0 - collar[..., None]) + slate_col * collar[..., None]
 
-    # Export canonical 2K .npy heightmap & 4K crisp PNG albedo
+    # Export canonical 2K .npy heightmap (np.flipud to match Y-down PNG convention of build_catan_biome.py!) & 4K sharpened PNG albedo
     hm_norm = np.clip((Z_2k - Z_BASE) / RELIEF_MM, 0.0, 1.0) * 255.0
-    np.save(os.path.join(WORK_DIR, "montana_granito_v5_hm_2k.npy"), hm_norm.astype(np.float32))
+    np.save(os.path.join(WORK_DIR, "montana_granito_v5_hm_2k.npy"), np.flipud(hm_norm).astype(np.float32))
     Image.fromarray(np.flipud(np.clip(hm_norm * 257.0, 0, 65535).astype(np.uint16)), mode="I;16").save(
         os.path.join(WORK_DIR, "montana_granito_v5_hm_16bit.png")
     )
 
     alb_4k = Image.fromarray(np.flipud((np.clip(albedo_2k, 0, 1) * 255).astype(np.uint8))).resize((4096, 4096), Image.LANCZOS)
+    a4 = np.asarray(alb_4k, dtype=np.float32) / 255.0
+    blur4 = ndi.gaussian_filter(a4, (1.3, 1.3, 0.0))
+    a4_sharp = np.clip(a4 + 0.42 * (a4 - blur4), 0.0, 1.0)
     alb_4k_path = os.path.join(WORK_DIR, "montana_granito_v5_albedo_4k.png")
-    alb_4k.save(alb_4k_path)
+    Image.fromarray((a4_sharp * 255.0).astype(np.uint8)).save(alb_4k_path)
 
     # Render textured parity & 6-view turnaround audits
     img0, _, _, _, _, _, _, _, _, _ = ray_march_heightfield(Z_2k, cam_p, out_w=512, out_h=512, tex_rgb=albedo_2k, sun_rel=True)
