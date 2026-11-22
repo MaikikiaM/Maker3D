@@ -1038,6 +1038,7 @@ Resultados y métricas verificadas:
 SESIÓN: 22/11/2026 - VERSIÓN SIN COMPRIMIR (--compress none) Y VERSIONADO ESTRICTO EN VISORES
 - Prompts literales del usuario:
   * [22/11/2026 19:59]: "Podrias un momento dar una version de hero 360 que este sin comprimir? Por cierto, llevamos varias versiones y sigues llamandolas a todas hero 360. Es una mierda pq eso anula el sistema de versiones"
+  * [22/11/2026 20:07]: "Vale, sin comprimir y comprimido se ve exactamente igual"
 - Objetivo: Añadir soporte `--compress none` en el constructor WebGL para generar una versión `v04-raw` totalmente sin comprimir (float32 + PNG 4K sin Meshopt ni WebP), y corregir el protocolo y el archivado del proyecto para versionar cada iteración de forma incremental (`-vNN-<etiqueta>` + `versiones/vNN_<etiqueta>/`) sin sobrescribir nunca builds anteriores.
 
 Decisiones técnicas y archivos creados/modificados:
