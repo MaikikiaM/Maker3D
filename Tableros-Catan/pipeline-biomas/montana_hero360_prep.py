@@ -3,6 +3,7 @@ Prepara geometria Hero V4 enriquecida solo en cara oculta norte + guias Clay+Par
 para completado 360° Nano Banana (montana_hero360 -> Blender Cycles Smart UV 3D).
 """
 import argparse
+import json
 import math
 import os
 import sys
@@ -13,6 +14,7 @@ from PIL import Image, ImageDraw, ImageFont
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
 sys.path.insert(0, SCRIPT_DIR)
+sys.path.insert(0, os.path.join(REPO_ROOT, "tools"))
 import montana_sculpt_v4 as v4
 import montana_granito_v5_sculpt as v5
 
@@ -222,15 +224,145 @@ def run_prep_sides(view_180_path: str):
     print(f"[PrepSides Done] Saved 060/120/240/300 partial guides in {GUIDES_DIR}")
 
 
+def _cam_basis_dict(cam_p: np.ndarray, size: int = 1024) -> dict:
+    az_deg, el_deg, dist, tx, ty, tz, fov_deg, roll_deg = [float(x) for x in cam_p]
+    az, el = math.radians(az_deg), math.radians(el_deg)
+    cam = np.array([tx + dist * math.cos(el) * math.sin(az), ty - dist * math.cos(el) * math.cos(az), tz + dist * math.sin(el)], dtype=np.float64)
+    fwd = np.array([tx, ty, tz], dtype=np.float64) - cam
+    fwd /= np.linalg.norm(fwd)
+    right = np.cross(fwd, np.array([0.0, 0.0, 1.0], dtype=np.float64))
+    right /= np.linalg.norm(right)
+    up = np.cross(right, fwd)
+    cr, sr = math.cos(math.radians(roll_deg)), math.sin(math.radians(roll_deg))
+    right_r = cr * right + sr * up
+    up_r = -sr * right + cr * up
+    return {
+        "cam_xyz": cam.tolist(),
+        "fwd": fwd.tolist(),
+        "right_r": right_r.tolist(),
+        "up_r": up_r.tolist(),
+        "fov_deg": float(fov_deg),
+        "W": int(size),
+        "H": int(size),
+    }
+
+
+def run_export_3d(nx_mesh: int = 480):
+    """
+    Alinea las 6 vistas 360°, genera mascaras erosionadas (cero halos/zocalo), exporta cameras.json
+    y construye tile_base.stl estanco unido al troquel B-Rep exacto (build123d + manifold3d).
+    """
+    import manifold3d as m3d
+    import trimesh
+    from catan_kit.build_catan_base_brep import build_catan_base, build_catan_inner_cutter, export_stl
+    from blender.catan_3d_factory_csg import build_terrain_bed_manifold, _trimesh_to_manifold, _manifold_to_trimesh
+
+    cam_p = np.load(os.path.join(V4_REFS, "hero_cam_params.npy"))
+    Z_enh = np.load(os.path.join(OUT_DIR, "Z_hero360.npy")).astype(np.float64)
+    N2 = 2048
+    Z_2k = ndi.zoom(Z_enh, N2 / Z_enh.shape[0], order=3)
+
+    cams_out = {}
+    ref_mean_luma = None
+    for ang in [0, 60, 120, 180, 240, 300]:
+        is_hero = (ang == 0)
+        p_ang = cam_p.copy() if is_hero else v5.compute_cam_p_angle(cam_p, yaw_offset_deg=-float(ang))
+        _, any_hit, hit_ter, _, _, hz, _, _, _, _ = v4.ray_march_heightfield(Z_2k, p_ang, out_w=1024, out_h=1024)
+
+        if is_hero:
+            src_path = os.path.join(VIEWS_DIR, "view_000.png")
+            rgb = np.asarray(Image.open(src_path).convert("RGB"), dtype=np.float32) / 255.0
+            iou_a = 1.0
+        else:
+            cand_jpg = os.path.join(VIEWS_DIR, f"view_{ang:03d}_nb.jpg")
+            cand_png = os.path.join(VIEWS_DIR, f"view_{ang:03d}_nb.png")
+            src_path = cand_jpg if os.path.exists(cand_jpg) else cand_png
+            raw_rgb = np.asarray(Image.open(src_path).convert("RGB"), dtype=np.float32) / 255.0
+            rgb, iou_b, iou_a = v5.align_nb_view_to_clay(raw_rgb, any_hit)
+            print(f"  [Align {ang:03d}] IoU {iou_b:.4f} -> {iou_a:.4f}")
+
+        # Mascara estricta del terreno interior (erosionada 4 px para no muestrear bisel/cielo en bordes!)
+        hit_safe = ndi.binary_erosion(hit_ter, iterations=4)
+        lum = 0.2126 * rgb[..., 0] + 0.7152 * rgb[..., 1] + 0.0722 * rgb[..., 2]
+        sat = np.max(rgb, axis=-1) - np.min(rgb, axis=-1)
+        rel_z = np.maximum(0.0, hz - Z_BASE)
+        warm = rgb[..., 0] + rgb[..., 1] - 2.0 * rgb[..., 2]
+        is_slate = (warm < 0.05) & (lum < 0.48) & (sat < 0.11) & (rel_z < 3.8)
+        is_sky_bleed = (lum > 0.70) & (sat < 0.06) & (rel_z < 4.5)
+        mask_ter = hit_safe & (~is_slate) & (~is_sky_bleed)
+
+        # Armonizacion global suave de exposicion respecto a hero 000 dentro del terreno valido
+        if np.any(mask_ter):
+            ml = float(np.mean(lum[mask_ter]))
+            if ref_mean_luma is None:
+                ref_mean_luma = ml
+            else:
+                gain = float(np.clip(ref_mean_luma / max(ml, 1e-4), 0.88, 1.14))
+                rgb = np.clip(rgb * gain, 0.0, 1.0)
+
+        out_rgb = os.path.join(VIEWS_DIR, f"view_{ang:03d}.png")
+        out_msk = os.path.join(VIEWS_DIR, f"mask_{ang:03d}.png")
+        Image.fromarray((np.clip(rgb, 0.0, 1.0) * 255.0).astype(np.uint8)).save(out_rgb)
+        msk_soft = ndi.gaussian_filter(mask_ter.astype(np.float32), sigma=1.2)
+        Image.fromarray((np.clip(msk_soft, 0.0, 1.0) * 255.0).astype(np.uint8)).save(out_msk)
+
+        cdict = _cam_basis_dict(p_ang, size=1024)
+        cdict["angle_deg"] = ang
+        cdict["image"] = out_rgb
+        cdict["mask"] = out_msk
+        cdict["iou"] = round(float(iou_a), 4)
+        cams_out[str(ang)] = cdict
+
+    cam_json = os.path.join(OUT_DIR, "cameras.json")
+    with open(cam_json, "w", encoding="utf-8") as f:
+        json.dump(cams_out, f, indent=2)
+    print(f"[Export3D] Saved {cam_json}")
+
+    # Construir tile_base.stl estanco unido al zocalo B-Rep canon (build123d + manifold3d)
+    work_brep = os.path.join(OUT_DIR, "work_brep")
+    os.makedirs(work_brep, exist_ok=True)
+    base_solid, _ = build_catan_base("circle")
+    cutter_solid = build_catan_inner_cutter(road_margin=v4.ROAD_MARGIN, pad_radius=v4.PAD_RADIUS, z_min=20.0, z_max=120.0)
+    base_stl = os.path.join(work_brep, "catan_base_brep.stl")
+    cutter_stl = os.path.join(work_brep, "catan_inner_cutter.stl")
+    export_stl(base_solid, base_stl)
+    export_stl(cutter_solid, cutter_stl)
+
+    base_mf = _trimesh_to_manifold(trimesh.load(base_stl, force="mesh"))
+    cutter_mf = _trimesh_to_manifold(trimesh.load(cutter_stl, force="mesh"))
+
+    Z_mesh = ndi.zoom(Z_enh, nx_mesh / Z_enh.shape[0], order=3)
+    lin = np.linspace(-R, R, nx_mesh, dtype=np.float64)
+    Xm, Ym = np.meshgrid(lin, lin)
+    in_border = v4.smoothstep(v4.ROAD_MARGIN + 0.15, v4.ROAD_MARGIN + 1.6, v4.hex_dist(Xm, Ym)) * v4.smoothstep(
+        v4.PAD_RADIUS + 0.10, v4.PAD_RADIUS + 1.5, v4.vert_dist(Xm, Ym)
+    )
+    Z_mesh = Z_BASE + np.maximum(0.0, Z_mesh - Z_BASE) * in_border
+    bed_mf = build_terrain_bed_manifold(nx_mesh, Z_mesh, z_bot=Z_BASE - 2.6)
+    full_solid = base_mf + (bed_mf ^ cutter_mf)
+    tm_out = _manifold_to_trimesh(full_solid)
+    comps = tm_out.split(only_watertight=False)
+    if len(comps) > 1:
+        comps.sort(key=lambda c: abs(float(c.volume)), reverse=True)
+        tm_out = comps[0]
+    assert tm_out.is_watertight, "tile_base.stl is not watertight!"
+    out_stl = os.path.join(OUT_DIR, "tile_base.stl")
+    tm_out.export(out_stl)
+    print(f"[Export3D Done] {out_stl}: {len(tm_out.vertices)} V / {len(tm_out.faces)} F, chi={tm_out.euler_number}, Z=[{tm_out.bounds[0][2]:.2f}, {tm_out.bounds[1][2]:.2f}]")
+
+
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--stage", choices=["prep180", "prep-sides"], required=True)
+    p.add_argument("--stage", choices=["prep180", "prep-sides", "export-3d"], required=True)
     p.add_argument("--view-180", default=os.path.join(VIEWS_DIR, "view_180_nb.png"))
+    p.add_argument("--nx-mesh", type=int, default=480)
     args = p.parse_args()
     if args.stage == "prep180":
         run_prep180()
     elif args.stage == "prep-sides":
         run_prep_sides(args.view_180)
+    elif args.stage == "export-3d":
+        run_export_3d(nx_mesh=args.nx_mesh)
 
 
 if __name__ == "__main__":

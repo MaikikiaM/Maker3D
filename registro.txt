@@ -909,3 +909,27 @@ Decisiones técnicas y cambios implementados:
 - **`.agents/skills/nanobanana-3d-sculpt/SKILL.md`:** Actualizada Branch C (pasos 1 y 4) exigiendo bloquear/reutilizar geometrías hero ya validadas (`Z_geom_v4.npy` + `hero_nanobanana.jpg`) y exportar vistas calibradas a Blender Cycles `Smart UV 3D` en lugar de aplanar paredes `>= 55°` en un mapa cenital `2.5D`.
 - **`.agents/skills/blender-sculpt-bake/SKILL.md`:** Añadida la sección §4 con el protocolo de proyección multi-cámara Cycles sobre `Smart UV Project 3D` (`dot(Normal, ViewDir)^4`) y `Normal Displace` físico en caras traseras (`120°–240°`) para paridad 360° en `PBR` y `Arcilla CAD`.
 ================================================================================
+
+SESIÓN: 22/11/2026 - MONTAÑA HERO 360° (PROYECCIÓN CYCLES SMART UV 3D + ESCULPIDO 3D POR NORMAL)
+- Prompts literales del usuario:
+  * [22/11/2026 11:47]: "Bueno qué, continuamos?"
+  * [22/11/2026 11:51]: "Esas referencias estan perfectas btw, muy buenas imagenes muy coherentes. Recordemos todo lo que hablemos ayer eh. Todos los problemas que tuvimos que llevaron a un 2/10 deben ser corregidos. Tampoco queremos un 4/10"
+- Objetivo: Construir `montana_hero360` conservando la geometría hero V4 (`Z_geom_v4.npy` + `hero_nanobanana.jpg` en `0°`), enriqueciendo el cuadrante norte (`Y > 10.5`) sin invadir el horizonte frontal, proyectando las 6 vistas alineadas (`0° + 5 Nano Banana`) sobre `Smart UV Project 3D` en Blender Cycles, y esculpiendo grietas físicas 3D por normal real en los 360°.
+
+Decisiones técnicas y archivos creados/modificados:
+- **`Tableros-Catan/pipeline-biomas/montana_hero360_prep.py`:** Generación de `Z_hero360.npy` con 3 contrafuertes norte escalonados y 2 circos glaciares detrás de la línea de horizonte `0°`, guías `partial_view_180` y laterales, alineación pixel-a-pixel de las 5 vistas Nano Banana (`IoU`: `060=0.9421`, `120=0.9244`, `180=0.9199`, `240=0.9392`, `300=0.9187`) con máscaras erosionadas `4 px`, fusión B-Rep a zócalo Catán (`tile_base.stl`: `125,571 V / 251,138 F`, `chi=2`, `Z=[0.00, 70.90] mm`) y exportación de `cameras.json`.
+- **`tools/blender/catan_hero360_bake.py`:** Motor modular Blender 5.3 headless (`numpy` + `bpy.data.images` sin `PIL`, `wm.stl_export` binaria):
+  * `assign_plinth_vs_terrain_slots()` después de limpiar materiales, y `active = active_render = True` asegurado en `UVMap` (`Smart UV Project 3D`).
+  * `setup_camera_projections_and_shader()`: raycast `BVHTree` C++ para las 6 cámaras, pesos `ndotv^4 * mask`, desplazamiento radial interior `V_proj` en el faldón bajo (`< 1.15 mm` del borde y `Z < 26.25 mm`) para eliminar el halo gris del bisel y 18 pasadas de propagación en grafo + respaldo restringido a `M_cams > 0.02`.
+  * `sculpt_3d_from_baked_albedo()`: desplazamiento dual-banda macro+micro sobre la normal 3D real leyendo `baked_albedo.png` (`24 / 4 / 0` pasadas, rango real `[-0.689, +0.319] mm`, 1 pasada Taubin protegiendo nieve y margen exterior).
+  * `bake_pbr_maps()` (`4096x4096` Diffuse + `2048x2048` Normal/Roughness) + `render_6views_audit()` (`audit_6views_pbr.png`, `audit_6views_clay.png` con iluminación de estudio de alto contraste, `audit_front_back_pbr_clay.png`, `audit_ortho.png`).
+
+Resultados y métricas verificadas:
+- **Auditoría `tools/audit/mesh_and_print_audit.py --catan-check --export-3mf` sobre `Tableros-Catan/pipeline-biomas/montana_hero360/tile_master.stl` (`exit 0`, sin laminar):**
+  * `repaired=false`, `125,571 V / 251,138 F`, `is_watertight=true`, `euler_number=2`, `degenerate_faces=0`, `non_manifold_edges=0`, `boundary_edges=0`, `connected_components=1`.
+  * `manifold_status=Error.NoError`, `manifold_valid=true`, `volume_cm3=346.283`, `overhang_gt_deg_pct=0.013%`, `thin_wall_lt_2nozzle_pct=0.0%`.
+  * `catan_dims_ok=true` (`110.8512 × 128.0 × 70.8795 mm`), `magnet_cavity_ok=true` (`5.2 mm`), `pads_flat_25mm_ok=true` (`[25.0, 25.0, 25.0, 25.0, 25.0, 25.0]`).
+  * Exportado `Tableros-Catan/pipeline-biomas/montana_hero360/catan_montana_hero360.3mf` (`4,157,721 B`).
+- **Visor WebGL (`Visores-HTML/catan-bioma-montana-hero360.html`):** Generado con `optimize_and_build_viewer.py --compress meshopt --texture-format webp --max-texture-size 2048 --no-simplify` (`39,321.95 KB -> 6,219.82 KB`, `84.18%` ahorro, HTML autónomo de `8.114 MB`).
+- **Inspección interactiva en Chromium (`http://localhost:8787/catan-bioma-montana-hero360.html`):** `0` errores de consola/JS/HTTP (`200 OK`); verificadas capturas de vista frontal `0°` PBR, trasera `~180°` PBR, trasera `~180°` `Arcilla CAD` y frontal `0°` `Arcilla CAD` con relieve rocoso 3D afilado y continuo en 360°.
+================================================================================

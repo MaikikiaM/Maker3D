@@ -1,0 +1,176 @@
+{
+  "0": {
+    "cam_xyz": [
+      2.5719910097722165,
+      -399.86051786636295,
+      365.7761855209864
+    ],
+    "fwd": [
+      -0.0022622025653381904,
+      0.7578832220766869,
+      -0.6523863151034152
+    ],
+    "right_r": [
+      0.9999844798380174,
+      -0.0016071199562285106,
+      -0.005334533581880047
+    ],
+    "up_r": [
+      0.005091416565484622,
+      0.6523882577576833,
+      0.7578678239754285
+    ],
+    "fov_deg": 15.677089840808597,
+    "W": 1024,
+    "H": 1024,
+    "angle_deg": 0,
+    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\view_000.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\mask_000.png",
+    "iou": 1.0
+  },
+  "60": {
+    "cam_xyz": [
+      -345.00337093778563,
+      -202.15766848594942,
+      365.7761855209864
+    ],
+    "fwd": [
+      0.6552150221377451,
+      0.38090073592843265,
+      -0.6523863151034152
+    ],
+    "right_r": [
+      0.4986004332099858,
+      -0.8668155229080051,
+      -0.005334533581880048
+    ],
+    "up_r": [
+      0.5675305126315665,
+      0.321784832791883,
+      0.7578678239754286
+    ],
+    "fov_deg": 15.677089840808597,
+    "W": 1024,
+    "H": 1024,
+    "angle_deg": 60,
+    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\view_060.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\mask_060.png",
+    "iou": 0.9421
+  },
+  "120": {
+    "cam_xyz": [
+      -347.5753619475579,
+      197.7028493804135,
+      365.7761855209864
+    ],
+    "fwd": [
+      0.6574772247030835,
+      -0.3769824861482542,
+      -0.6523863151034152
+    ],
+    "right_r": [
+      -0.5013840466280313,
+      -0.8652084029517766,
+      -0.005334533581880048
+    ],
+    "up_r": [
+      0.5624390960660818,
+      -0.33060342496580014,
+      0.7578678239754286
+    ],
+    "fov_deg": 15.677089840808597,
+    "W": 1024,
+    "H": 1024,
+    "angle_deg": 120,
+    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\view_120.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\mask_120.png",
+    "iou": 0.9244
+  },
+  "180": {
+    "cam_xyz": [
+      -2.571991009772221,
+      399.86051786636295,
+      365.7761855209864
+    ],
+    "fwd": [
+      0.002262202565338196,
+      -0.7578832220766869,
+      -0.6523863151034152
+    ],
+    "right_r": [
+      -0.9999844798380174,
+      0.0016071199562285032,
+      -0.005334533581880047
+    ],
+    "up_r": [
+      -0.005091416565484617,
+      -0.6523882577576833,
+      0.7578678239754285
+    ],
+    "fov_deg": 15.677089840808597,
+    "W": 1024,
+    "H": 1024,
+    "angle_deg": 180,
+    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\view_180.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\mask_180.png",
+    "iou": 0.9199
+  },
+  "240": {
+    "cam_xyz": [
+      345.0033709377857,
+      202.1576684859494,
+      365.7761855209864
+    ],
+    "fwd": [
+      -0.6552150221377452,
+      -0.3809007359284326,
+      -0.6523863151034152
+    ],
+    "right_r": [
+      -0.4986004332099857,
+      0.8668155229080051,
+      -0.005334533581880048
+    ],
+    "up_r": [
+      -0.5675305126315665,
+      -0.32178483279188297,
+      0.7578678239754286
+    ],
+    "fov_deg": 15.677089840808597,
+    "W": 1024,
+    "H": 1024,
+    "angle_deg": 240,
+    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\view_240.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\mask_240.png",
+    "iou": 0.9392
+  },
+  "300": {
+    "cam_xyz": [
+      347.5753619475579,
+      -197.70284938041348,
+      365.7761855209864
+    ],
+    "fwd": [
+      -0.6574772247030835,
+      0.37698248614825414,
+      -0.6523863151034152
+    ],
+    "right_r": [
+      0.5013840466280313,
+      0.8652084029517766,
+      -0.005334533581880047
+    ],
+    "up_r": [
+      -0.5624390960660818,
+      0.3306034249658001,
+      0.7578678239754285
+    ],
+    "fov_deg": 15.677089840808597,
+    "W": 1024,
+    "H": 1024,
+    "angle_deg": 300,
+    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\view_300.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\mask_300.png",
+    "iou": 0.9187
+  }
+}
