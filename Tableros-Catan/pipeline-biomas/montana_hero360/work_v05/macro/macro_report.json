@@ -1,0 +1,111 @@
+{
+  "patches": {
+    "A0_000": {
+      "accepted": true,
+      "ssim_low": 0.9323,
+      "mean_flow_px": 0.9525,
+      "deltaE_low": 5.0931,
+      "hp_std": 0.10083,
+      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A0_000_hp16.png"
+    },
+    "A1_060": {
+      "accepted": true,
+      "ssim_low": 0.9415,
+      "mean_flow_px": 1.6614,
+      "deltaE_low": 3.1511,
+      "hp_std": 0.0847,
+      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A1_060_hp16.png"
+    },
+    "A2_120": {
+      "accepted": true,
+      "ssim_low": 0.9588,
+      "mean_flow_px": 0.9406,
+      "deltaE_low": 2.9987,
+      "hp_std": 0.0895,
+      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A2_120_hp16.png"
+    },
+    "A3_180": {
+      "accepted": true,
+      "ssim_low": 0.9603,
+      "mean_flow_px": 0.9513,
+      "deltaE_low": 2.4773,
+      "hp_std": 0.08805,
+      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A3_180_hp16.png"
+    },
+    "A4_240": {
+      "accepted": true,
+      "ssim_low": 0.9634,
+      "mean_flow_px": 0.9333,
+      "deltaE_low": 2.6459,
+      "hp_std": 0.07932,
+      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A4_240_hp16.png"
+    },
+    "A5_300": {
+      "accepted": true,
+      "ssim_low": 0.9736,
+      "mean_flow_px": 0.7053,
+      "deltaE_low": 2.2169,
+      "hp_std": 0.08453,
+      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A5_300_hp16.png"
+    },
+    "B0_030": {
+      "accepted": true,
+      "ssim_low": 0.9803,
+      "mean_flow_px": 0.6744,
+      "deltaE_low": 3.8694,
+      "hp_std": 0.09124,
+      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_B0_030_hp16.png"
+    },
+    "B1_090": {
+      "accepted": true,
+      "ssim_low": 0.9632,
+      "mean_flow_px": 0.6878,
+      "deltaE_low": 5.8843,
+      "hp_std": 0.09892,
+      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_B1_090_hp16.png"
+    },
+    "B2_150": {
+      "accepted": true,
+      "ssim_low": 0.8105,
+      "mean_flow_px": 1.7266,
+      "deltaE_low": 9.5809,
+      "chroma_deltaE": 3.9182,
+      "hp_std": 0.13063,
+      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_B2_150_hp16.png"
+    },
+    "B3_210": {
+      "accepted": false,
+      "reason": "quota_exhausted_no_nb_image"
+    },
+    "B4_270": {
+      "accepted": true,
+      "ssim_low": 0.9534,
+      "mean_flow_px": 0.872,
+      "deltaE_low": 3.4319,
+      "hp_std": 0.09024,
+      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_B4_270_hp16.png"
+    },
+    "B5_330": {
+      "accepted": false,
+      "reason": "quota_exhausted_no_nb_image"
+    },
+    "C0_peak": {
+      "accepted": false,
+      "reason": "quota_exhausted_no_nb_image"
+    },
+    "C1_cirqueW": {
+      "accepted": false,
+      "reason": "quota_exhausted_no_nb_image"
+    },
+    "C2_cirqueE": {
+      "accepted": false,
+      "reason": "quota_exhausted_no_nb_image"
+    },
+    "D0_valleyS": {
+      "accepted": false,
+      "reason": "quota_exhausted_no_nb_image"
+    }
+  },
+  "accepted": 10,
+  "rejected": 6
+}

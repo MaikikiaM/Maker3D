@@ -1,0 +1,530 @@
+{
+  "A0_000": {
+    "cam_xyz": [
+      -0.0,
+      -94.73781844197848,
+      74.16587801836721
+    ],
+    "target_xyz": [
+      -0.0,
+      -18.0,
+      40.0
+    ],
+    "fwd": [
+      0.0,
+      0.9135454576426009,
+      -0.4067366430758001
+    ],
+    "right_r": [
+      1.0,
+      -0.0,
+      0.0
+    ],
+    "up_r": [
+      0.0,
+      0.40673664307580015,
+      0.913545457642601
+    ],
+    "fov_deg": 35.0,
+    "W": 2048,
+    "H": 2048,
+    "pbr_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A0_000_pbr.png",
+    "clay_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A0_000_clay.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A0_000_mask.png"
+  },
+  "A1_060": {
+    "cam_xyz": [
+      -82.04535746987125,
+      -47.368909220989245,
+      74.16587801836721
+    ],
+    "target_xyz": [
+      -15.588457268119894,
+      -9.000000000000002,
+      40.0
+    ],
+    "fwd": [
+      0.7911535738303732,
+      0.45677272882130054,
+      -0.4067366430758001
+    ],
+    "right_r": [
+      0.5000000000000001,
+      -0.8660254037844386,
+      0.0
+    ],
+    "up_r": [
+      0.3522442655536469,
+      0.20336832153790013,
+      0.913545457642601
+    ],
+    "fov_deg": 35.0,
+    "W": 2048,
+    "H": 2048,
+    "pbr_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A1_060_pbr.png",
+    "clay_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A1_060_clay.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A1_060_mask.png"
+  },
+  "A2_120": {
+    "cam_xyz": [
+      -82.04535746987125,
+      47.368909220989224,
+      74.16587801836721
+    ],
+    "target_xyz": [
+      -15.588457268119896,
+      8.999999999999996,
+      40.0
+    ],
+    "fwd": [
+      0.7911535738303733,
+      -0.4567727288213004,
+      -0.40673664307580015
+    ],
+    "right_r": [
+      -0.49999999999999994,
+      -0.8660254037844388,
+      0.0
+    ],
+    "up_r": [
+      0.35224426555364696,
+      -0.2033683215379,
+      0.9135454576426009
+    ],
+    "fov_deg": 35.0,
+    "W": 2048,
+    "H": 2048,
+    "pbr_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A2_120_pbr.png",
+    "clay_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A2_120_clay.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A2_120_mask.png"
+  },
+  "A3_180": {
+    "cam_xyz": [
+      -1.1602036611317202e-14,
+      94.73781844197848,
+      74.16587801836721
+    ],
+    "target_xyz": [
+      -2.204364238465236e-15,
+      18.0,
+      40.0
+    ],
+    "fwd": [
+      1.1187705205776151e-16,
+      -0.9135454576426009,
+      -0.4067366430758001
+    ],
+    "right_r": [
+      -1.0,
+      -1.2246467991473532e-16,
+      0.0
+    ],
+    "up_r": [
+      4.981087280387181e-17,
+      -0.40673664307580015,
+      0.913545457642601
+    ],
+    "fov_deg": 35.0,
+    "W": 2048,
+    "H": 2048,
+    "pbr_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A3_180_pbr.png",
+    "clay_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A3_180_clay.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A3_180_mask.png"
+  },
+  "A4_240": {
+    "cam_xyz": [
+      82.04535746987123,
+      47.36890922098928,
+      74.16587801836721
+    ],
+    "target_xyz": [
+      15.588457268119893,
+      9.000000000000007,
+      40.0
+    ],
+    "fwd": [
+      -0.7911535738303731,
+      -0.4567727288213009,
+      -0.4067366430758001
+    ],
+    "right_r": [
+      -0.5000000000000004,
+      0.8660254037844384,
+      0.0
+    ],
+    "up_r": [
+      -0.3522442655536468,
+      -0.20336832153790024,
+      0.913545457642601
+    ],
+    "fov_deg": 35.0,
+    "W": 2048,
+    "H": 2048,
+    "pbr_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A4_240_pbr.png",
+    "clay_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A4_240_clay.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A4_240_mask.png"
+  },
+  "A5_300": {
+    "cam_xyz": [
+      82.04535746987125,
+      -47.368909220989245,
+      74.16587801836721
+    ],
+    "target_xyz": [
+      15.588457268119894,
+      -9.000000000000002,
+      40.0
+    ],
+    "fwd": [
+      -0.7911535738303732,
+      0.45677272882130054,
+      -0.4067366430758001
+    ],
+    "right_r": [
+      0.5000000000000001,
+      0.8660254037844386,
+      -0.0
+    ],
+    "up_r": [
+      -0.3522442655536469,
+      0.20336832153790013,
+      0.913545457642601
+    ],
+    "fov_deg": 35.0,
+    "W": 2048,
+    "H": 2048,
+    "pbr_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A5_300_pbr.png",
+    "clay_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A5_300_clay.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_A5_300_mask.png"
+  },
+  "B0_030": {
+    "cam_xyz": [
+      -34.934354860713185,
+      -60.50807754839602,
+      103.93787568914632
+    ],
+    "target_xyz": [
+      -7.499999999999999,
+      -12.99038105676658,
+      43.0
+    ],
+    "fwd": [
+      0.33456530317942906,
+      0.5794841035564565,
+      -0.7431448254773942
+    ],
+    "right_r": [
+      0.8660254037844387,
+      -0.49999999999999994,
+      0.0
+    ],
+    "up_r": [
+      0.37157241273869707,
+      0.6435822975543766,
+      0.6691306063588582
+    ],
+    "fov_deg": 36.0,
+    "W": 2048,
+    "H": 2048,
+    "pbr_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B0_030_pbr.png",
+    "clay_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B0_030_clay.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B0_030_mask.png"
+  },
+  "B1_090": {
+    "cam_xyz": [
+      -69.86870972142637,
+      -4.2782245860450185e-15,
+      103.93787568914632
+    ],
+    "target_xyz": [
+      -15.0,
+      -9.18485099360515e-16,
+      43.0
+    ],
+    "fwd": [
+      0.6691306063588581,
+      4.097243276444516e-17,
+      -0.7431448254773942
+    ],
+    "right_r": [
+      6.123233995736766e-17,
+      -1.0,
+      0.0
+    ],
+    "up_r": [
+      0.7431448254773944,
+      4.550449659119047e-17,
+      0.6691306063588582
+    ],
+    "fov_deg": 36.0,
+    "W": 2048,
+    "H": 2048,
+    "pbr_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B1_090_pbr.png",
+    "clay_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B1_090_clay.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B1_090_mask.png"
+  },
+  "B2_150": {
+    "cam_xyz": [
+      -34.934354860713185,
+      60.50807754839602,
+      103.93787568914632
+    ],
+    "target_xyz": [
+      -7.499999999999999,
+      12.99038105676658,
+      43.0
+    ],
+    "fwd": [
+      0.33456530317942906,
+      -0.5794841035564565,
+      -0.7431448254773942
+    ],
+    "right_r": [
+      -0.8660254037844387,
+      -0.49999999999999994,
+      0.0
+    ],
+    "up_r": [
+      0.37157241273869707,
+      -0.6435822975543766,
+      0.6691306063588582
+    ],
+    "fov_deg": 36.0,
+    "W": 2048,
+    "H": 2048,
+    "pbr_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B2_150_pbr.png",
+    "clay_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B2_150_clay.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B2_150_mask.png"
+  },
+  "B3_210": {
+    "cam_xyz": [
+      34.9343548607132,
+      60.50807754839601,
+      103.93787568914632
+    ],
+    "target_xyz": [
+      7.500000000000002,
+      12.990381056766578,
+      43.0
+    ],
+    "fwd": [
+      -0.3345653031794293,
+      -0.5794841035564564,
+      -0.7431448254773942
+    ],
+    "right_r": [
+      -0.8660254037844386,
+      0.5000000000000002,
+      0.0
+    ],
+    "up_r": [
+      -0.3715724127386973,
+      -0.6435822975543765,
+      0.6691306063588582
+    ],
+    "fov_deg": 36.0,
+    "W": 2048,
+    "H": 2048,
+    "pbr_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B3_210_pbr.png",
+    "clay_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B3_210_clay.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B3_210_mask.png"
+  },
+  "B4_270": {
+    "cam_xyz": [
+      69.86870972142637,
+      1.2834673758135054e-14,
+      103.93787568914632
+    ],
+    "target_xyz": [
+      15.0,
+      2.7554552980815444e-15,
+      43.0
+    ],
+    "fwd": [
+      -0.6691306063588581,
+      -1.229172982933355e-16,
+      -0.7431448254773942
+    ],
+    "right_r": [
+      -1.8369701987210302e-16,
+      1.0,
+      0.0
+    ],
+    "up_r": [
+      -0.7431448254773944,
+      -1.3651348977357144e-16,
+      0.6691306063588582
+    ],
+    "fov_deg": 36.0,
+    "W": 2048,
+    "H": 2048,
+    "pbr_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B4_270_pbr.png",
+    "clay_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B4_270_clay.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B4_270_mask.png"
+  },
+  "B5_330": {
+    "cam_xyz": [
+      34.93435486071322,
+      -60.50807754839599,
+      103.93787568914632
+    ],
+    "target_xyz": [
+      7.500000000000007,
+      -12.990381056766577,
+      43.0
+    ],
+    "fwd": [
+      -0.3345653031794295,
+      0.5794841035564563,
+      -0.7431448254773944
+    ],
+    "right_r": [
+      0.8660254037844384,
+      0.5000000000000006,
+      -0.0
+    ],
+    "up_r": [
+      -0.37157241273869757,
+      0.6435822975543765,
+      0.6691306063588582
+    ],
+    "fov_deg": 36.0,
+    "W": 2048,
+    "H": 2048,
+    "pbr_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B5_330_pbr.png",
+    "clay_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B5_330_clay.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_B5_330_mask.png"
+  },
+  "C0_peak": {
+    "cam_xyz": [
+      -7.081706152110151,
+      -24.429287163948178,
+      128.17540966287265
+    ],
+    "target_xyz": [
+      0.0,
+      2.0,
+      53.0
+    ],
+    "fwd": [
+      0.0885213269013769,
+      0.33036608954935226,
+      -0.9396926207859083
+    ],
+    "right_r": [
+      0.9659258262890684,
+      -0.2588190451025208,
+      0.0
+    ],
+    "up_r": [
+      0.24321034680169398,
+      0.9076733711903687,
+      0.3420201433256689
+    ],
+    "fov_deg": 36.0,
+    "W": 2048,
+    "H": 2048,
+    "pbr_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_C0_peak_pbr.png",
+    "clay_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_C0_peak_clay.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_C0_peak_mask.png"
+  },
+  "C1_cirqueW": {
+    "cam_xyz": [
+      -44.798041537555584,
+      16.56351667620792,
+      115.17540966287267
+    ],
+    "target_xyz": [
+      -20.0,
+      5.0,
+      40.0
+    ],
+    "fwd": [
+      0.3099755192194448,
+      -0.14454395845259901,
+      -0.9396926207859083
+    ],
+    "right_r": [
+      -0.42261826174069933,
+      -0.90630778703665,
+      0.0
+    ],
+    "up_r": [
+      0.8516507396391465,
+      -0.39713126196710274,
+      0.3420201433256689
+    ],
+    "fov_deg": 36.0,
+    "W": 2048,
+    "H": 2048,
+    "pbr_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_C1_cirqueW_pbr.png",
+    "clay_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_C1_cirqueW_clay.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_C1_cirqueW_mask.png"
+  },
+  "C2_cirqueE": {
+    "cam_xyz": [
+      44.79804153755559,
+      16.563516676207918,
+      115.17540966287267
+    ],
+    "target_xyz": [
+      20.0,
+      5.0,
+      40.0
+    ],
+    "fwd": [
+      -0.3099755192194449,
+      -0.144543958452599,
+      -0.9396926207859083
+    ],
+    "right_r": [
+      -0.4226182617406991,
+      0.90630778703665,
+      0.0
+    ],
+    "up_r": [
+      -0.8516507396391466,
+      -0.3971312619671026,
+      0.34202014332566893
+    ],
+    "fov_deg": 36.0,
+    "W": 2048,
+    "H": 2048,
+    "pbr_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_C2_cirqueE_pbr.png",
+    "clay_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_C2_cirqueE_clay.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_C2_cirqueE_mask.png"
+  },
+  "D0_valleyS": {
+    "cam_xyz": [
+      0.0,
+      -90.14775150020122,
+      70.33370261018999
+    ],
+    "target_xyz": [
+      0.0,
+      -24.0,
+      29.0
+    ],
+    "fwd": [
+      0.0,
+      0.848048096156426,
+      -0.529919264233205
+    ],
+    "right_r": [
+      1.0,
+      -0.0,
+      0.0
+    ],
+    "up_r": [
+      0.0,
+      0.529919264233205,
+      0.848048096156426
+    ],
+    "fov_deg": 36.0,
+    "W": 2048,
+    "H": 2048,
+    "pbr_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_D0_valleyS_pbr.png",
+    "clay_render": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_D0_valleyS_clay.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\renders\\patch_D0_valleyS_mask.png"
+  }
+}

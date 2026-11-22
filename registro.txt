@@ -1047,6 +1047,16 @@ Me parece que la forma de lograr lo que pido es muy buena y tal, pero no sería 
   * [22/11/2026 20:23]: "Vamos a usar boquillas 0.2 mm con hasta 0.06 mm de capa"
   * [22/11/2026 20:24]: "de hecho, igual hasta capas de 0.04 mm son factibles eh"
   * [22/11/2026 20:25]: "Crea un plan con todo esto en mente para que lo ejecute gemini 4 hydrogen"
+  * [22/11/2026 20:31]: "Procede"
+  * [22/11/2026 22:04]: "Por que el mismo prompt, disculpa?"
+  * [22/11/2026 22:07]: "Entonces le pongo 7 veces el mismo prompt y aunque me de imagenes muy parecidas te las pongo todas aqui copiadas? O 3 del prompt inicial y otras 3 de los 3 prompts adicionales? Pero en ese ultimo caso faltaria la septima, no?"
+  * [22/11/2026 22:10]: "Dime la ruta para los PNGs xfa"
+  * [22/11/2026 22:15]: "Esta como B2_150 estaria a la altura?"
+  * [22/11/2026 22:17]: "Esk a mi no me parece de mucha calidad eh"
+  * [22/11/2026 22:29]: "Now we are talking. Sin embargo, la propia montaña aun no tiene una super calidad. El resto de la imagen sí la tiene"
+  * [22/11/2026 22:32]: "Ha salido peor que la anterior. Realmente la anterior ya esta super bien, nos podemos quedar con ese tipo de calidad. Pero no dbeemos admitir menos!"
+  * [22/11/2026 22:34]: "Y te pregunto. Tengo la aplicacion de gemini instalada en el ordenador. No podrias hacer tu las peticiones de alguna forma ya que estas trabajando en este ordenador?"
+  * [22/11/2026 22:36]: "Haria falta esta calidad tb en todas las imagenes que ya se han generado antes porque imagino que la calidad sera insuficiente. Dejame en un documento PDF los prompts àra cada caso y el nombre de las imagenes que debo buscar en el directorio que me indicaste antes"
 - Objetivo: Añadir soporte `--compress none` en el constructor WebGL para generar una versión `v04-raw` totalmente sin comprimir (float32 + PNG 4K sin Meshopt ni WebP), y corregir el protocolo y el archivado del proyecto para versionar cada iteración de forma incremental (`-vNN-<etiqueta>` + `versiones/vNN_<etiqueta>/`) sin sobrescribir nunca builds anteriores.
 
 Decisiones técnicas y archivos creados/modificados:

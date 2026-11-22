@@ -276,7 +276,7 @@ def main() -> None:
         help="Permitir sólidos cerrados 2-manifold estancos de género g>=1 (χ = 2 - 2g <= 2, 1 componente conexa) en mallas generativas 3D",
     )
     parser.add_argument("--bambu-slice", action="store_true", help="Ejecutar laminado CLI real en bambu-studio.exe")
-    parser.add_argument("--printer", choices=["a1", "p1s", "x1c"], default="a1")
+    parser.add_argument("--printer", choices=["a1", "p1s", "x1c", "a1_n02", "p1s_n02", "x1c_n02"], default="a1")
     args = parser.parse_args()
 
     in_path = Path(args.input)

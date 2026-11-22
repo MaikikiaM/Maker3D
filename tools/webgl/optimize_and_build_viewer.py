@@ -1,6 +1,6 @@
 """
 Compresión glTF real con Meshopt + WebP vía gltf-transform.cmd y empaquetado de
-visor HTML WebGL Three.js autónomo single-file (< 20 MB objetivo) para Maker3D 2.0.
+visor HTML WebGL Three.js autónomo single-file para Maker3D 2.0.
 """
 from __future__ import annotations
 
@@ -154,6 +154,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </div>
   </aside>
 
+  __GLB_CHUNKS__
+
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -162,7 +164,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
     import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
-    const GLB_B64 = "__GLB_BASE64__";
     const drawer = document.getElementById("drawer");
     if (window.innerWidth <= 860) drawer.classList.add("collapsed");
     document.getElementById("drawer-toggle").addEventListener("click", () => drawer.classList.toggle("collapsed"));
@@ -237,11 +238,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     let modelCenter = new THREE.Vector3();
     let maxDim = 100;
 
-    function base64ToArrayBuffer(b64) {
-      const bin = atob(b64);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return bytes.buffer;
+    async function loadChunkedGlbBuffer() {
+      const nodes = document.querySelectorAll('script.glb-chunk');
+      const parts = [];
+      for (const el of nodes) {
+        const b64 = el.textContent.trim();
+        el.textContent = "";
+        if (!b64) continue;
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        parts.push(bytes);
+      }
+      return await new Blob(parts).arrayBuffer();
     }
 
     function applyMode(mode) {
@@ -304,7 +313,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         draco.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.7/");
         loader.setDRACOLoader(draco);
 
-        const buf = base64ToArrayBuffer(GLB_B64);
+        const buf = await loadChunkedGlbBuffer();
         loader.parse(buf, "", (gltf) => {
           rootGroup = gltf.scene;
           scene.add(rootGroup);
@@ -486,6 +495,18 @@ def optimize_glb(
     }
 
 
+def _build_glb_chunks_html(glb_bytes: bytes, raw_chunk_bytes: int = 48 * 1024 * 1024) -> str:
+    # Múltiplo exacto de 3 bytes -> cada chunk Base64 de 64 MB ASCII es autocontenido y nunca supera el límite V8
+    raw_chunk_bytes = (raw_chunk_bytes // 3) * 3
+    tags = []
+    idx = 0
+    for start in range(0, len(glb_bytes), raw_chunk_bytes):
+        b64 = base64.b64encode(glb_bytes[start : start + raw_chunk_bytes]).decode("ascii")
+        tags.append(f'<script type="application/octet-stream" class="glb-chunk" id="glb-{idx}">{b64}</script>')
+        idx += 1
+    return "\n  ".join(tags)
+
+
 def build_viewer_html(
     in_glb: Path,
     out_html: Path,
@@ -509,7 +530,7 @@ def build_viewer_html(
                 simplify_ratio=simplify_ratio,
                 no_simplify=no_simplify,
             )
-            glb_b64 = base64.b64encode(in_glb.read_bytes()).decode("ascii")
+            glb_chunks_html = _build_glb_chunks_html(in_glb.read_bytes())
         else:
             opt_glb = save_opt_glb or (Path(tmp_d) / f"{in_glb.stem}_opt.glb")
             stats = optimize_glb(
@@ -521,7 +542,7 @@ def build_viewer_html(
                 simplify_ratio=simplify_ratio,
                 no_simplify=no_simplify,
             )
-            glb_b64 = base64.b64encode(opt_glb.read_bytes()).decode("ascii")
+            glb_chunks_html = _build_glb_chunks_html(opt_glb.read_bytes())
 
     # Primera pasada estimada para conocer tamaño HTML final y rellenar marcador exacto
     safe_title = html.escape(title)
@@ -532,7 +553,7 @@ def build_viewer_html(
         .replace("__RAW_KB__", f"{stats['raw_kb']:.1f}")
         .replace("__OPT_KB__", f"{stats['opt_kb']:.1f}")
         .replace("__RATIO__", f"{stats['savings_pct']:.1f}")
-        .replace("__GLB_BASE64__", glb_b64)
+        .replace("__GLB_CHUNKS__", glb_chunks_html)
     )
     html_mb = round(len(rendered.encode("utf-8")) / (1024.0 * 1024.0), 3)
     rendered = rendered.replace("__HTML_MB__", f"{html_mb:.2f}")

@@ -21,14 +21,13 @@ Ejecuta `tools/audit/mesh_and_print_audit.py`:
 python tools/audit/mesh_and_print_audit.py `
   --input <ruta_modelo.stl> `
   --out-dir <dir_salida>/audit `
-  --nozzle-mm 0.4 `
+  --nozzle-mm 0.2 `
   --overhang-deg 45 `
-  --repair `
   --catan-check `
   --export-3mf <dir_salida>/audit/modelo.3mf
 ```
 
-*(Añadir `--bambu-slice --printer a1` únicamente si el usuario solicita explícitamente laminar o estimar tiempos en Bambu Studio.)*
+*(Por defecto losetas hero de detalle fino auditan con `--nozzle-mm 0.2`; usar `--nozzle-mm 0.4` para piezas mecánicas estándar. Añadir `--bambu-slice --printer a1_n02` o `a1` únicamente si el usuario solicita explícitamente laminar o estimar tiempos en Bambu Studio.)*
 
 ### Qué verifica exactamente:
 1. **Topología matemática (`trimesh` / `PyMeshLab` / `manifold3d`):**
@@ -37,7 +36,7 @@ python tools/audit/mesh_and_print_audit.py `
 2. **Reparación opcional (`--repair`):** si detecta defectos recuperables, sanea la malla automáticamente vía `Manifold3D` / `PyMeshLab` antes de exportar.
 3. **Imprimibilidad FDM:**
    - Porcentaje de caras con voladizo severo (`> overhang_deg`, excluyendo la cara de apoyo en `Z_min` y el techo del imán si `--catan-check`).
-   - Estimación de secciones delgadas inferiores a `2 * nozzle_mm` (`0.80 mm`).
+   - Estimación de secciones delgadas inferiores a `2 * nozzle_mm` (`0.40 mm` con boquilla `0.2 mm`; `0.80 mm` con boquilla `0.4 mm`).
 4. **Verificación física Catán (`--catan-check`):** confirma ancho `110.8513 ± 0.15 mm`, largo `128.0000 ± 0.15 mm`, presencia de cavidad centrada en base inferior y planitud de los 6 pads `Ø20 mm`.
 5. **Contenedor `3MF` (`lib3mf`) y Laminado Real en `bambu-studio.exe` (`--bambu-slice`):**
    - Empaqueta `.3mf` válido en milímetros con `lib3mf` y verifica su lectura.

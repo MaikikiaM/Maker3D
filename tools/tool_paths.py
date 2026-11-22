@@ -110,6 +110,27 @@ def find_bambu_studio() -> Dict[str, Any]:
                 "process": [bbl_dir / "process" / "0.20mm Standard @BBL X1C.json"],
                 "filament": [bbl_dir / "filament" / "Bambu PLA Basic @BBL X1C.json"],
             },
+            "a1_n02": {
+                "machine": [bbl_dir / "machine" / "Bambu Lab A1 0.2 nozzle.json"],
+                "process": [bbl_dir / "process" / "0.06mm High Quality @BBL A1 0.2 nozzle.json"],
+                "filament": [bbl_dir / "filament" / "Bambu PLA Basic @BBL A1 0.2 nozzle.json"],
+            },
+            "p1s_n02": {
+                "machine": [bbl_dir / "machine" / "Bambu Lab P1S 0.2 nozzle.json"],
+                "process": [
+                    bbl_dir / "process" / "0.06mm High Quality @BBL P1P 0.2 nozzle.json",
+                    bbl_dir / "process" / "0.06mm High Quality @BBL X1C 0.2 nozzle.json",
+                ],
+                "filament": [
+                    bbl_dir / "filament" / "Bambu PLA Basic @BBL X1C 0.2 nozzle.json",
+                    bbl_dir / "filament" / "Bambu PLA Basic @BBL A1 0.2 nozzle.json",
+                ],
+            },
+            "x1c_n02": {
+                "machine": [bbl_dir / "machine" / "Bambu Lab X1 Carbon 0.2 nozzle.json"],
+                "process": [bbl_dir / "process" / "0.06mm High Quality @BBL X1C 0.2 nozzle.json"],
+                "filament": [bbl_dir / "filament" / "Bambu PLA Basic @BBL X1C 0.2 nozzle.json"],
+            },
         }
         for key, group in spec_map.items():
             profiles[key] = {

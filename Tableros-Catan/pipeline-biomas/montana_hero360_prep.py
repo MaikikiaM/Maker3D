@@ -247,7 +247,7 @@ def _cam_basis_dict(cam_p: np.ndarray, size: int = 1024) -> dict:
     }
 
 
-def run_export_3d(nx_mesh: int = 768):
+def run_export_3d(nx_mesh: int = 768, out_dir: str | None = None):
     """
     Alinea las 6 vistas 360°, genera mascaras erosionadas (cero halos/zocalo), exporta cameras.json
     y construye tile_base.stl estanco unido al troquel B-Rep exacto (build123d + manifold3d).
@@ -257,6 +257,8 @@ def run_export_3d(nx_mesh: int = 768):
     from catan_kit.build_catan_base_brep import build_catan_base, build_catan_inner_cutter, export_stl
     from blender.catan_3d_factory_csg import build_terrain_bed_manifold, _trimesh_to_manifold, _manifold_to_trimesh
 
+    target_dir = os.path.abspath(out_dir) if out_dir else OUT_DIR
+    os.makedirs(target_dir, exist_ok=True)
     cam_p = np.load(os.path.join(V4_REFS, "hero_cam_params.npy"))
     Z_enh = np.load(os.path.join(OUT_DIR, "Z_hero360.npy")).astype(np.float64)
     N2 = 2048
@@ -349,13 +351,13 @@ def run_export_3d(nx_mesh: int = 768):
         cdict["iou"] = round(float(iou_a), 4)
         cams_out[str(ang)] = cdict
 
-    cam_json = os.path.join(OUT_DIR, "cameras.json")
+    cam_json = os.path.join(target_dir, "cameras.json")
     with open(cam_json, "w", encoding="utf-8") as f:
         json.dump(cams_out, f, indent=2)
     print(f"[Export3D] Saved {cam_json}")
 
     # Construir tile_base.stl estanco unido al zocalo B-Rep canon (build123d + manifold3d)
-    work_brep = os.path.join(OUT_DIR, "work_brep")
+    work_brep = os.path.join(target_dir, "work_brep")
     os.makedirs(work_brep, exist_ok=True)
     base_solid, _ = build_catan_base("circle")
     cutter_solid = build_catan_inner_cutter(road_margin=v4.ROAD_MARGIN, pad_radius=v4.PAD_RADIUS, z_min=20.0, z_max=120.0)
@@ -382,7 +384,7 @@ def run_export_3d(nx_mesh: int = 768):
         comps.sort(key=lambda c: abs(float(c.volume)), reverse=True)
         tm_out = comps[0]
     assert tm_out.is_watertight, "tile_base.stl is not watertight!"
-    out_stl = os.path.join(OUT_DIR, "tile_base.stl")
+    out_stl = os.path.join(target_dir, "tile_base.stl")
     tm_out.export(out_stl)
     print(f"[Export3D Done] {out_stl}: {len(tm_out.vertices)} V / {len(tm_out.faces)} F, chi={tm_out.euler_number}, Z=[{tm_out.bounds[0][2]:.2f}, {tm_out.bounds[1][2]:.2f}]")
 
@@ -392,13 +394,14 @@ def main():
     p.add_argument("--stage", choices=["prep180", "prep-sides", "export-3d"], required=True)
     p.add_argument("--view-180", default=os.path.join(VIEWS_DIR, "view_180_nb.png"))
     p.add_argument("--nx-mesh", type=int, default=768)
+    p.add_argument("--out-dir", default=None)
     args = p.parse_args()
     if args.stage == "prep180":
         run_prep180()
     elif args.stage == "prep-sides":
         run_prep_sides(args.view_180)
     elif args.stage == "export-3d":
-        run_export_3d(nx_mesh=args.nx_mesh)
+        run_export_3d(nx_mesh=args.nx_mesh, out_dir=args.out_dir)
 
 
 if __name__ == "__main__":

@@ -34,6 +34,11 @@ Antes de escribir código o generar geometría, consultar `.agents/skills/maker3
 - **Voladizos sin soporte:** Ángulo `<= 45°` respecto a la vertical siempre que sea posible; las caras funcionales que excedan `45°` deben incluir chaflán de transición (`45°`) o documentarse para soportes en el slicer del usuario.
 - **Compensación de pata de elefante:** Chaflán inferior de `0.6–0.8 mm` a `45°` en piezas que requieran ajuste en zócalo/placa.
 
+### Perfil Detalle Fino Catán (por defecto en losetas hero — boquilla 0.20 mm)
+- **Boquilla y altura de capa:** Boquilla **`0.20 mm`**, altura de capa **`0.04–0.06 mm`** en el relieve (`Z >= 25.0 mm`) y **`0.12–0.14 mm`** en el zócalo plano (`0–25 mm`) mediante altura de capa variable.
+- **Resolución geométrica útil:** Pared mínima estructural `>= 0.40 mm` (`2 * 0.20 mm`), detalle positivo mínimo en XY `>= 0.25 mm`, grietas/diaclasas con ancho `>= 0.25 mm` y profundidad `>= 0.08 mm` (al menos 2 capas de `0.04 mm`).
+- **Tolerancias y material:** Mantener intactas las tolerancias del alojamiento inferior (`Ø10.20 × 5.20 mm`) y usar PLA básico o mate bien seco sin cargas sólidas (sin partículas de madera/mármol/fibra para evitar atascos en `0.20 mm`).
+
 ### Invariantes Canon de Losetas Catán
 - Hexágono regular **pointy-top**: `R = 64.00 mm`, apotema `W/2 = 55.4256 mm`, ancho plano a plano `W = 110.8513 mm`, largo vértice a vértice `D = 128.0000 mm`.
 - **Zócalo sólido:** `Z_BASE = 25.00 mm`.

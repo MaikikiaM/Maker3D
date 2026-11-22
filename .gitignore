@@ -74,6 +74,12 @@ Thumbs.db
 Visores-HTML/*-raw.html
 Visores-HTML/*-uncompressed.html
 Tableros-Catan/pipeline-biomas/*/versiones/
+!Tableros-Catan/pipeline-biomas/montana_hero360/work_v05/
+Tableros-Catan/pipeline-biomas/montana_hero360/work_v05/**
+!Tableros-Catan/pipeline-biomas/montana_hero360/work_v05/**/
+!Tableros-Catan/pipeline-biomas/montana_hero360/work_v05/**/*.json
+!Tableros-Catan/pipeline-biomas/montana_hero360/work_v05/**/*.md
+Tableros-Catan/assets/polyhaven/rocks/
 *.zip
 tools/smoke_test_out/
 *.step
@@ -85,4 +91,5 @@ tools/smoke_test_out/
 *.ktx2
 *.gcode
 *.preview.html
+*.pdf
 
