@@ -996,6 +996,7 @@ SESIÓN: 22/11/2026 - AUDITORÍA CRÍTICA DE RESOLUCIÓN 4K, ATLAS UV Y SOMBRAS 
   * [22/11/2026 14:08]: "Pero tb hay una falta de calidad total eh. Hay muy poca resolucion"
   * [22/11/2026 14:10]: "/learn "
   * [22/11/2026 14:12]: (Aprobación de `learning_proposal.md` en UI)
+  * [22/11/2026 14:15]: "No, continuaremos desoues. Buen traajo!"
 - Objetivo: Aislar las causas raíz exactas de la diferencia visual entre `montana_hero360` (`1.88M` / `14.31 MB`) y `preview-montana-v4-nanobanana.html` (`4.64M` / `30.4 MB`), y persistir vía `/learn` los estándares de atlas UV dedicado, super-resolución de cámaras fuente, micro-detalle e iluminación WebGL con sombras reales en reglas y skills.
 
 Hallazgos medidos y cambios persistidos:
