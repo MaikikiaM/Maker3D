@@ -1039,6 +1039,14 @@ SESIÓN: 22/11/2026 - VERSIÓN SIN COMPRIMIR (--compress none) Y VERSIONADO ESTR
 - Prompts literales del usuario:
   * [22/11/2026 19:59]: "Podrias un momento dar una version de hero 360 que este sin comprimir? Por cierto, llevamos varias versiones y sigues llamandolas a todas hero 360. Es una mierda pq eso anula el sistema de versiones"
   * [22/11/2026 20:07]: "Vale, sin comprimir y comprimido se ve exactamente igual"
+  * [22/11/2026 20:09]: "Aun se sigue viendo con una calidad algo inferior a la cara de enfrente de nano banana v4. Creo que seria bueno para conseguir la misma calidad o superior (que se va a lograr, despues de todo, mediante el detalle) el ponernos en una posicion de humano y que desde esa perspectiva sobre cualquier punto le demos detalle al 3d de forma que xcuando se vea de lejos el detalle sea absurdamente elevado. Qué opinas de eso, es muy muy dificil de ejecutar?"
+  * [22/11/2026 20:15]: "De primeras, me da igual que pase de las 50 MB. Como ya dije antes, como si pasa del GB. Que no se mande a Github y ya.
+Me parece que la forma de lograr lo que pido es muy buena y tal, pero no sería (desde la ignorancia) una opcion generar distintos objetos 3d como recursos ademas de lo que comentas para lograr ese realismo? Igual facilitaria algo el proceso. Tampoco quiero tener la misma roca grande 170 veces en la montaña pero podra ser una opcion. No me des la razon sobre este tema porque sí, simplemente piensa si puede ser una opcion mas eficiente y si no lo es, descartala"
+  * [22/11/2026 20:17]: "Por cierto, en Blender hay algunas cosas de estas que se pueden importar como arboles, rocas... Eso no puede ser util?"
+  * [22/11/2026 20:21]: "Por cierto, antes de proceder, de donde viene la limitacion de 4,5 millones de triangulos para la malla?"
+  * [22/11/2026 20:23]: "Vamos a usar boquillas 0.2 mm con hasta 0.06 mm de capa"
+  * [22/11/2026 20:24]: "de hecho, igual hasta capas de 0.04 mm son factibles eh"
+  * [22/11/2026 20:25]: "Crea un plan con todo esto en mente para que lo ejecute gemini 4 hydrogen"
 - Objetivo: Añadir soporte `--compress none` en el constructor WebGL para generar una versión `v04-raw` totalmente sin comprimir (float32 + PNG 4K sin Meshopt ni WebP), y corregir el protocolo y el archivado del proyecto para versionar cada iteración de forma incremental (`-vNN-<etiqueta>` + `versiones/vNN_<etiqueta>/`) sin sobrescribir nunca builds anteriores.
 
 Decisiones técnicas y archivos creados/modificados:
