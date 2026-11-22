@@ -17,6 +17,9 @@ Antes de escribir código o generar geometría, consultar `.agents/skills/maker3
 
 > **Regla de preservación:** Las 8 losetas existentes de `Tableros-Catan/` y `.agents/skills/nanobanana-3d-sculpt/` permanecen intactas como referencia histórica y pipeline específico legacy.
 
+> **Guardrails de calidad visual 3D (lección V4/V5/TRELLIS.2/CSG):**
+> - **Terrenos orgánicos heroicos 360° (Catán rocoso / alpino):** NO generar montañas apilando prismas/conos procedurales en Python/CSG (efecto low-poly artificial), ni usar `TRELLIS.2` desde 1 foto cuando requiera aristas y fisuras cortantes (suaviza como plastilina). Partir siempre de una malla de relieve densa validada cubriendo todo el hexágono interior + proyección multi-cámara **Cycles UV 3D (`Smart UV 3D`)** desde vistas calibradas de Nano Banana (nunca mapa cenital `2.5D` único sobre escarpes `>= 55°`).
+
 ---
 
 ## 2. Invariantes Físicos y Tolerancias de Ingeniería
@@ -49,6 +52,8 @@ Antes de escribir código o generar geometría, consultar `.agents/skills/maker3
    - Visor WebGL autónomo (`.html` con GLB comprimido mediante `Meshopt + WebP` vía `gltf-transform.cmd`, objetivo `< 20 MB`, límite estricto `< 50 MB` para `Visores-HTML/`).
 2. **Auto-auditoría visual obligatoria (nunca entregar a ciegas):**
    - Renderizar e inspeccionar visualmente mediante `read_file` los paneles `audit_6views_pbr.png`, `audit_6views_clay.png` (arcilla sin textura para auditar relieve real vs pintura 2D) y `audit_ortho.png` antes de declarar completa cualquier pieza o loseta.
+   - **Criterio visual estricto sin indulgencia técnica:** jamás valorar ni dar por bueno un activo por métricas técnicas (`chi=2`, UVs sin estirar, HTML ligero) si las capturas PBR/Arcilla muestran aspecto low-poly, manchas planas o pérdida de detalle frente a la referencia hero `0°` (comparar siempre cara a cara todas las vistas `0°–300°` contra la referencia objetivo).
+   - **Sincronía de archivos multimedia:** nunca ejecutar `read_file` sobre una imagen mientras siga en ejecución el comando o subagente que la escribe (esperar siempre a que termine el proceso antes de leer).
    - Verificar en navegador headless (subagente `browser`) todo visor HTML generado (`0` errores de consola WebGL/JS).
 
 ---

@@ -891,3 +891,21 @@ Resultados y métricas verificadas:
 - **Visor WebGL (`Visores-HTML/catan-bioma-montana-factory.html`):** Empaquetado con `optimize_and_build_viewer.py --compress meshopt --texture-format webp --max-texture-size 2048 --no-simplify`: `27,387.17 KB -> 3,025.4 KB` (`88.95%` ahorro), HTML autónomo de **`3.955 MB`**.
 - **Verificación visual en Chromium headless (`http://localhost:18765/catan-bioma-montana-factory.html`):** `0` errores de consola/JS/WebGL (`8/8` peticiones HTTP `200`), verificadas captura frontal PBR, rotación trasera `~180°` PBR y modo `Arcilla CAD`.
 ================================================================================
+
+SESIÓN: 22/11/2026 - REVISIÓN CRÍTICA DE CALIDAD VISUAL Y `/learn` (CONSERVACIÓN HERO V4 + PROYECCIÓN CYCLES UV 3D)
+- Prompts literales del usuario:
+  * [22/11/2026 02:15]: "Qué nota le pones?"
+  * [22/11/2026 02:32]: "Le doy un 2 "
+  * [22/11/2026 02:34]: "Te recuerdo que trellis era un 4"
+  * [22/11/2026 02:36]: "Y realmente vas a lograr ya el 9.5/10?"
+  * [22/11/2026 02:37]: "Te parece si te tiro un comando learn en el siguiente prompt para dejar guardadi un poco mjeor lo que hemos visto hoy y acabamos por hoy? Mañana ya comprobaremos si eso "
+  * [22/11/2026 02:38]: "/learn "
+  * [22/11/2026 02:40]: (Aprobación de `learning_proposal.md` en UI)
+- Objetivo: Documentar con total honestidad visual las limitaciones reales de `montana_factory_v8` (conos extruidos low-poly `2/10`) y `montana_trellis2` (`TRELLIS.2` tipo plastilina `4/10`) frente a `montana/work_v4/` (`9/10` en `0°`), y persistir vía `/learn` en las reglas y skills de Maker3D la arquitectura correcta (`Smart UV 3D` + proyección multi-cámara Nano Banana sobre geometría V4 + `Normal Displace` trasero).
+
+Decisiones técnicas y cambios implementados:
+- **`.agents/rules/maker3d-architecture.md`:** Añadidos guardrails visuales prohibiendo conos CSG/prismas low-poly y `TRELLIS.2` en solitario sobre terrenos rocosos afilados, prohibiendo mapas `top-down 2.5D` sobre paredes `>= 55°`, exigiendo autocrítica estética estricta frente a la referencia hero `0°` sin indulgencia técnica, y prohibiendo llamar a `read_file` sobre imágenes aún en escritura.
+- **`.agents/skills/maker3d-router/SKILL.md`:** Actualizada la Clase B para dirigir terrenos heroicos 360° hacia malla densa tipo herradura + Nano Banana 6-vistas (`Branch C`) + Cycles `Smart UV 3D`, y alineada la Fase 3 para mantener `--bambu-slice` solo bajo petición explícita.
+- **`.agents/skills/nanobanana-3d-sculpt/SKILL.md`:** Actualizada Branch C (pasos 1 y 4) exigiendo bloquear/reutilizar geometrías hero ya validadas (`Z_geom_v4.npy` + `hero_nanobanana.jpg`) y exportar vistas calibradas a Blender Cycles `Smart UV 3D` en lugar de aplanar paredes `>= 55°` en un mapa cenital `2.5D`.
+- **`.agents/skills/blender-sculpt-bake/SKILL.md`:** Añadida la sección §4 con el protocolo de proyección multi-cámara Cycles sobre `Smart UV Project 3D` (`dot(Normal, ViewDir)^4`) y `Normal Displace` físico en caras traseras (`120°–240°`) para paridad 360° en `PBR` y `Arcilla CAD`.
+================================================================================

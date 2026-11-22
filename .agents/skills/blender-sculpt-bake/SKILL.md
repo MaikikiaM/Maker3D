@@ -44,3 +44,12 @@ blender.exe --background --python tools/blender/sculpt_fuse_bake_render.py -- `
 
 - **Siempre** abre e inspecciona `audit_6views_pbr.png`, `audit_6views_clay.png` y `audit_ortho.png` con `read_file` tras ejecutar el script.
 - Si el usuario prefiere sesión interactiva con ventana de Blender abierta, recuerda que el addon **`blender_mcp`** está instalado y activado en Blender 5.3 (`Interface: MCP for Blender`), conectado al servidor MCP `"blender"` (`mcp-for-blender.exe`). Para pipelines automatizados y reproducibles en segundo plano sin GUI, utiliza `blender.exe --background`.
+
+## 4. Proyección Multi-Cámara 3D (`Hero + Vistas Nano Banana` → `9.5/10` en 360°)
+
+Cuando una loseta combina vista frontal heroica (`0°`) con vistas completadas por `image-generator` (`60°, 120°, 180°, 240°, 300°`):
+1. **Conservar geometría de alta cobertura:** importar la malla base densa ya validada en todo el interior del hexágono (evitando praderas exteriores planas vacías o conos extruidos low-poly) y recortar/unir al troquel B-Rep (`build_catan_inner_cutter`).
+2. **Proyección por cámara en Cycles sobre `Smart UV Project 3D`:**
+   - Generar UVs 3D reales (`Smart UV Project 3D`) para que los escarpes verticales tengan densidad texel 1:1.
+   - En Cycles, proyectar cada una de las 6 imágenes de cámara alineadas ponderando con `max(dot(Normal, ViewDir), 0)^4` (*Winner-Takes-Most*): así `0°` mantiene píxel a píxel el nivel del Hero original y `120°/180°/240°` proyectan de frente sin estiramiento cenital.
+3. **Micro-desplazamiento físico en espalda (`Normal Displace`):** aplicar desplazamiento sutil en dirección de la **normal 3D de superficie** en las caras traseras (`120°–240°`) leyendo el mapa de fisuras/luminancia normalizada del albedo proyectado, logrando paridad completa entre frente y espalda tanto en `PBR` como en `Arcilla CAD`.

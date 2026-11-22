@@ -27,5 +27,5 @@ Suite modular CAD/Mesh/Escultura 3D con IA (**Maker3D 2.0**) para piezas paramé
 - Los **8/8 biomas Catán** (`Montaña V4/DEF/Centrada V3`, `Bosque 3D`, `Colinas`, `Pastos`, `Campos`, `Desierto`, `Río de Oro v08`, `Océano`), visores en `Visores-HTML/` y la skill `.agents/skills/nanobanana-3d-sculpt/` permanecen intactos y plenamente operativos.
 
 ## Próximas Tareas Prioritarias
-1. Atender de inmediato nuevos diseños 3D del usuario enrutando automáticamente con `maker3d-router` (piezas mecánicas CAD, nuevas losetas/dioramas, miniaturas orgánicas o props híbridos con `TRELLIS.2` / `Hunyuan3D` vía `.env`).
+1. Completar la **Montaña Hero 360° (`9.5/10`)** conservando la geometría densa V4 (`Z_geom_v4.npy` + `hero_nanobanana.jpg`) + vistas traseras completadas por `Nano Banana` proyectadas en **Blender Cycles `Smart UV 3D`** (`dot(N,V)^4`) + `Normal Displace` en espalda (`120°–240°`), replicando el patrón al resto de biomas de Catán.
 2. Opcional para el usuario: añadir `FAL_KEY` o `REPLICATE_API_TOKEN` en `.env` solo si desea superar el límite diario gratuito de ZeroGPU (`300 s/día`, ya conectado con `HF_TOKEN`).
