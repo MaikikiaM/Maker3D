@@ -1057,6 +1057,9 @@ Me parece que la forma de lograr lo que pido es muy buena y tal, pero no sería 
   * [22/11/2026 22:32]: "Ha salido peor que la anterior. Realmente la anterior ya esta super bien, nos podemos quedar con ese tipo de calidad. Pero no dbeemos admitir menos!"
   * [22/11/2026 22:34]: "Y te pregunto. Tengo la aplicacion de gemini instalada en el ordenador. No podrias hacer tu las peticiones de alguna forma ya que estas trabajando en este ordenador?"
   * [22/11/2026 22:36]: "Haria falta esta calidad tb en todas las imagenes que ya se han generado antes porque imagino que la calidad sera insuficiente. Dejame en un documento PDF los prompts àra cada caso y el nombre de las imagenes que debo buscar en el directorio que me indicaste antes"
+  * [22/11/2026 22:45]: "Si te das cuenta, siguen saliendo como antes de la que te dije que estaba bien y que ahora es la referencia. Por que? No corregiste los prompts?"
+  * [22/11/2026 22:53]: "Sigue sin tener la misma calidad grafica que el objetivo. Te dejo la que ha generado y la que generó en B2 prime."
+  * [22/11/2026 22:55]: "Lo mas increible de B2 es precisamente el fondo. Te estas enfocando solamente en una cosa y no ves the big picture"
 - Objetivo: Añadir soporte `--compress none` en el constructor WebGL para generar una versión `v04-raw` totalmente sin comprimir (float32 + PNG 4K sin Meshopt ni WebP), y corregir el protocolo y el archivado del proyecto para versionar cada iteración de forma incremental (`-vNN-<etiqueta>` + `versiones/vNN_<etiqueta>/`) sin sobrescribir nunca builds anteriores.
 
 Decisiones técnicas y archivos creados/modificados:

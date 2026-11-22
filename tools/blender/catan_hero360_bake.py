@@ -654,6 +654,8 @@ def sculpt_3d_from_baked_albedo(obj: bpy.types.Object, albedo_path: Path) -> Non
     loop_tot = np.empty(len(me.polygons), dtype=np.int32)
     me.polygons.foreach_get("loop_total", loop_tot)
     is_ter_loop = np.repeat(poly_mat == 1, loop_tot)
+    is_slot2_v = np.zeros(n_verts, dtype=bool)
+    is_slot2_v[loop_vi[np.repeat(poly_mat == 2, loop_tot)]] = True
     v_uv = np.zeros((n_verts, 2), dtype=np.float32)
     v_uv[loop_vi[is_ter_loop]] = uv_l[is_ter_loop]
 
@@ -675,7 +677,7 @@ def sculpt_3d_from_baked_albedo(obj: bpy.types.Object, albedo_path: Path) -> Non
     sat = np.max(rgb, axis=1) - np.min(rgb, axis=1)
 
     de, dv = _hex_distances_arr(V[:, 0], V[:, 1])
-    is_ter_v = (V[:, 2] >= Z_BASE + 0.04) & (de >= ROAD_MARGIN + 0.45) & (dv >= PAD_RADIUS + 0.45)
+    is_ter_v = (V[:, 2] >= Z_BASE + 0.04) & (de >= ROAD_MARGIN + 0.45) & (dv >= PAD_RADIUS + 0.45) & (~is_slot2_v)
     safe_margin = (
         is_ter_v
         & _smoothstep(ROAD_MARGIN + 0.5, ROAD_MARGIN + 2.4, de).astype(bool)
