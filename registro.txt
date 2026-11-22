@@ -864,3 +864,30 @@ Resultados y métricas verificadas:
 - **Auditoría `tools/audit/mesh_and_print_audit.py --catan-check --export-3mf` (`exit 0`, sin laminar):** `repaired=false`, `1,721,039 V / 3,442,074 Δ`, `is_watertight=true`, `euler_number=2` (`genus=0`), `degenerate_faces=0`, `volume_cm3=342.154`, `overhang_gt_deg_pct=0.0%`, `thin_wall_lt_2nozzle_pct=0.0%`, `manifold_status=Error.NoError`, `pymeshlab_non_manifold_edges=0`, `pymeshlab_boundary_edges=0`, `pymeshlab_connected_components=1`, `catan_dims_ok=true` (`110.8512 × 128.0 × 70.2078 mm`), `magnet_cavity_ok=true` (`5.2 mm`), `pads_flat_25mm_ok=true` (`6/6` pads `25.0 mm`), `catan_montana_granito_v5.3mf` (`52,771,516 B` = `50.33 MB`).
 - **Visor WebGL (`Visores-HTML/catan-bioma-montana-granito-v5.html`, `20.20 MB`):** Verificado en navegador vivo (`http://127.0.0.1:8769/catan-bioma-montana-granito-v5.html`): `1,203,220` triángulos WebGL (`3,442,074` Master), `0` errores de consola/JS/WebGL, `0` peticiones fallidas; verificadas vistas frontal `0°` PBR, trasera `~180°` PBR y modo `Arcilla CAD` (micro-relieve 3D físico nítido).
 ================================================================================
+
+SESIÓN: 22/11/2026 - FÁBRICA MODULAR 3D CATÁN (BLENDER 5.3 + MANIFOLD3D) Y MONTAÑA GRANITO 3D REAL (`montana_factory_v8`)
+- Prompts literales del usuario:
+  * [22/11/2026 01:19]: "Te parece que esta a la altura objetivo? Que es un 9.5/10?"
+  * [22/11/2026 01:20]: "Genuinamente, es un puto desastre. No es una mierda de 1.5 como todo lo anterior pero no llega al 5. Qué podemos hacer para continuar escalando"
+  * [22/11/2026 01:23]: "Vamos a tener que hacer todos los biomas del catan y va a hacer falta que el trabajo que dediquemos a la montaña cuando vayamos a otros biomas se nos facilite todo. Qué camino sugieres?"
+  * [22/11/2026 01:24]: "Si, procede. Quiero un resultado mucho mejor ahora /goal "
+- Objetivo: Abandonar el techo del pipeline 2.5D top-down (que causaba estiramientos UV `5x–8x` en paredes verticales y cicatrices de esculpido por luminancia) e implementar una fábrica modular 3D real reutilizable para los 8 biomas de Catán (`tools/blender/catan_3d_factory_csg.py` + `tools/blender/catan_3d_factory_bake.py`), demostrada con la reconstrucción completa de `Montaña Granito 3D`.
+
+Decisiones técnicas y cambios implementados:
+- **Fábrica Modular CSG 3D (`tools/blender/catan_3d_factory_csg.py`):**
+  * Sustituido el heightfield 2.5D por fusión booleana real `manifold3d.batch_boolean` entre lecho alpino de alta densidad (`nx_bed=320` con dorsales geológicas continuas y valle glaciar en U cóncava), contrafuertes/masas graníticas piramidales imbricadas en alta resolución (`sides=14, tiers=9` con estrías verticales y terrazas escalonadas, hincados a `Z_SLAB_BOT=Z_BASE-2.0` para garantizar `chi=2` sin túneles internos) y cantos rodados empotrados.
+  * Recorte booleano exacto con troquel `build_catan_inner_cutter` (`build123d` OCCT B-Rep) para unión limpia con el zócalo hexagonal, los carriles de camino y los `6` pads a `25.00 mm`, exportando `splat_mask.png` (`1024x1024`: garganta terrosa quebrada por ruido, circo/collados nevados y glera izquierda).
+- **Motor Cycles Bake 3D (`tools/blender/catan_3d_factory_bake.py`):**
+  * Proyección UV 3D real (`Smart UV Project 3D`) que elimina al 100% el estiramiento UV en acantilados verticales, con asignación exacta de materiales `Plinth_Gunmetal` y `Biome_Montana_3D`.
+  * Shader procedural 3D anisótropo: fracturas Voronoi deformadas con ruido 3D y escalado vertical (`Scale Z=0.28`), `Bevel` controlado para dry-brush en aristas, `Ambient Occlusion (Distance=5.8)` en grietas, pradera oliva-musgo con suelo de glera y garganta terrosa natural, y máscara de nieve alpina restringida estrictamente a los circos/collados designados con `0.0000%` en pendientes `>= 44°`.
+  * Iteración visual honesta `v2 -> v8` inspeccionando capturas Cycles 6-vistas PBR/Arcilla y mapa UV antes de hornear la versión final `montana_factory_v8` a `4096x4096` Diffuse + `2048x2048` Normal/Roughness.
+
+Resultados y métricas verificadas:
+- **Auditoría `tools/audit/mesh_and_print_audit.py --catan-check --export-3mf` sobre `Tableros-Catan/pipeline-biomas/montana_factory_v8/tile_master.stl` (`exit 0`, sin laminar):**
+  * `repaired=false`, `61,065 V / 122,126 F`, `is_watertight=true`, `euler_number=2` (`pymeshlab_connected_components=1`, `non_manifold_edges=0`, `boundary_edges=0`, `degenerate_faces=0`).
+  * `manifold_status=Error.NoError`, `manifold_valid=true`, `volume_cm3=318.064`, `overhang_gt_deg_pct=0.024%`, `thin_wall_lt_2nozzle_pct=0.0%`.
+  * `catan_dims_ok=true` (`110.8512 × 128.0 × 68.5144 mm`), `magnet_cavity_ok=true` (`5.2 mm`), `pads_flat_25mm_ok=true` (`6/6` pads a `25.0 mm`).
+  * Exportado `Tableros-Catan/pipeline-biomas/montana_factory_v8/catan_montana_factory.3mf` (`1,717,785 B`).
+- **Visor WebGL (`Visores-HTML/catan-bioma-montana-factory.html`):** Empaquetado con `optimize_and_build_viewer.py --compress meshopt --texture-format webp --max-texture-size 2048 --no-simplify`: `27,387.17 KB -> 3,025.4 KB` (`88.95%` ahorro), HTML autónomo de **`3.955 MB`**.
+- **Verificación visual en Chromium headless (`http://localhost:18765/catan-bioma-montana-factory.html`):** `0` errores de consola/JS/WebGL (`8/8` peticiones HTTP `200`), verificadas captura frontal PBR, rotación trasera `~180°` PBR y modo `Arcilla CAD`.
+================================================================================
