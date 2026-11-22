@@ -115,6 +115,76 @@ def assign_plinth_vs_terrain_slots(obj: bpy.types.Object) -> np.ndarray:
     return is_ter_face
 
 
+def subdivide_steep_terrain_edges(
+    obj: bpy.types.Object,
+    max_edge_mm: float = 0.29,
+    max_passes: int = 3,
+    target_max_faces: int = 2350000,
+) -> None:
+    """Subdivide adaptativamente aristas largas del relieve (> max_edge_mm) para eliminar facetas en paredes verticales."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.verts.ensure_lookup_table()
+    bm.edges.ensure_lookup_table()
+    bm.faces.ensure_lookup_table()
+
+    def _face_is_terrain(f) -> bool:
+        c = f.calc_center_median()
+        if c.z > Z_BASE + 0.08:
+            return True
+        if c.z < Z_BASE - 0.03:
+            return False
+        de, dv = _hex_distances_pt(c.x, c.y)
+        return not (de < ROAD_MARGIN + 0.25 or dv < PAD_RADIUS + 0.25)
+
+    for p_i in range(max_passes):
+        cur_faces = len(bm.faces)
+        if cur_faces >= target_max_faces:
+            break
+        ter_flags = [_face_is_terrain(f) for f in bm.faces]
+        cand = []
+        for e in bm.edges:
+            if len(e.link_faces) != 2:
+                continue
+            if not (ter_flags[e.link_faces[0].index] and ter_flags[e.link_faces[1].index]):
+                continue
+            v0, v1 = e.verts[0].co, e.verts[1].co
+            if v0.z <= Z_BASE + 0.04 or v1.z <= Z_BASE + 0.04:
+                continue
+            length = (v1 - v0).length
+            if length > max_edge_mm:
+                cand.append((length, e))
+        if not cand:
+            break
+        budget = int((target_max_faces - cur_faces) / 1.85)
+        if budget <= 0:
+            break
+        if len(cand) > budget:
+            cand.sort(key=lambda t: t[0], reverse=True)
+            cand = cand[:budget]
+        edges_split = [t[1] for t in cand]
+        bmesh.ops.subdivide_edges(
+            bm,
+            edges=edges_split,
+            cuts=1,
+            use_grid_fill=True,
+            use_single_edge=True,
+            quad_corner_type="INNER_VERT",
+        )
+        ngons = [f for f in bm.faces if len(f.verts) > 3]
+        if ngons:
+            bmesh.ops.triangulate(bm, faces=ngons, quad_method="SHORT_EDGE", ngon_method="BEAUTY")
+        bm.verts.ensure_lookup_table()
+        bm.edges.ensure_lookup_table()
+        bm.faces.ensure_lookup_table()
+        print(f"  [Subdiv {p_i + 1}] split={len(edges_split)} aristas > {max_edge_mm:.2f} mm -> {len(bm.faces)} caras")
+
+    bm.normal_update()
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+
+
 def build_plinth_material() -> bpy.types.Material:
     """Material gunmetal pizarra cepillado con anillos sutiles en carril y pads."""
     m_pl, nt, bsdf, _ = _new_material("Plinth_Gunmetal")
@@ -166,17 +236,17 @@ def setup_camera_projections_and_shader(
     de_v, dv_v = _hex_distances_arr(V[:, 0], V[:, 1])
     is_ter_v = (V[:, 2] >= Z_BASE - 0.02) & (de_v >= ROAD_MARGIN - 0.1) & (dv_v >= PAD_RADIUS - 0.1)
 
-    # Evitar proyectar el bisel gris del zocalo sobre el faldon exterior de hierba (pulir UV ligeramente hacia dentro)
+    # Evitar proyectar el bisel gris del zocalo sobre el faldon exterior de hierba (tirar UV hacia la pradera limpia)
     r_xy = np.maximum(np.hypot(V[:, 0], V[:, 1]), 1e-6)
     rim_pull = np.where(
-        is_ter_v & (V[:, 2] < Z_BASE + 1.25),
-        np.clip(np.maximum(ROAD_MARGIN + 1.15 - de_v, PAD_RADIUS + 1.15 - dv_v), 0.0, 1.35),
+        is_ter_v & (V[:, 2] < Z_BASE + 4.2),
+        np.clip(np.maximum(ROAD_MARGIN + 3.20 - de_v, PAD_RADIUS + 3.00 - dv_v), 0.0, 3.30),
         0.0,
     )
     V_proj = V.copy()
     V_proj[:, 0] -= (V[:, 0] / r_xy) * rim_pull
     V_proj[:, 1] -= (V[:, 1] / r_xy) * rim_pull
-    V_proj[:, 2] += 0.25 * (rim_pull > 0.0)
+    V_proj[:, 2] += 0.45 * (rim_pull > 0.0)
 
     # BVHTree para test de oclusion exacto por rayo en C++
     bm = bmesh.new()
@@ -282,8 +352,19 @@ def setup_camera_projections_and_shader(
             W_cams[vi_idx, best_fb[j]] = 1.0
         w_sum = np.sum(W_cams, axis=1)
 
-    # Normalizar pesos para que sumen exactamente 1.0 en cada vertice del terreno
+    # Normalizar pesos para que sumen exactamente 1.0 y suavizar ligeramente fronteras de oclusion (2 pasadas)
     W_cams = W_cams / np.maximum(w_sum[:, None], 1e-6)
+    deg_w = np.zeros(n_verts, dtype=np.float32)
+    np.add.at(deg_w, edges_i0, 1.0)
+    np.add.at(deg_w, edges_i1, 1.0)
+    deg_w = np.maximum(deg_w, 1.0)
+    for _ in range(2):
+        acc = np.zeros_like(W_cams)
+        np.add.at(acc, edges_i0, W_cams[edges_i1])
+        np.add.at(acc, edges_i1, W_cams[edges_i0])
+        nbr = acc / deg_w[:, None]
+        W_cams = np.where(is_ter_v[:, None], 0.72 * W_cams + 0.28 * nbr, W_cams)
+        W_cams = W_cams / np.maximum(np.sum(W_cams, axis=1, keepdims=True), 1e-6)
 
     # Escribir los 6 UV layers + 2 Color Attributes (CamW0=[w0,w60,w120,w180], CamW1=[w240,w300,0,1])
     n_loops = len(me.loops)
@@ -412,13 +493,24 @@ def sculpt_3d_from_baked_albedo(obj: bpy.types.Object, albedo_path: Path) -> Non
     loop_vi = np.empty(n_loops, dtype=np.int32)
     me.loops.foreach_get("vertex_index", loop_vi)
 
-    # Promediar UV por vertice (rapido via bincount sobre primer loop encontrado por vertice)
+    # Promediar UV por vertice (primer loop valido dentro de su isla UV) e interpolacion bilineal exacta
     v_uv = np.zeros((n_verts, 2), dtype=np.float32)
     v_uv[loop_vi] = uv_l
 
-    px_u = np.clip(np.round(v_uv[:, 0] * (aw - 1)), 0, aw - 1).astype(np.int32)
-    px_v = np.clip(np.round((1.0 - v_uv[:, 1]) * (ah - 1)), 0, ah - 1).astype(np.int32)
-    rgb = arr[px_v, px_u]
+    fu = np.clip(v_uv[:, 0], 0.0, 1.0) * (aw - 1)
+    fv = np.clip(1.0 - v_uv[:, 1], 0.0, 1.0) * (ah - 1)
+    u0 = np.floor(fu).astype(np.int32)
+    v0 = np.floor(fv).astype(np.int32)
+    u1 = np.minimum(u0 + 1, aw - 1)
+    v1 = np.minimum(v0 + 1, ah - 1)
+    du = (fu - u0)[:, None]
+    dv_uv = (fv - v0)[:, None]
+    rgb = (
+        arr[v0, u0] * (1.0 - du) * (1.0 - dv_uv)
+        + arr[v0, u1] * du * (1.0 - dv_uv)
+        + arr[v1, u0] * (1.0 - du) * dv_uv
+        + arr[v1, u1] * du * dv_uv
+    )
     lum = 0.2126 * rgb[:, 0] + 0.7152 * rgb[:, 1] + 0.0722 * rgb[:, 2]
     sat = np.max(rgb, axis=1) - np.min(rgb, axis=1)
 
@@ -436,7 +528,7 @@ def sculpt_3d_from_baked_albedo(obj: bpy.types.Object, albedo_path: Path) -> Non
     # No deformar nieve limpia; esculpir rocas, barrancos, piedras y musgo
     snow_mask = _smoothstep(0.68, 0.84, lum) * (1.0 - _smoothstep(0.10, 0.20, sat)) * _smoothstep(Z_BASE + 3.0, Z_BASE + 8.0, V[:, 2])
 
-    # Contraste local normalizado sobre grafo de malla (funciona en cualquier pendiente 0°..90°!)
+    # Contraste local normalizado sobre grafo de malla densificada (funciona en cualquier pendiente 0°..90°!)
     e0 = np.array([e.vertices[0] for e in me.edges], dtype=np.int32)
     e1 = np.array([e.vertices[1] for e in me.edges], dtype=np.int32)
     deg = np.zeros(n_verts, dtype=np.float32)
@@ -445,7 +537,7 @@ def sculpt_3d_from_baked_albedo(obj: bpy.types.Object, albedo_path: Path) -> Non
     deg = np.maximum(deg, 1.0)
 
     lum_smooth = lum.copy()
-    for _ in range(36):
+    for _ in range(52):
         acc = np.zeros(n_verts, dtype=np.float32)
         np.add.at(acc, e0, lum_smooth[e1])
         np.add.at(acc, e1, lum_smooth[e0])
@@ -456,14 +548,14 @@ def sculpt_3d_from_baked_albedo(obj: bpy.types.Object, albedo_path: Path) -> Non
     lum_sc = 0.45 * lum + 0.55 * lum_eq
 
     l_sm_wide = lum_sc.copy()
-    for _ in range(24):
+    for _ in range(38):
         acc = np.zeros(n_verts, dtype=np.float32)
         np.add.at(acc, e0, l_sm_wide[e1])
         np.add.at(acc, e1, l_sm_wide[e0])
         l_sm_wide = np.where(is_ter_v, acc / deg, l_sm_wide)
 
     l_sm_mid = lum_sc.copy()
-    for _ in range(4):
+    for _ in range(6):
         acc = np.zeros(n_verts, dtype=np.float32)
         np.add.at(acc, e0, l_sm_mid[e1])
         np.add.at(acc, e1, l_sm_mid[e0])
@@ -486,8 +578,8 @@ def sculpt_3d_from_baked_albedo(obj: bpy.types.Object, albedo_path: Path) -> Non
     print(f"  [Sculpt3D] Desplazamiento por Normal 3D completado (range=[{disp_mm.min():.3f}, {disp_mm.max():.3f}] mm)")
 
 
-def bake_pbr_maps(scene: bpy.types.Scene, obj: bpy.types.Object, out_dir: Path, albedo_res: int = 4096, samples: int = 8) -> Tuple[Path, Path, Path]:
-    """Hornea DIFFUSE 4K desde las 6 camaras, esculpe normales 3D y hornea NORMAL + ROUGHNESS."""
+def bake_pbr_maps(scene: bpy.types.Scene, obj: bpy.types.Object, out_dir: Path, is_ter_face: np.ndarray, albedo_res: int = 4096, samples: int = 8) -> Tuple[Path, Path, Path]:
+    """Hornea DIFFUSE 4K desde las 6 camaras, esculpe normales 3D, aplica suavizado organico y hornea NORMAL + ROUGHNESS."""
     bpy.ops.object.select_all(action="DESELECT")
     obj.select_set(True)
     bpy.context.view_layer.objects.active = obj
@@ -499,7 +591,7 @@ def bake_pbr_maps(scene: bpy.types.Scene, obj: bpy.types.Object, out_dir: Path, 
         ul.active_render = (ul.name == "UVMap")
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.uv.smart_project(angle_limit=math.radians(66.0), island_margin=0.002, correct_aspect=True)
+    bpy.ops.uv.smart_project(angle_limit=math.radians(82.0), island_margin=0.001, area_weight=1.0, correct_aspect=True)
     bpy.ops.object.mode_set(mode="OBJECT")
     for ul in obj.data.uv_layers:
         ul.active = (ul.name == "UVMap")
@@ -529,9 +621,11 @@ def bake_pbr_maps(scene: bpy.types.Scene, obj: bpy.types.Object, out_dir: Path, 
 
     # Esculpir fisicamente en 3D sobre la normal real leyendo el albedo recien horneado
     sculpt_3d_from_baked_albedo(obj, albedo_p)
+    obj.data.polygons.foreach_set("use_smooth", is_ter_face.tolist())
+    obj.data.update()
 
     # Conectar Bump sutil + Roughness por luminancia del albedo en Hero360_Terrain y hornear Normal + Roughness
-    map_res = 2048
+    map_res = max(2048, min(albedo_res, 4096))
     m_ter = bpy.data.materials.get("Hero360_Terrain")
     if m_ter:
         nt = m_ter.node_tree
@@ -615,6 +709,8 @@ def bake_pbr_maps(scene: bpy.types.Scene, obj: bpy.types.Object, out_dir: Path, 
 
     obj.data.materials.clear()
     obj.data.materials.append(mat)
+    obj.data.polygons.foreach_set("use_smooth", is_ter_face.tolist())
+    obj.data.update()
     return albedo_p, normal_p, rough_p
 
 
@@ -773,14 +869,18 @@ def main() -> None:
     obj = bpy.context.selected_objects[0]
     obj.name = "Catan_Hero360"
 
+    subdivide_steep_terrain_edges(obj, max_edge_mm=0.24, max_passes=3, target_max_faces=2200000)
+
     m_pl = build_plinth_material()
     m_ter = setup_camera_projections_and_shader(obj, cams)
     obj.data.materials.clear()
     obj.data.materials.append(m_pl)
     obj.data.materials.append(m_ter)
-    assign_plinth_vs_terrain_slots(obj)
+    is_ter_face = assign_plinth_vs_terrain_slots(obj)
+    obj.data.polygons.foreach_set("use_smooth", is_ter_face.tolist())
+    obj.data.update()
 
-    bake_pbr_maps(scene, obj, out_dir, albedo_res=args.bake_res, samples=args.bake_samples)
+    bake_pbr_maps(scene, obj, out_dir, is_ter_face=is_ter_face, albedo_res=args.bake_res, samples=args.bake_samples)
 
     master_stl = out_dir / "tile_master.stl"
     bpy.ops.object.select_all(action="DESELECT")

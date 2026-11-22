@@ -49,7 +49,7 @@ Antes de escribir código o generar geometría, consultar `.agents/skills/maker3
 1. **Tres entregables estándar por diseño terminado:**
    - Paramétrico editable (`.step` o `.scad`), si aplica geometría CAD.
    - Malla de fabricación validada (`.stl` estanco y/o `.3mf` válido vía `lib3mf`; sin laminar con Bambu Studio por defecto salvo petición explícita del usuario).
-   - Visor WebGL autónomo (`.html` con GLB comprimido mediante `Meshopt + WebP` vía `gltf-transform.cmd`, objetivo `< 20 MB`, límite estricto `< 50 MB` para `Visores-HTML/`).
+   - Visor WebGL autónomo (`.html` con GLB comprimido mediante `Meshopt + WebP` vía `gltf-transform.cmd` a resolución completa `4K` `--max-texture-size 4096 --no-simplify`, sin límite artificial de tamaño salvo excluir de Git archivos `> 50 MB`).
 2. **Auto-auditoría visual obligatoria (nunca entregar a ciegas):**
    - Renderizar e inspeccionar visualmente mediante `read_file` los paneles `audit_6views_pbr.png`, `audit_6views_clay.png` (arcilla sin textura para auditar relieve real vs pintura 2D) y `audit_ortho.png` antes de declarar completa cualquier pieza o loseta.
    - **Criterio visual estricto sin indulgencia técnica:** jamás valorar ni dar por bueno un activo por métricas técnicas (`chi=2`, UVs sin estirar, HTML ligero) si las capturas PBR/Arcilla muestran aspecto low-poly, manchas planas o pérdida de detalle frente a la referencia hero `0°` (comparar siempre cara a cara todas las vistas `0°–300°` contra la referencia objetivo).

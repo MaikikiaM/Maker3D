@@ -933,3 +933,46 @@ Resultados y métricas verificadas:
 - **Visor WebGL (`Visores-HTML/catan-bioma-montana-hero360.html`):** Generado con `optimize_and_build_viewer.py --compress meshopt --texture-format webp --max-texture-size 2048 --no-simplify` (`39,321.95 KB -> 6,219.82 KB`, `84.18%` ahorro, HTML autónomo de `8.114 MB`).
 - **Inspección interactiva en Chromium (`http://localhost:8787/catan-bioma-montana-hero360.html`):** `0` errores de consola/JS/HTTP (`200 OK`); verificadas capturas de vista frontal `0°` PBR, trasera `~180°` PBR, trasera `~180°` `Arcilla CAD` y frontal `0°` `Arcilla CAD` con relieve rocoso 3D afilado y continuo en 360°.
 ================================================================================
+
+SESIÓN: 22/11/2026 - MONTAÑA HERO 360° 1.88M / 4K HD (SUBDIVISIÓN ADAPTATIVA + INTERPOLACIÓN BILINEAL + SMOOTH ORGÁNICO + SIN LÍMITE ARTIFICIAL DE VISOR)
+- Prompts literales del usuario:
+  * [22/11/2026 12:35]: "Mira estas 5 imágenes comparativas (2 de la `montana_hero360` actual de 8.11 MB y 251k triángulos, 2 de `montana_v4` de 29 MB, y 1 detalle de la malla). Por simple densidad geométrica (251k triángulos / 8.11 MB) y facetado plano en los acantilados, la calidad visual de cerca cae en picado frente a lo que necesitamos.
+
+Aplica estos cambios de arquitectura y re-genera `montana_hero360`:
+
+1. **Eliminar el límite móvil `< 20 MB` y los recortes artificiales de visor:**
+   - No necesitamos abrir estos HTML en móvil. Elimina el objetivo `< 20 MB` de `AGENTS.md`, `.agents/rules/maker3d-architecture.md` y `.agents/skills/print-audit-and-webgl/SKILL.md`.
+   - Quita el bloqueo `assert stats["html_mb"] < 50.0` de `tools/webgl/optimize_and_build_viewer.py` (avisando solo si supera ~95 MB para no chocar con el techo de 100 MB de GitHub, o ignorando en `.gitignore` los HTML que pasen de 50 MB y simplemente sacar HTMLs de 1 GB de tamaño si es necesario).
+   - Exporta el visor sin bajar texturas a 2048 (`--max-texture-size 4096`) y sin simplificar geometría (`--no-simplify`).
+
+2. **Resolver de raíz la baja resolución y los triángulos estirados en pared vertical:**
+   - En `Tableros-Catan/pipeline-biomas/montana_hero360_prep.py`, sube la malla base de `nx_mesh=480` a `nx_mesh=768` (o `800`).
+   - En `tools/blender/catan_hero360_bake.py`, antes de proyectar cámaras y esculpir:
+     a) Aplica subdivisión adaptativa con `bmesh.ops.subdivide_edges` **solo** sobre caras del terreno (`slot 1` / relieve) con aristas largas (`> 0.28–0.32 mm`), para romper los triángulos estirados verticalmente en paredes de 75°–82° y alcanzar ~1.5M–2.5M de triángulos isotrópicos de alta fidelidad (sin desperdiciar triángulos en carril/zócalo plano).
+     b) Cambia la lectura de albedo en `sculpt_3d_from_baked_albedo` de píxel más cercano (`round`) a interpolación bilineal para evitar dientes de cuantización al tallar grietas en 3D.
+     c) Activa `poly.use_smooth = True` **únicamente** en las caras orgánicas del terreno (`slot 1`, manteniendo plano/nítido el zócalo, carril y pads) antes de exportar `tile_viewer.glb`, para eliminar el aspecto poligonal facetado en `Arcilla CAD` conservando el esculpido físico real (sin normal maps falsos en arcilla).
+
+3. **Re-ejecutar y auditar en primer plano:**
+   - Regenera `tile_base.stl`, ejecuta el bake 4K (`catan_hero360_bake.py`), valida estanqueidad con `mesh_and_print_audit.py --catan-check --export-3mf` (sin Bambu Studio), compila el nuevo visor `Visores-HTML/catan-bioma-montana-hero360.html` a 4K real y verifícalo en Chromium headless sacando también un **zoom cercano de ladera en PBR y Arcilla CAD** para demostrar que los dientes de sierra y las facetas han desaparecido por completo.
+Le pongo un 6/10 a toda la montaña, has logrado una calidad consistente, aunque no sea buena. La otra montaña la supera con muchisimas creces pero por detras fallaba y la tuya es igual de mediocre siempre, lo cual es de hecho una gran noticia"
+- Objetivo: Eliminar los recortes artificiales de visor (< 20 MB / assert < 50 MB), subir densidad de malla e isotropía en paredes verticales (`nx_mesh=768` + subdivisión adaptativa hasta 1.88M triángulos), interpolar bilinealmente el esculpido 3D, aplicar `use_smooth=True` exclusivo en caras orgánicas, limpiar el borde exterior de transición pradera-plinto y verificar primeros planos reales en WebGL 4K.
+
+Decisiones técnicas y archivos actualizados:
+- **`AGENTS.md`, `.agents/rules/maker3d-architecture.md`, `.agents/skills/print-audit-and-webgl/SKILL.md`:** Eliminado el objetivo móvil `< 20 MB` y la limitación de `< 50 MB` en generación local, estandarizando visores `4K` con `--max-texture-size 4096 --no-simplify` (manteniendo exclusivamente exclusión en `.gitignore` para no subir artefactos `> 50 MB` a GitHub).
+- **`tools/webgl/optimize_and_build_viewer.py`:** Eliminado `assert stats["html_mb"] < 50.0` (solo avisos `stderr` en `> 50 MB` / `> 95 MB`), subido el defecto `--max-texture-size` a `4096` y `timeout` de `gltf-transform optimize` a `600 s`.
+- **`Tableros-Catan/pipeline-biomas/montana_hero360_prep.py`:** Subida la resolución base de `nx_mesh=480` a `nx_mesh=768` (`320,706 V / 641,408 F`, `chi=2`) y suavizada la caída exterior `in_border` (`ROAD_MARGIN + 0.10 .. + 2.0`).
+- **`tools/blender/catan_hero360_bake.py`:**
+  * Implementada `subdivide_steep_terrain_edges()` con `bmesh.ops.subdivide_edges(..., quad_corner_type="INNER_VERT")` + `bmesh.ops.triangulate(..., quad_method="SHORT_EDGE", ngon_method="BEAUTY")` sobre aristas del relieve `> 0.24 mm` (`3` pasadas: `1,427,034 -> 1,851,330 -> 1,876,042` triángulos isotrópicos, zócalo CAD intacto).
+  * Reemplazado el muestreo `round` en `sculpt_3d_from_baked_albedo()` por interpolación bilineal exacta y ajustadas iteraciones en grafo (`52 / 38 / 6`, desplazamiento real `[-0.615, +0.319] mm`).
+  * Activado `poly.use_smooth = True` exclusivamente sobre caras orgánicas (`slot 1`) manteniendo planos el zócalo, carril y 6 pads, y escalado el horneado `Normal`/`Roughness` a `4096x4096`.
+  * Ampliado `rim_pull` radial hasta `de=6.70 mm` en el faldón bajo (`Z < 29.2 mm`) y añadidas `2` pasadas de suavizado `W_cams` (`0.72/0.28`) para eliminar el borde gris metálico trasero y micro-costuras de oclusión.
+
+Resultados y métricas verificadas:
+- **Auditoría `tools/audit/mesh_and_print_audit.py --catan-check --export-3mf` sobre `Tableros-Catan/pipeline-biomas/montana_hero360/tile_master.stl` (`exit 0`, sin laminar):**
+  * `repaired=false`, `938,023 V / 1,876,042 F`, `is_watertight=true`, `euler_number=2`, `degenerate_faces=0`, `non_manifold_edges=0`, `boundary_edges=0`, `connected_components=1`.
+  * `manifold_status=Error.NoError`, `manifold_valid=true`, `volume_cm3=346.526`, `overhang_gt_deg_pct=0.015%`, `thin_wall_lt_2nozzle_pct=0.0%`.
+  * `catan_dims_ok=true` (`110.8512 × 128.0 × 70.9063 mm`), `magnet_cavity_ok=true` (`5.2 mm`), `pads_flat_25mm_ok=true` (`[25.0, 25.0, 25.0, 25.0, 25.0, 25.0]`).
+  * Exportado `Tableros-Catan/pipeline-biomas/montana_hero360/catan_montana_hero360.3mf` (`33,926,060 B`).
+- **Visor WebGL 4K (`Visores-HTML/catan-bioma-montana-hero360.html`):** Generado con `--max-texture-size 4096 --no-simplify` (`74,559,188 B -> 11,242,840 B`, `84.92%` ahorro, HTML autónomo de `14.312 MB`).
+- **Verificación en Chromium headless (`http://localhost:8789/catan-bioma-montana-hero360.html`):** `0` errores de consola/página/HTTP (`8/8` peticiones `200 OK`); verificadas capturas de vista frontal `0°` PBR, zoom cercano frontal `PBR`, zoom cercano frontal `Arcilla CAD`, espalda `~180°` `Arcilla CAD`, espalda `~180°` `PBR` y zoom cercano de ladera/borde trasero `~180°` PBR sin facetas, dientes de sierra ni borde gris.
+================================================================================

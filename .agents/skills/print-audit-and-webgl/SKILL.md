@@ -3,7 +3,7 @@ name: print-audit-and-webgl
 description: >-
   Auditoría estanca y de imprimibilidad FDM (trimesh, PyMeshLab, Manifold3D,
   lib3mf 3MF + laminado CLI real en Bambu Studio) y optimización/empaquetado de
-  visores WebGL HTML autónomos con gltf-transform Meshopt + WebP (< 20 MB),
+  visores WebGL HTML autónomos con gltf-transform Meshopt + WebP (4K sin recorte),
   verificados en navegador headless sin errores.
 ---
 
@@ -59,10 +59,11 @@ python tools/webgl/optimize_and_build_viewer.py `
   --title "Título del Modelo" `
   --compress meshopt `
   --texture-format webp `
-  --max-texture-size 1024
+  --max-texture-size 4096 `
+  --no-simplify
 ```
 
 ### Características del Visor v2 Generado:
-- **Compresión real `gltf-transform.cmd optimize`:** reduce el tamaño GLB típico entre `70%–90%` mediante cuantización/Meshopt (`meshoptimizer`) y conversión de texturas a `WebP`. Objetivo `< 20 MB`, techo estricto `< 50 MB` para `Visores-HTML/`.
-- **Visor single-file autónomo (móvil + escritorio):** Three.js moderno + `GLTFLoader` + `MeshoptDecoder` + `DRACOLoader` con modos **`PBR`**, **`Arcilla CAD`** (sin texturas para auditar relieve 3D real), **`Wireframe`**, **`Corte Z`** en tiempo real, **3 Atmósferas** de iluminación y presets de cámara (incluyendo vista inferior para revisar alojamientos de imán).
+- **Compresión real `gltf-transform.cmd optimize`:** reduce el tamaño GLB manteniendo fidelidad `4K` y geometría íntegra (`--no-simplify`) mediante Meshopt (`meshoptimizer`) y texturas `WebP`. Sin tope artificial de `< 20 MB` ni bloqueo de `< 50 MB` (si un visor supera `50 MB`, excluirlo de Git en `.gitignore` y conservarlo en local/Drive).
+- **Visor single-file autónomo:** Three.js moderno + `GLTFLoader` + `MeshoptDecoder` + `DRACOLoader` con modos **`PBR`**, **`Arcilla CAD`** (sin texturas para auditar relieve 3D real), **`Wireframe`**, **`Corte Z`** en tiempo real, **3 Atmósferas** de iluminación y presets de cámara (incluyendo vista inferior para revisar alojamientos de imán).
 - **Verificación en navegador:** abre el HTML mediante servidor HTTP temporal e inspecciona en el subagente `browser` (`Model="flash"`) comprobando render activo y **`0` errores WebGL/consola**.

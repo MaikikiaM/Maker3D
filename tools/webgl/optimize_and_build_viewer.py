@@ -396,7 +396,7 @@ def optimize_glb(
     out_glb: Path,
     compress: str = "meshopt",
     texture_format: str = "webp",
-    max_texture_size: int = 1024,
+    max_texture_size: int = 4096,
     simplify_ratio: float | None = None,
     no_simplify: bool = False,
 ) -> Dict[str, float | str]:
@@ -422,7 +422,7 @@ def optimize_glb(
     elif simplify_ratio is not None and 0.05 <= simplify_ratio < 1.0:
         cmd.extend(["--simplify", "true", "--simplify-error", f"{max(0.0001, (1.0 - simplify_ratio) * 0.01):.5f}"])
 
-    res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+    res = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     if res.returncode != 0 or not out_glb.exists():
         raise RuntimeError(f"gltf-transform optimize falló ({res.returncode}):\n{res.stdout}\n{res.stderr}")
 
@@ -444,7 +444,7 @@ def build_viewer_html(
     title: str = "Maker3D 2.0 Viewer",
     compress: str = "meshopt",
     texture_format: str = "webp",
-    max_texture_size: int = 1024,
+    max_texture_size: int = 4096,
     simplify_ratio: float | None = None,
     no_simplify: bool = False,
     save_opt_glb: Path | None = None,
@@ -480,7 +480,10 @@ def build_viewer_html(
 
     stats["html_path"] = str(out_html)
     stats["html_mb"] = round(out_html.stat().st_size / (1024.0 * 1024.0), 3)
-    assert stats["html_mb"] < 50.0, f"Visor HTML excede límite 50 MB: {stats['html_mb']} MB"
+    if stats["html_mb"] > 95.0:
+        print(f"[WARN] Visor HTML pesa {stats['html_mb']} MB (>95 MB): excluir de GitHub (.gitignore) y guardar en local/Drive.", file=sys.stderr)
+    elif stats["html_mb"] > 50.0:
+        print(f"[INFO] Visor HTML pesa {stats['html_mb']} MB (>50 MB): recordar excluirlo en .gitignore antes de git-sync.", file=sys.stderr)
     return stats
 
 
@@ -491,7 +494,7 @@ def main() -> None:
     parser.add_argument("--title", default="Maker3D 2.0 — Visor WebGL PBR")
     parser.add_argument("--compress", choices=["meshopt", "draco"], default="meshopt")
     parser.add_argument("--texture-format", choices=["webp", "ktx2", "avif"], default="webp")
-    parser.add_argument("--max-texture-size", type=int, default=1024)
+    parser.add_argument("--max-texture-size", type=int, default=4096)
     parser.add_argument("--simplify-ratio", type=float, default=None)
     parser.add_argument("--no-simplify", action="store_true", help="Desactivar simplificación de malla en optimize")
     parser.add_argument("--save-opt-glb", default=None, help="Opcional: guardar GLB optimizado en disco")

@@ -247,7 +247,7 @@ def _cam_basis_dict(cam_p: np.ndarray, size: int = 1024) -> dict:
     }
 
 
-def run_export_3d(nx_mesh: int = 480):
+def run_export_3d(nx_mesh: int = 768):
     """
     Alinea las 6 vistas 360°, genera mascaras erosionadas (cero halos/zocalo), exporta cameras.json
     y construye tile_base.stl estanco unido al troquel B-Rep exacto (build123d + manifold3d).
@@ -334,8 +334,8 @@ def run_export_3d(nx_mesh: int = 480):
     Z_mesh = ndi.zoom(Z_enh, nx_mesh / Z_enh.shape[0], order=3)
     lin = np.linspace(-R, R, nx_mesh, dtype=np.float64)
     Xm, Ym = np.meshgrid(lin, lin)
-    in_border = v4.smoothstep(v4.ROAD_MARGIN + 0.15, v4.ROAD_MARGIN + 1.6, v4.hex_dist(Xm, Ym)) * v4.smoothstep(
-        v4.PAD_RADIUS + 0.10, v4.PAD_RADIUS + 1.5, v4.vert_dist(Xm, Ym)
+    in_border = v4.smoothstep(v4.ROAD_MARGIN + 0.10, v4.ROAD_MARGIN + 2.0, v4.hex_dist(Xm, Ym)) * v4.smoothstep(
+        v4.PAD_RADIUS + 0.10, v4.PAD_RADIUS + 1.8, v4.vert_dist(Xm, Ym)
     )
     Z_mesh = Z_BASE + np.maximum(0.0, Z_mesh - Z_BASE) * in_border
     bed_mf = build_terrain_bed_manifold(nx_mesh, Z_mesh, z_bot=Z_BASE - 2.6)
@@ -355,7 +355,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--stage", choices=["prep180", "prep-sides", "export-3d"], required=True)
     p.add_argument("--view-180", default=os.path.join(VIEWS_DIR, "view_180_nb.png"))
-    p.add_argument("--nx-mesh", type=int, default=480)
+    p.add_argument("--nx-mesh", type=int, default=768)
     args = p.parse_args()
     if args.stage == "prep180":
         run_prep180()
