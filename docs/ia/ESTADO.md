@@ -2,31 +2,23 @@
 
 ## Misión Actual
 Suite modular CAD/Mesh/Escultura 3D con IA (**Maker3D 2.0**) para piezas paramétricas exactas (B-Rep / OpenSCAD+BOSL2), losetas modulares (`Tableros-Catan`), miniaturas orgánicas (Image-to-3D + Blender 5.3) y visores WebGL móviles (`Visores-HTML`).
+**En curso (`montana_hero360 v05-macro8k`, boquilla `0.20 mm` / capa `0.04–0.06 mm`):** Pausa controlada en **F5.2/F5.3** por agotamiento de cuota en API/app Gemini. Todo el cómputo pesado previo (`F0–F5.1`) está preservado en `Tableros-Catan/pipeline-biomas/montana_hero360/work_v05/` y listo para retomar desde F5.3.
 
-## Arquitectura Maker3D 2.0 (OPERATIVA Y VERIFICADA)
-- **Motores y Binarios Locales:** `Blender 5.3.0` (portable `--background` + `CYCLES` CPU + addon `blender_mcp` activado), `OpenSCAD Nightly 2026.11.21` (`--backend=Manifold` + `BOSL2`), `Bambu Studio 02.08.02.61` CLI (perfiles A1/P1S/X1C), `uv/uvx 0.13.9`, `Node v24` + `@gltf-transform/cli 4.5.1` (`gltf-transform.cmd` Meshopt + WebP).
-- **Stack Python 3.12:** `build123d 0.13.0`, `pymeshlab 2025.7.post1`, `landlab 2.11.0`, `lib3mf 2.5.0`, `trimesh 5.1.1`, `manifold3d 3.5.4`, `gradio-client 2.7.2`, `fal-client 1.0.3`, `replicate 1.0.7`, `python-dotenv 1.2.4`, `numpy`, `scipy`, `pillow`.
-- **Servidores MCP (`~/.gemini/config/mcp_config.json` — Handshake JSON-RPC verificado):**
-  - `build123d` (`build123d-mcp v0.3.91`, 48 tools B-Rep/STEP/validación).
-  - `openscad` (`OpenSCAD MCP Server v4.2.4`, 12 tools + `BOSL2` + `Manifold`).
-  - `blender` (`MCP for Blender v1.30.0`, 10 tools + addon persistente en Blender 5.3).
-- **Suite de 6 Skills + Regla (`.agents/skills/` y `.agents/rules/maker3d-architecture.md`):**
-  1. `maker3d-router` (orquestador principal para cualquier nueva petición 3D).
-  2. `parametric-brep-cad` (`build123d` STEP+STL y `OpenSCAD + BOSL2`, tabla de holguras FDM).
-  3. `generative-3d-mesh` (Nano Banana → `cloud_3d_bridge.py`: HF ZeroGPU `TRELLIS.2`/`Hunyuan3D`/`Hi3DGen` o `fal`/`replicate`).
-  4. `terrain-geology-engine` (`Landlab` erosión fluvial, drenaje monótono y `0%` nieve en `>=44°`).
-  5. `blender-sculpt-bake` (estratos 3D en normales `>=45°`, fusión booleana estanca + 6 vistas PBR/Arcilla + orto).
-  6. `print-audit-and-webgl` (`trimesh`/`PyMeshLab`/`Manifold3D`/`lib3mf`, Bambu CLI solo bajo petición + visor HTML `Meshopt+WebP <20MB`).
-- **Scripts de Producción (`tools/`):** `tool_paths.py`, `env_check.py`, `catan_kit/build_catan_base_brep.py` (`--export-cutter`), `terrain/hydraulic_terrain_gen.py`, `blender/sculpt_fuse_bake_render.py`, `blender/build_hero_mountain_local.py`, `blender/fuse_generative_catan_tile.py`, `blender/catan_3d_factory_csg.py`, `blender/catan_3d_factory_bake.py`, `generative/cloud_3d_bridge.py`, `audit/mesh_and_print_audit.py`, `webgl/optimize_and_build_viewer.py`.
-- **Smoke Test End-to-End (`tools/smoke_test_out/` — 100% PASS):** Base OCCT `110.8513×128.0000×25.0000 mm` + Landlab `alpine_canyon` (`0.0%` nieve `>=44°`, talweg monótono `314` pts) + Blender unión booleana 5 pinos 3D (`non_manifold=0`) + `lib3mf` + Bambu A1 (`14h 28m 59s`, `282` capas) + Visor Meshopt+WebP (`1.08 MB`, `0` errores).
-- **Prueba Real `montana_maker3d2/` (100% Local — PASS):** Recreación de `Montaña Centrada` con B-Rep `build123d` + Blender `5.3.0` OpenVDB `0.24 mm` + 176 props 3D booleanos (`245,774 V / 491,544 Δ`, `repaired=false`, `is_watertight=true`, `χ=2`, `6/6` pads `25.0 mm`); STL `23.44 MB`, `3MF` `8.24 MB`, Bambu A1 (`12h 55m 17s`), visor `Visores-HTML/catan-bioma-montana-maker3d2.html` (`13.04 MB`, `0` errores).
-- **Prueba Real `montana_trellis2/` (Híbrida `TRELLIS.2` + `build123d` — PASS):** Reparado `cloud_3d_bridge.py` (`int(...)`) y ejecutado `microsoft/TRELLIS.2` (`1024`, `300k Δ`, PBR `2048`) + solidificación `OpenVDB 0.25 mm` + booleano B-Rep + bake `EMIT 2K` (`710,851 V / 1,422,182 Δ`, `is_watertight=true`, `genus=121` vía `--allow-high-genus`, `Manifold3D: Error.NoError`, `non_manifold=0`, `1` componente, `6/6` pads `25.0 mm`, `270.115 cm³`); STL `67.82 MB`, `3MF` `22.26 MB` (sin laminar), visor `Visores-HTML/catan-bioma-montana-trellis2.html` (`43.76 MB`, `Meshopt+WebP 2048`, 360° frente/trasera verificados en Chromium con `0` errores).
-- **Fábrica Modular 3D `catan_3d_factory` (`montana_factory_v8` — Obsoleto `2/10` visual):** Pipeline geométrico validado en `3MF`/`WebGL` (`3.955 MB`), superado estéticamente por el pipeline Hero 360°.
-- **Pipeline Hero 360° `catan_hero360_bake.py` (`montana_hero360` — PASS 360° `2.52M / 4K HD Studio`):** Vistas super-resolucionadas `2048×2048` + micro-grano mineral (`views_2k/`), malla `nx_mesh=768` + subdivisión adaptativa (`aristas > 0.21 mm -> 2,521,320 Δ`), atlas `4096×4096` **exclusivo del relieve** (`52.2%` activo, `2×` densidad) + Unsharp `4K`, peana CAD pizarra oscura (`plinth_albedo_1k.png` con aros en pads), esculpido bilineal (`[-0.820, +0.319] mm`), `use_smooth=True` exclusivo terreno y visor `PCFSoftShadowMap 2048` con iluminación dramática de estudio (`RoomEnvironment=0.14`, anisotropía `16×`, `normalScale=1.3`). `1,260,662 V / 2,521,320 Δ`, `repaired=false`, `watertight=true`, `χ=2`, `non_manifold=0`, `6/6` pads `25.0 mm`, `346.429 cm³`, `catan_montana_hero360.3mf` (`46.01 MB`), versionado incremental: `Visores-HTML/catan-bioma-montana-hero360-v03-meshopt.html` (`18.79 MB` Meshopt+WebP `4K`, `86.07%` ahorro) y `Visores-HTML/catan-bioma-montana-hero360-v04-raw.html` (`134.76 MB` `--compress none` float32 + PNG 4K sin compresión en local/`versiones/`, `0` errores WebGL).
+## Arquitectura y Estado de Motores (OPERATIVA)
+- **Motores Locales:** `Blender 5.3.0`, `OpenSCAD Nightly 2026.11.21` (`Manifold + BOSL2`), `Bambu Studio 02.08.02.61` (incluidos perfiles `a1_n02 / p1s_n02 / x1c_n02` de `0.20 mm`), `Node v24` + `@gltf-transform/cli 4.5.1`, Python 3.12 (`build123d`, `pymeshlab`, `landlab`, `lib3mf`, `trimesh`, `manifold3d`, `opencv-python-headless 5.1.0`). `python tools/env_check.py` -> `PASS`.
+- **MCPs Verificados:** `build123d`, `openscad`, `blender`.
+- **Skills Maker3D 2.0:** `maker3d-router`, `parametric-brep-cad`, `generative-3d-mesh`, `terrain-geology-engine`, `blender-sculpt-bake`, `print-audit-and-webgl` (+ `nanobanana-3d-sculpt` legacy).
 
-## Activos Legacy Preservados (`Tableros-Catan/`)
-- Los **8/8 biomas Catán** (`Montaña V4/DEF/Centrada V3`, `Bosque 3D`, `Colinas`, `Pastos`, `Campos`, `Desierto`, `Río de Oro v08`, `Océano`), visores en `Visores-HTML/` y la skill `.agents/skills/nanobanana-3d-sculpt/` permanecen intactos y plenamente operativos.
+## Avance `montana_hero360 v05-macro8k` (`work_v05/` — NO SOBRESCRIBIR)
+- **F0–F1 (`PASS`):** Perfiles `0.20 mm` activos (`tool_paths.py`, `mesh_and_print_audit.py`); `optimize_and_build_viewer.py` con soporte HTML RAW chunked verificado en Chromium sobre `v04` (`134.76 MB`, `0` errores).
+- **F2–F3 (`PASS`, `χ=2`):** `tile_base.stl` (`1.13M Δ`), `tile_geology.stl` (`5.80M` caras, micro-fracturas graníticas anisotrópicas `geology_micro_detail.py`), `tile_base_talus.stl` (`6.15M` caras, **125 rocas Poly Haven CC0** enterradas 45–55% vía `Manifold3D`, `talus_manifest.json` + `.rock_faces.npy`).
+- **F4–F5.1 (`PASS`):** `passA_albedo_8k.png` (`67.6%` UV activo en `8192×8192`), `passA_scene.blend`, `16` tríos `2048×2048` en `macro/renders/` (`85.7%` cobertura BVH). Aplicado parche en `catan_hero360_bake.py` (`is_slot2_v`) excluyendo rocas CC0 de `sculpt_3d_from_baked_albedo`.
+- **F5.2–F5.3 (PAUSA AQUÍ):** `10/16` en `macro_report.json`; **`B2_150`** (`nb/patch_B2_150_nb.jpg`, `hp_std=0.13063`) aprobada como referencia ("B2 prime"). Faltan `6` (`B3_210, B5_330, C0_peak, C1_cirqueW, C2_cirqueE, D0_valleyS`) + mejorar `9` v1 (`A0..A5, B0, B1, B4`) usando modo **3 imágenes** (`_pbr` + `_clay` + `patch_B2_150_nb.jpg`) descrito en `work_v05/Estado_Continuacion_Montana_Hero360_v05.pdf`.
 
-## Próximas Tareas Prioritarias
-1. Revisar con el usuario la valoración final de `montana_hero360` (`v03-meshopt` vs `v04-raw` `2.52M / 4K Studio`) y replicar `montana_hero360_prep.py` + `catan_hero360_bake.py` al resto de biomas Catán manteniendo versionado incremental `-vNN-<etiqueta>`.
-2. Opcional para el usuario: añadir `FAL_KEY` o `REPLICATE_API_TOKEN` en `.env` solo si desea superar el límite diario gratuito de ZeroGPU (`300 s/día`, ya conectado con `HF_TOKEN`).
+## Entregas Anteriores y Legacy Preservados
+- **8/8 biomas Catán** y `montana_hero360 v03-meshopt` (`18.79 MB`) / `v04-raw` (`134.76 MB`) en `Visores-HTML/` y `versiones/`.
+
+## Próximas Tareas Prioritarias (Retomar en F5.3 → F10)
+1. Generar/recibir las 15 vistas macro al nivel de `patch_B2_150_nb.jpg` y alinear con `tools/generative/macro_patch_align.py --macro-dir .../work_v05/macro --sigma-hp 6.0`.
+2. Ejecutar Blender `--stage passB --bake-res 8192 --normal-res 8192 --rough-res 4096` -> `tile_master.stl` + `tile_viewer.glb` + auditoría `--nozzle-mm 0.2 --catan-check` (`watertight=true`, `χ=2`, `degen=0`, sin `--bambu-slice`).
+3. Generar y verificar en Chromium los visores `...-v05-macro8k.html` y `...-v05-macro8k-raw.html`, QA lado a lado frente a `V4`, archivar en `versiones/v05_macro8k/` y sincronizar con GitHub.
