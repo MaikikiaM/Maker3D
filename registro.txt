@@ -1061,6 +1061,8 @@ Me parece que la forma de lograr lo que pido es muy buena y tal, pero no sería 
   * [22/11/2026 22:53]: "Sigue sin tener la misma calidad grafica que el objetivo. Te dejo la que ha generado y la que generó en B2 prime."
   * [22/11/2026 22:55]: "Lo mas increible de B2 es precisamente el fondo. Te estas enfocando solamente en una cosa y no ves the big picture"
   * [22/11/2026 22:58]: "Lamentablemente, no me queda mas uso. Continuaremos la semana que viene. Genera un PDF dejando por escrito donde nos hemos quedado para mi y tb dejate muy claro donde te has quedado, no pierdas nada de lo hecho hasta ahora que fue un buen rato de calculos. Cuando tengas todo te tirare un barra learn si puede servirte de algo. Indicamelo"
+  * [22/11/2026 23:04]: "/learn "
+  * [22/11/2026 23:05]: "<aprobación de learning_proposal.md (Proceed)>"
 - Objetivo: Añadir soporte `--compress none` (`v04-raw`) y diseñar/construir `montana_hero360 v05-macro8k` (`0.20 mm` boquilla, `5.8–6.15M` caras con micro-fracturas geológicas + pedregal Poly Haven CC0 + atlas `8192×8192` + 16 parches macro Nano Banana), dejando pausa controlada en F5.2/F5.3 por agotamiento de cuota en API/app Gemini.
 
 Decisiones técnicas y archivos creados/modificados:
@@ -1076,4 +1078,5 @@ Decisiones técnicas y archivos creados/modificados:
   * **F4–F5.1:** `work_v05/passA_albedo_8k.png` (`67.6%` UV activo en 8K), `passA_scene.blend`, 16 tríos macro `2048×2048` en `work_v05/macro/renders/` (`85.7%` cobertura BVH).
   * **F5.2–F5.3 (punto de parada):** `10/16` alineados con `tools/generative/macro_patch_align.py` (`macro_report.json`); `B2_150` (`nb/patch_B2_150_nb.jpg`, `hp_std=0.13063`) validada como referencia visual ("B2 prime"). Añadida exclusión `is_slot2_v` en `tools/blender/catan_hero360_bake.py` (`sculpt_3d_from_baked_albedo`, compile check OK) para no deformar boulders en futuro `--stage passB`.
   * **Documentación de relevo:** Generado y verificado visualmente (3 páginas A4 vía Chrome headless) `Tableros-Catan/pipeline-biomas/montana_hero360/work_v05/Estado_Continuacion_Montana_Hero360_v05.pdf` (`219,799 B`) con estrategia 3-imágenes (`_pbr` + `_clay` + `patch_B2_150_nb.jpg`) y hoja de ruta F5.3→F10; actualizado `docs/ia/ESTADO.md`.
+  * **Persistencia `/learn` (aprobada por usuario):** Actualizadas `.agents/rules/maker3d-architecture.md`, `.agents/skills/blender-sculpt-bake/SKILL.md` (Sección 5: Macro High-Pass 8K + anclaje 3 imágenes + aislamiento `Slot 2`) y `.agents/skills/print-audit-and-webgl/SKILL.md` (carga GLB en chunks Base64 `--compress none` / `>50 MB`).
 ================================================================================

@@ -59,6 +59,8 @@ Antes de escribir código o generar geometría, consultar `.agents/skills/maker3
 2. **Auto-auditoría visual obligatoria (nunca entregar a ciegas):**
    - Renderizar e inspeccionar visualmente mediante `read_file` los paneles `audit_6views_pbr.png`, `audit_6views_clay.png` (arcilla sin textura para auditar relieve real vs pintura 2D) y `audit_ortho.png` antes de declarar completa cualquier pieza o loseta.
    - **Criterio visual estricto sin indulgencia técnica:** jamás valorar ni dar por bueno un activo por métricas técnicas (`chi=2`, UVs sin estirar, HTML ligero) si las capturas PBR/Arcilla muestran aspecto low-poly, manchas planas o pérdida de detalle frente a la referencia hero `0°` (comparar siempre cara a cara todas las vistas `0°–300°` contra la referencia objetivo).
+   - **Paridad completa en parches generativos ("The Big Picture"):** auditar visualmente **todo el encuadre** (acantilados, nieve y suelos/valles de fondo), rechazando parches que solo añadan ruido arenoso sobre pintura plana aunque suban métricas (`Laplacian`/`hp_std`); al replicar calidad entre vistas, anclar un parche ya aprobado como **3.ª imagen de referencia de estilo**.
+   - **Filtro anti-obleas en props CC0 externos (`place_talus.py`):** descartar automáticamente cualquier geometría importada con espesor normalizado mínimo `< 0.35` antes de fusionarla con `Manifold3D`, garantizando solidez imprimible con boquilla `0.20–0.40 mm`.
    - **Sincronía de archivos multimedia:** nunca ejecutar `read_file` sobre una imagen mientras siga en ejecución el comando o subagente que la escribe (esperar siempre a que termine el proceso antes de leer).
    - Verificar en navegador headless (subagente `browser`) todo visor HTML generado (`0` errores de consola WebGL/JS).
    - **Sombras reales y contraste de museo en WebGL:** Todo visor 3D (`optimize_and_build_viewer.py`) debe habilitar `PCFSoftShadowMap` real y una luz direccional protagonista con relleno contenido (prohibida la iluminación omnidireccional lavada sin sombras que aplana las grietas esculpidas).
@@ -69,4 +71,4 @@ Antes de escribir código o generar geometría, consultar `.agents/skills/maker3
 
 - Resolver todas las rutas de herramientas mediante `tools/tool_paths.py` (autodescubrimiento de Blender 5.3, OpenSCAD Nightly + `BOSL2`, Bambu Studio + perfiles BBL, `uv`/`uvx`, `gltf-transform.cmd`).
 - En PowerShell ejecutar **`npm.cmd`**, **`npx.cmd`** y **`gltf-transform.cmd`** (nunca `.ps1` bloqueados por ExecutionPolicy) y usar `--backend=Manifold` al invocar OpenSCAD CLI.
-- No registrar secretos ni binarios pesados (`*.stl`, `*.3mf`, `*.glb`, `*.step`, `*.blend`, `node_modules/`) en Git.
+- No registrar secretos, PDFs pesados/locales ni binarios (`*.stl`, `*.3mf`, `*.glb`, `*.step`, `*.blend`, `*.exr`, `*.pdf`, `work_v*/`, `node_modules/`) en Git.
