@@ -21,11 +21,11 @@
       0.7578678239754285
     ],
     "fov_deg": 15.677089840808597,
-    "W": 1024,
-    "H": 1024,
+    "W": 2048,
+    "H": 2048,
     "angle_deg": 0,
-    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\view_000.png",
-    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\mask_000.png",
+    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views_2k\\view_000.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views_2k\\mask_000.png",
     "iou": 1.0
   },
   "60": {
@@ -50,11 +50,11 @@
       0.7578678239754286
     ],
     "fov_deg": 15.677089840808597,
-    "W": 1024,
-    "H": 1024,
+    "W": 2048,
+    "H": 2048,
     "angle_deg": 60,
-    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\view_060.png",
-    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\mask_060.png",
+    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views_2k\\view_060.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views_2k\\mask_060.png",
     "iou": 0.9421
   },
   "120": {
@@ -79,11 +79,11 @@
       0.7578678239754286
     ],
     "fov_deg": 15.677089840808597,
-    "W": 1024,
-    "H": 1024,
+    "W": 2048,
+    "H": 2048,
     "angle_deg": 120,
-    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\view_120.png",
-    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\mask_120.png",
+    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views_2k\\view_120.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views_2k\\mask_120.png",
     "iou": 0.9244
   },
   "180": {
@@ -108,11 +108,11 @@
       0.7578678239754285
     ],
     "fov_deg": 15.677089840808597,
-    "W": 1024,
-    "H": 1024,
+    "W": 2048,
+    "H": 2048,
     "angle_deg": 180,
-    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\view_180.png",
-    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\mask_180.png",
+    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views_2k\\view_180.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views_2k\\mask_180.png",
     "iou": 0.9199
   },
   "240": {
@@ -137,11 +137,11 @@
       0.7578678239754286
     ],
     "fov_deg": 15.677089840808597,
-    "W": 1024,
-    "H": 1024,
+    "W": 2048,
+    "H": 2048,
     "angle_deg": 240,
-    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\view_240.png",
-    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\mask_240.png",
+    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views_2k\\view_240.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views_2k\\mask_240.png",
     "iou": 0.9392
   },
   "300": {
@@ -166,11 +166,11 @@
       0.7578678239754285
     ],
     "fov_deg": 15.677089840808597,
-    "W": 1024,
-    "H": 1024,
+    "W": 2048,
+    "H": 2048,
     "angle_deg": 300,
-    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\view_300.png",
-    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views\\mask_300.png",
+    "image": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views_2k\\view_300.png",
+    "mask": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\views_2k\\mask_300.png",
     "iou": 0.9187
   }
 }

@@ -184,34 +184,40 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.08;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.localClippingEnabled = true;
     wrap.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0b111b);
+    scene.background = new THREE.Color(0x05080f);
     const pmremGen = new THREE.PMREMGenerator(renderer);
     scene.environment = pmremGen.fromScene(new RoomEnvironment(), 0.04).texture;
-    if ("environmentIntensity" in scene) scene.environmentIntensity = 0.55;
+    if ("environmentIntensity" in scene) scene.environmentIntensity = 0.14;
     pmremGen.dispose();
     const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.2, 5000);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.07;
 
-    const hemi = new THREE.HemisphereLight(0xeef6ff, 0x1e293b, 0.72);
-    const keyLight = new THREE.DirectionalLight(0xfff8ed, 1.85);
-    keyLight.position.set(140, 180, 120);
-    const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.70);
+    const hemi = new THREE.HemisphereLight(0xdcebff, 0x161d29, 0.44);
+    const keyLight = new THREE.DirectionalLight(0xfff7ea, 2.25);
+    keyLight.position.set(140, 150, 120);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.bias = -0.00025;
+    keyLight.shadow.normalBias = 0.08;
+    const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.20);
     fillLight.position.set(-140, 90, -110);
-    const rimLight = new THREE.DirectionalLight(0xffffff, 0.85);
-    rimLight.position.set(0, -120, 140);
+    const rimLight = new THREE.DirectionalLight(0x7dd3fc, 0.42);
+    rimLight.position.set(-110, 85, -120);
     scene.add(hemi, keyLight, fillLight, rimLight);
 
     const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 9999);
     const clayMat = new THREE.MeshStandardMaterial({
-      color: 0xc2beb6,
-      roughness: 0.62,
-      metalness: 0.04,
+      color: 0xc8c5be,
+      roughness: 0.56,
+      metalness: 0.02,
       vertexColors: false,
       side: THREE.DoubleSide,
       clippingPlanes: [clipPlane],
@@ -252,20 +258,26 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     function applyAtmo(atmo) {
       window.__MAKER3D_VIEWER__.atmo = atmo;
       if (atmo === "alpine") {
-        scene.background = new THREE.Color(0x0d1b2a);
-        hemi.color.setHex(0xdbeafe); hemi.groundColor.setHex(0x1e293b); hemi.intensity = 1.0;
-        keyLight.color.setHex(0xffffff); keyLight.intensity = 2.05;
-        fillLight.color.setHex(0x7dd3fc); fillLight.intensity = 0.85;
+        scene.background = new THREE.Color(0x07111c);
+        if ("environmentIntensity" in scene) scene.environmentIntensity = 0.16;
+        hemi.color.setHex(0xdbeafe); hemi.groundColor.setHex(0x1e293b); hemi.intensity = 0.52;
+        keyLight.color.setHex(0xffffff); keyLight.intensity = 2.40;
+        fillLight.color.setHex(0x7dd3fc); fillLight.intensity = 0.26;
+        rimLight.color.setHex(0xbae6fd); rimLight.intensity = 0.48;
       } else if (atmo === "forge") {
-        scene.background = new THREE.Color(0x140d0a);
-        hemi.color.setHex(0xfed7aa); hemi.groundColor.setHex(0x1c1917); hemi.intensity = 0.65;
-        keyLight.color.setHex(0xfb923c); keyLight.intensity = 2.25;
-        fillLight.color.setHex(0x38bdf8); fillLight.intensity = 0.65;
+        scene.background = new THREE.Color(0x0d0806);
+        if ("environmentIntensity" in scene) scene.environmentIntensity = 0.12;
+        hemi.color.setHex(0xfed7aa); hemi.groundColor.setHex(0x1c1917); hemi.intensity = 0.38;
+        keyLight.color.setHex(0xfb923c); keyLight.intensity = 2.50;
+        fillLight.color.setHex(0x38bdf8); fillLight.intensity = 0.22;
+        rimLight.color.setHex(0xfdba74); rimLight.intensity = 0.45;
       } else {
-        scene.background = new THREE.Color(0x0b111b);
-        hemi.color.setHex(0xeef6ff); hemi.groundColor.setHex(0x1e293b); hemi.intensity = 0.9;
-        keyLight.color.setHex(0xfff8ed); keyLight.intensity = 1.8;
-        fillLight.color.setHex(0x93c5fd); fillLight.intensity = 0.75;
+        scene.background = new THREE.Color(0x05080f);
+        if ("environmentIntensity" in scene) scene.environmentIntensity = 0.14;
+        hemi.color.setHex(0xdcebff); hemi.groundColor.setHex(0x161d29); hemi.intensity = 0.44;
+        keyLight.color.setHex(0xfff7ea); keyLight.intensity = 2.25;
+        fillLight.color.setHex(0x93c5fd); fillLight.intensity = 0.20;
+        rimLight.color.setHex(0x7dd3fc); rimLight.intensity = 0.42;
       }
     }
 
@@ -298,13 +310,23 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           scene.add(rootGroup);
 
           let tris = 0;
+          const maxAniso = Math.min(16, renderer.capabilities.getMaxAnisotropy() || 4);
           rootGroup.traverse((obj) => {
             if (obj.isMesh) {
+              obj.castShadow = true;
+              obj.receiveShadow = true;
               const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
               mats.forEach((m) => {
                 if (m) {
                   m.side = THREE.DoubleSide;
                   m.clippingPlanes = [clipPlane];
+                  [m.map, m.normalMap, m.roughnessMap, m.metalnessMap, m.aoMap].forEach((tex) => {
+                    if (tex) {
+                      tex.anisotropy = maxAniso;
+                      tex.needsUpdate = true;
+                    }
+                  });
+                  if (m.normalMap && m.normalScale) m.normalScale.set(1.30, 1.30);
                 }
               });
               originalMats.set(obj, obj.material);
@@ -319,6 +341,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           modelBox.getSize(size);
           modelBox.getCenter(modelCenter);
           maxDim = Math.max(size.x, size.y, size.z, 10);
+
+          keyLight.target.position.copy(modelCenter);
+          scene.add(keyLight.target);
+          keyLight.position.set(modelCenter.x + maxDim * 1.15, modelCenter.y + maxDim * 1.18, modelCenter.z + maxDim * 0.95);
+          fillLight.position.set(modelCenter.x - maxDim * 1.10, modelCenter.y + maxDim * 0.70, modelCenter.z - maxDim * 0.90);
+          rimLight.position.set(modelCenter.x - maxDim * 0.95, modelCenter.y + maxDim * 0.75, modelCenter.z - maxDim * 1.10);
+          const shHalf = maxDim * 0.65;
+          keyLight.shadow.camera.left = -shHalf;
+          keyLight.shadow.camera.right = shHalf;
+          keyLight.shadow.camera.top = shHalf;
+          keyLight.shadow.camera.bottom = -shHalf;
+          keyLight.shadow.camera.near = maxDim * 0.25;
+          keyLight.shadow.camera.far = maxDim * 4.0;
+          keyLight.shadow.camera.updateProjectionMatrix();
 
           const slider = document.getElementById("clip-slider");
           const clipVal = document.getElementById("clip-val");
@@ -338,7 +374,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           document.getElementById("stat-tris").textContent = Math.round(tris).toLocaleString("es-ES");
           document.getElementById("stat-dims").textContent =
             `${(size.x * scaleFactor).toFixed(1)}×${(size.z * scaleFactor).toFixed(1)}×${(size.y * scaleFactor).toFixed(1)}`;
-          camera.near = maxDim * 0.01;
+          camera.near = maxDim * 0.002;
           camera.far = maxDim * 40.0;
           camera.updateProjectionMatrix();
           setCameraPreset("iso");

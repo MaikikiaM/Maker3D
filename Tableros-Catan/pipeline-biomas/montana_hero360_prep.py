@@ -262,12 +262,16 @@ def run_export_3d(nx_mesh: int = 768):
     N2 = 2048
     Z_2k = ndi.zoom(Z_enh, N2 / Z_enh.shape[0], order=3)
 
+    views_2k_dir = os.path.join(OUT_DIR, "views_2k")
+    os.makedirs(views_2k_dir, exist_ok=True)
+    rng = np.random.default_rng(2026)
+
     cams_out = {}
     ref_mean_luma = None
     for ang in [0, 60, 120, 180, 240, 300]:
         is_hero = (ang == 0)
         p_ang = cam_p.copy() if is_hero else v5.compute_cam_p_angle(cam_p, yaw_offset_deg=-float(ang))
-        _, any_hit, hit_ter, _, _, hz, _, _, _, _ = v4.ray_march_heightfield(Z_2k, p_ang, out_w=1024, out_h=1024)
+        _, any_hit, hit_ter, hx, hy, hz, _, _, _, _ = v4.ray_march_heightfield(Z_2k, p_ang, out_w=1024, out_h=1024)
 
         if is_hero:
             src_path = os.path.join(VIEWS_DIR, "view_000.png")
@@ -281,13 +285,18 @@ def run_export_3d(nx_mesh: int = 768):
             rgb, iou_b, iou_a = v5.align_nb_view_to_clay(raw_rgb, any_hit)
             print(f"  [Align {ang:03d}] IoU {iou_b:.4f} -> {iou_a:.4f}")
 
-        # Mascara estricta del terreno interior (erosionada 4 px para no muestrear bisel/cielo en bordes!)
-        hit_safe = ndi.binary_erosion(hit_ter, iterations=4)
+        # Mascara estricta del terreno interior sin el bisel metalico gris de las vistas NB
+        hit_safe = ndi.binary_erosion(hit_ter, iterations=4 if not is_hero else 3)
         lum = 0.2126 * rgb[..., 0] + 0.7152 * rgb[..., 1] + 0.0722 * rgb[..., 2]
         sat = np.max(rgb, axis=-1) - np.min(rgb, axis=-1)
         rel_z = np.maximum(0.0, hz - Z_BASE)
         warm = rgb[..., 0] + rgb[..., 1] - 2.0 * rgb[..., 2]
+        dh = v4.hex_dist(hx, hy)
+        dv = v4.vert_dist(hx, hy)
         is_slate = (warm < 0.05) & (lum < 0.48) & (sat < 0.11) & (rel_z < 3.8)
+        if not is_hero:
+            is_inner_metal = ((dh < v4.ROAD_MARGIN + 2.45) | (dv < v4.PAD_RADIUS + 2.0)) & (sat < 0.16) & (lum < 0.54)
+            is_slate = is_slate | is_inner_metal | (dh < v4.ROAD_MARGIN + 0.65)
         is_sky_bleed = (lum > 0.70) & (sat < 0.06) & (rel_z < 4.5)
         mask_ter = hit_safe & (~is_slate) & (~is_sky_bleed)
 
@@ -306,10 +315,37 @@ def run_export_3d(nx_mesh: int = 768):
         msk_soft = ndi.gaussian_filter(mask_ter.astype(np.float32), sigma=1.2)
         Image.fromarray((np.clip(msk_soft, 0.0, 1.0) * 255.0).astype(np.uint8)).save(out_msk)
 
-        cdict = _cam_basis_dict(p_ang, size=1024)
+        # Super-resolucion 2048x2048 + Unsharp multiescala + micro-grano mineral (sin ensuciar nieve glaciar)
+        rgb_2k_pil = Image.fromarray((np.clip(rgb, 0.0, 1.0) * 255.0).astype(np.uint8)).resize((2048, 2048), Image.Resampling.LANCZOS)
+        arr_2k = np.asarray(rgb_2k_pil, dtype=np.float32) / 255.0
+        lum_2k = 0.2126 * arr_2k[..., 0] + 0.7152 * arr_2k[..., 1] + 0.0722 * arr_2k[..., 2]
+        sat_2k = np.max(arr_2k, axis=-1) - np.min(arr_2k, axis=-1)
+        rel_z_2k = ndi.zoom(rel_z, 2.0, order=1)
+        snow_2k = v4.smoothstep(0.68, 0.84, lum_2k) * (1.0 - v4.smoothstep(0.08, 0.18, sat_2k)) * v4.smoothstep(3.0, 7.5, rel_z_2k)
+        blur_f = ndi.gaussian_filter(arr_2k, (1.3, 1.3, 0.0))
+        blur_m = ndi.gaussian_filter(arr_2k, (3.2, 3.2, 0.0))
+        sharp_w = (1.0 - 0.85 * snow_2k)[..., None]
+        arr_2k = np.clip(arr_2k + sharp_w * (0.44 * (arr_2k - blur_f) + 0.22 * (arr_2k - blur_m)), 0.0, 1.0)
+
+        w_noise = rng.normal(0.0, 1.0, (2048, 2048)).astype(np.float32)
+        grain_f = ndi.gaussian_filter(w_noise, 0.85) - ndi.gaussian_filter(w_noise, 2.4)
+        grain_f /= max(float(np.std(grain_f)), 1e-4)
+        msk_2k_arr = np.asarray(
+            Image.fromarray((np.clip(msk_soft, 0.0, 1.0) * 255.0).astype(np.uint8)).resize((2048, 2048), Image.Resampling.BILINEAR),
+            dtype=np.float32,
+        ) / 255.0
+        rock_grain = (1.0 - snow_2k) * msk_2k_arr * 0.036 * grain_f
+        arr_2k = np.clip(arr_2k + rock_grain[..., None], 0.0, 1.0)
+
+        out_rgb_2k = os.path.join(views_2k_dir, f"view_{ang:03d}.png")
+        out_msk_2k = os.path.join(views_2k_dir, f"mask_{ang:03d}.png")
+        Image.fromarray((arr_2k * 255.0).astype(np.uint8)).save(out_rgb_2k)
+        Image.fromarray((np.clip(msk_2k_arr, 0.0, 1.0) * 255.0).astype(np.uint8)).save(out_msk_2k)
+
+        cdict = _cam_basis_dict(p_ang, size=2048)
         cdict["angle_deg"] = ang
-        cdict["image"] = out_rgb
-        cdict["mask"] = out_msk
+        cdict["image"] = out_rgb_2k
+        cdict["mask"] = out_msk_2k
         cdict["iou"] = round(float(iou_a), 4)
         cams_out[str(ang)] = cdict
 

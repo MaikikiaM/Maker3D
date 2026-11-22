@@ -185,32 +185,43 @@ def subdivide_steep_terrain_edges(
     obj.data.update()
 
 
-def build_plinth_material() -> bpy.types.Material:
-    """Material gunmetal pizarra cepillado con anillos sutiles en carril y pads."""
+def build_plinth_texture(out_dir: Path, res: int = 1024) -> Path:
+    """Genera textura CAD 1K gunmetal oscura (#1F242B) con aros concentricos en los 6 pads y biseles."""
+    lin_x = np.linspace(-R, R, res, dtype=np.float64)
+    lin_y = np.linspace(R, -R, res, dtype=np.float64)
+    X, Y = np.meshgrid(lin_x, lin_y)
+    de, dv = _hex_distances_arr(X, Y)
+
+    rng = np.random.default_rng(888)
+    grain = rng.normal(0.0, 0.014, (res, res))
+    # Mezcla cepillada horizontal sutil
+    brushed = 0.55 * grain + 0.45 * np.roll(grain, 1, axis=1)
+    base = np.array([0.148, 0.156, 0.172], dtype=np.float64)[None, None, :] * (1.0 + brushed[..., None])
+
+    rim_hi = np.exp(-0.5 * ((de - 0.90) / 0.30) ** 2) * 0.044
+    curb_sh = np.exp(-0.5 * ((de - 3.55) / 0.38) ** 2) * 0.056
+    pad_groove = np.exp(-0.5 * ((dv - 8.20) / 0.30) ** 2) * 0.044
+    pad_hi = np.exp(-0.5 * ((dv - 9.00) / 0.26) ** 2) * 0.028
+    col = np.clip(base + (rim_hi - curb_sh - pad_groove + pad_hi)[..., None], 0.05, 0.28).astype(np.float32)
+
+    plinth_p = out_dir / "plinth_albedo_1k.png"
+    _save_np_rgb_png(col, plinth_p)
+    return plinth_p
+
+
+def build_plinth_material(out_dir: Path) -> Tuple[bpy.types.Material, Path]:
+    """Material gunmetal pizarra oscuro con aros de poblado y biseles CAD dedicados."""
+    plinth_p = build_plinth_texture(out_dir, res=1024)
     m_pl, nt, bsdf, _ = _new_material("Plinth_Gunmetal")
     tc = nt.nodes.new("ShaderNodeTexCoord")
-    n_p = nt.nodes.new("ShaderNodeTexNoise")
-    n_p.inputs["Scale"].default_value = 0.72
-    n_p.inputs["Detail"].default_value = 6.0
-    nt.links.new(tc.outputs["Object"], n_p.inputs["Vector"])
-    ao_p = nt.nodes.new("ShaderNodeAmbientOcclusion")
-    ao_p.samples = 8
-    ao_p.inputs["Distance"].default_value = 3.0
-    r_p = nt.nodes.new("ShaderNodeValToRGB")
-    r_p.color_ramp.elements[0].position = 0.25
-    r_p.color_ramp.elements[0].color = (0.044, 0.048, 0.056, 1.0)
-    r_p.color_ramp.elements[1].position = 0.85
-    r_p.color_ramp.elements[1].color = (0.078, 0.084, 0.096, 1.0)
-    nt.links.new(n_p.outputs["Fac"], r_p.inputs["Fac"])
-    mx_p = nt.nodes.new("ShaderNodeMix")
-    mx_p.data_type = "RGBA"
-    mx_p.blend_type = "MULTIPLY"
-    mx_p.inputs["Factor"].default_value = 0.55
-    nt.links.new(r_p.outputs["Color"], mx_p.inputs["A"])
-    nt.links.new(ao_p.outputs["Color"], mx_p.inputs["B"])
-    nt.links.new(mx_p.outputs["Result"], bsdf.inputs["Base Color"])
-    bsdf.inputs["Roughness"].default_value = 0.46
-    return m_pl
+    t_pl = nt.nodes.new("ShaderNodeTexImage")
+    im_pl = bpy.data.images.load(str(plinth_p), check_existing=False)
+    t_pl.image = im_pl
+    nt.links.new(tc.outputs["UV"], t_pl.inputs["Vector"])
+    nt.links.new(t_pl.outputs["Color"], bsdf.inputs["Base Color"])
+    bsdf.inputs["Roughness"].default_value = 0.44
+    bsdf.inputs["Metallic"].default_value = 0.18
+    return m_pl, plinth_p
 
 
 def setup_camera_projections_and_shader(
@@ -236,17 +247,17 @@ def setup_camera_projections_and_shader(
     de_v, dv_v = _hex_distances_arr(V[:, 0], V[:, 1])
     is_ter_v = (V[:, 2] >= Z_BASE - 0.02) & (de_v >= ROAD_MARGIN - 0.1) & (dv_v >= PAD_RADIUS - 0.1)
 
-    # Evitar proyectar el bisel gris del zocalo sobre el faldon exterior de hierba (tirar UV hacia la pradera limpia)
+    # Micro-ajuste minimo de borde (<= 0.55 mm) sin estiramiento radial visible sobre pradera
     r_xy = np.maximum(np.hypot(V[:, 0], V[:, 1]), 1e-6)
     rim_pull = np.where(
-        is_ter_v & (V[:, 2] < Z_BASE + 4.2),
-        np.clip(np.maximum(ROAD_MARGIN + 3.20 - de_v, PAD_RADIUS + 3.00 - dv_v), 0.0, 3.30),
+        is_ter_v & (V[:, 2] < Z_BASE + 1.25),
+        np.clip(np.maximum(ROAD_MARGIN + 0.55 - de_v, PAD_RADIUS + 0.55 - dv_v), 0.0, 0.65),
         0.0,
     )
     V_proj = V.copy()
     V_proj[:, 0] -= (V[:, 0] / r_xy) * rim_pull
     V_proj[:, 1] -= (V[:, 1] / r_xy) * rim_pull
-    V_proj[:, 2] += 0.45 * (rim_pull > 0.0)
+    V_proj[:, 2] += 0.20 * (rim_pull > 0.0)
 
     # BVHTree para test de oclusion exacto por rayo en C++
     bm = bmesh.new()
@@ -311,14 +322,14 @@ def setup_camera_projections_and_shader(
             if hit_loc is None:
                 vis[vi_idx] = True
 
-        # Peso Winner-Takes-Most fuerte para preservar nitidez fotografica por faceta
-        w_k = np.where(vis, (np.maximum(ndotv, 0.0) ** 4.0) * m_val, 0.0).astype(np.float32)
+        # Peso Winner-Takes-Most intenso para preservar nitidez fotografica por faceta
+        w_k = np.where(vis, (np.maximum(ndotv, 0.0) ** 5.5) * m_val, 0.0).astype(np.float32)
         W_cams[:, ci] = w_k
         print(f"    cam {int(k):03d}°: visible={(vis).sum()} verts, mean_w={(w_k[vis].mean() if np.any(vis) else 0.0):.3f}")
 
-    # Propagar pesos de vertices vecinos hacia micro-hendiduras ocultas y faldon exterior (18 pasadas)
+    # Propagar pesos de vertices vecinos hacia micro-hendiduras ocultas y faldon exterior (22 pasadas)
     w_sum = np.sum(W_cams, axis=1)
-    for _ in range(18):
+    for _ in range(22):
         missing = is_ter_v & (w_sum < 1e-4)
         if not np.any(missing):
             break
@@ -342,7 +353,6 @@ def setup_camera_projections_and_shader(
             dvec = cam_pos[None, :] - V[m_indices]
             dvec /= np.maximum(np.linalg.norm(dvec, axis=1, keepdims=True), 1e-6)
             sc = np.sum(N[m_indices] * dvec, axis=1).astype(np.float32)
-            # Solo donde cae dentro de imagen Y de la mascara erosionada
             u_b, v_b = UVs_cams[ci, m_indices, 0], UVs_cams[ci, m_indices, 1]
             ok = (u_b > 0.02) & (u_b < 0.98) & (v_b > 0.02) & (v_b < 0.98) & (M_cams[ci, m_indices] > 0.02)
             better = ok & (sc > best_score)
@@ -352,19 +362,19 @@ def setup_camera_projections_and_shader(
             W_cams[vi_idx, best_fb[j]] = 1.0
         w_sum = np.sum(W_cams, axis=1)
 
-    # Normalizar pesos para que sumen exactamente 1.0 y suavizar ligeramente fronteras de oclusion (2 pasadas)
+    # Normalizar pesos y difuminar 1 pasada SOLO en costuras entre camaras (nunca sobre caras nitidas!)
     W_cams = W_cams / np.maximum(w_sum[:, None], 1e-6)
     deg_w = np.zeros(n_verts, dtype=np.float32)
     np.add.at(deg_w, edges_i0, 1.0)
     np.add.at(deg_w, edges_i1, 1.0)
     deg_w = np.maximum(deg_w, 1.0)
-    for _ in range(2):
-        acc = np.zeros_like(W_cams)
-        np.add.at(acc, edges_i0, W_cams[edges_i1])
-        np.add.at(acc, edges_i1, W_cams[edges_i0])
-        nbr = acc / deg_w[:, None]
-        W_cams = np.where(is_ter_v[:, None], 0.72 * W_cams + 0.28 * nbr, W_cams)
-        W_cams = W_cams / np.maximum(np.sum(W_cams, axis=1, keepdims=True), 1e-6)
+    seam_v = is_ter_v & (np.max(W_cams, axis=1) < 0.72)
+    acc = np.zeros_like(W_cams)
+    np.add.at(acc, edges_i0, W_cams[edges_i1])
+    np.add.at(acc, edges_i1, W_cams[edges_i0])
+    nbr = acc / deg_w[:, None]
+    W_cams = np.where(seam_v[:, None], 0.76 * W_cams + 0.24 * nbr, W_cams)
+    W_cams = W_cams / np.maximum(np.sum(W_cams, axis=1, keepdims=True), 1e-6)
 
     # Escribir los 6 UV layers + 2 Color Attributes (CamW0=[w0,w60,w120,w180], CamW1=[w240,w300,0,1])
     n_loops = len(me.loops)
@@ -377,10 +387,15 @@ def setup_camera_projections_and_shader(
         uv_flat = UVs_cams[ci, loop_vi, :].ravel()
         uv_lay.data.foreach_set("uv", uv_flat)
 
+    rim_guard = (
+        (1.0 - _smoothstep(ROAD_MARGIN + 0.55, ROAD_MARGIN + 1.65, de_v) * _smoothstep(PAD_RADIUS + 0.45, PAD_RADIUS + 1.50, dv_v))
+        * (1.0 - _smoothstep(Z_BASE + 1.4, Z_BASE + 2.8, V[:, 2]))
+        * is_ter_v.astype(np.float32)
+    )
     ca0 = me.color_attributes.new(name="CamW0", type="FLOAT_COLOR", domain="POINT")
     ca1 = me.color_attributes.new(name="CamW1", type="FLOAT_COLOR", domain="POINT")
     rgba0 = np.column_stack([W_cams[:, 0], W_cams[:, 1], W_cams[:, 2], W_cams[:, 3]]).astype(np.float32).ravel()
-    rgba1 = np.column_stack([W_cams[:, 4], W_cams[:, 5], np.zeros(n_verts), np.ones(n_verts)]).astype(np.float32).ravel()
+    rgba1 = np.column_stack([W_cams[:, 4], W_cams[:, 5], rim_guard, np.ones(n_verts)]).astype(np.float32).ravel()
     ca0.data.foreach_set("color", rgba0)
     ca1.data.foreach_set("color", rgba1)
     me.update()
@@ -432,7 +447,43 @@ def setup_camera_projections_and_shader(
             nt.links.new(vsc.outputs["Vector"], vadd.inputs[1])
             accum_vec = vadd.outputs["Vector"]
 
-    nt.links.new(accum_vec, bsdf.inputs["Base Color"])
+    # Reemplazar SOLO grises frios metalicos en el borde exterior (rim_guard * low_sat) por musgo alpino natural 3D
+    sep_hsv = nt.nodes.new("ShaderNodeSeparateColor")
+    sep_hsv.mode = "HSV"
+    nt.links.new(accum_vec, sep_hsv.inputs["Color"])
+    low_sat = nt.nodes.new("ShaderNodeMapRange")
+    low_sat.clamp = True
+    low_sat.inputs["From Min"].default_value = 0.08
+    low_sat.inputs["From Max"].default_value = 0.24
+    low_sat.inputs["To Min"].default_value = 1.0
+    low_sat.inputs["To Max"].default_value = 0.0
+    nt.links.new(sep_hsv.outputs["Green"], low_sat.inputs["Value"])
+
+    moss_fac = nt.nodes.new("ShaderNodeMath")
+    moss_fac.operation = "MULTIPLY"
+    moss_fac.use_clamp = True
+    nt.links.new(sep1.outputs["Blue"], moss_fac.inputs[0])
+    nt.links.new(low_sat.outputs["Result"], moss_fac.inputs[1])
+
+    tc_m = nt.nodes.new("ShaderNodeTexCoord")
+    n_moss = nt.nodes.new("ShaderNodeTexNoise")
+    n_moss.inputs["Scale"].default_value = 2.6
+    n_moss.inputs["Detail"].default_value = 7.0
+    nt.links.new(tc_m.outputs["Object"], n_moss.inputs["Vector"])
+    r_moss = nt.nodes.new("ShaderNodeValToRGB")
+    r_moss.color_ramp.elements[0].position = 0.25
+    r_moss.color_ramp.elements[0].color = (0.032, 0.056, 0.012, 1.0)
+    r_moss.color_ramp.elements[1].position = 0.80
+    r_moss.color_ramp.elements[1].color = (0.095, 0.135, 0.030, 1.0)
+    nt.links.new(n_moss.outputs["Fac"], r_moss.inputs["Fac"])
+
+    mix_rim = nt.nodes.new("ShaderNodeMix")
+    mix_rim.data_type = "RGBA"
+    nt.links.new(moss_fac.outputs["Value"], mix_rim.inputs["Factor"])
+    nt.links.new(accum_vec, mix_rim.inputs["A"])
+    nt.links.new(r_moss.outputs["Color"], mix_rim.inputs["B"])
+
+    nt.links.new(mix_rim.outputs["Result"], bsdf.inputs["Base Color"])
     bsdf.inputs["Roughness"].default_value = 0.85
     return m_ter
 
@@ -493,9 +544,14 @@ def sculpt_3d_from_baked_albedo(obj: bpy.types.Object, albedo_path: Path) -> Non
     loop_vi = np.empty(n_loops, dtype=np.int32)
     me.loops.foreach_get("vertex_index", loop_vi)
 
-    # Promediar UV por vertice (primer loop valido dentro de su isla UV) e interpolacion bilineal exacta
+    # Promediar UV por vertice usando SOLO loops del relieve (slot 1) para aislar de UVs del zocalo
+    poly_mat = np.empty(len(me.polygons), dtype=np.int32)
+    me.polygons.foreach_get("material_index", poly_mat)
+    loop_tot = np.empty(len(me.polygons), dtype=np.int32)
+    me.polygons.foreach_get("loop_total", loop_tot)
+    is_ter_loop = np.repeat(poly_mat == 1, loop_tot)
     v_uv = np.zeros((n_verts, 2), dtype=np.float32)
-    v_uv[loop_vi] = uv_l
+    v_uv[loop_vi[is_ter_loop]] = uv_l[is_ter_loop]
 
     fu = np.clip(v_uv[:, 0], 0.0, 1.0) * (aw - 1)
     fv = np.clip(1.0 - v_uv[:, 1], 0.0, 1.0) * (ah - 1)
@@ -578,21 +634,60 @@ def sculpt_3d_from_baked_albedo(obj: bpy.types.Object, albedo_path: Path) -> Non
     print(f"  [Sculpt3D] Desplazamiento por Normal 3D completado (range=[{disp_mm.min():.3f}, {disp_mm.max():.3f}] mm)")
 
 
-def bake_pbr_maps(scene: bpy.types.Scene, obj: bpy.types.Object, out_dir: Path, is_ter_face: np.ndarray, albedo_res: int = 4096, samples: int = 8) -> Tuple[Path, Path, Path]:
-    """Hornea DIFFUSE 4K desde las 6 camaras, esculpe normales 3D, aplica suavizado organico y hornea NORMAL + ROUGHNESS."""
+def bake_pbr_maps(
+    scene: bpy.types.Scene,
+    obj: bpy.types.Object,
+    out_dir: Path,
+    is_ter_face: np.ndarray,
+    plinth_albedo_p: Path,
+    albedo_res: int = 4096,
+    samples: int = 8,
+) -> Tuple[Path, Path, Path]:
+    """
+    Aisla UV del zocalo vs relieve (>=80% del atlas 4K exclusivo para el terreno), hornea DIFFUSE 4K,
+    aplica Unsharp 4K libre de halos, esculpe normales 3D bilineales, suaviza solo caras organicas
+    y hornea NORMAL/ROUGHNESS 4K con micro-grano mineral.
+    """
     bpy.ops.object.select_all(action="DESELECT")
     obj.select_set(True)
     bpy.context.view_layer.objects.active = obj
 
-    print(f"  [UV] Abriendo Smart UV Project 3D ({len(obj.data.polygons)} caras)...")
-    uv_main = obj.data.uv_layers.new(name="UVMap")
+    n_ter = int(np.sum(is_ter_face))
+    print(f"  [UV] Smart UV Project 3D exclusivo en relieve ({n_ter}/{len(is_ter_face)} caras)...")
+    obj.data.uv_layers.new(name="UVMap")
     for ul in obj.data.uv_layers:
         ul.active = (ul.name == "UVMap")
         ul.active_render = (ul.name == "UVMap")
+
     bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.mesh.select_mode(type="FACE")
+    bm_uv = bmesh.from_edit_mesh(obj.data)
+    bm_uv.faces.ensure_lookup_table()
+    for f in bm_uv.faces:
+        f.select_set(bool(is_ter_face[f.index]))
+    bmesh.update_edit_mesh(obj.data)
     bpy.ops.uv.smart_project(angle_limit=math.radians(82.0), island_margin=0.001, area_weight=1.0, correct_aspect=True)
     bpy.ops.object.mode_set(mode="OBJECT")
+
+    # Escribir UVs planares XY en el mismo UVMap SOLO sobre caras del zocalo (slot 0)
+    me = obj.data
+    n_loops = len(me.loops)
+    uv_arr = np.empty(n_loops * 2, dtype=np.float32)
+    me.uv_layers["UVMap"].data.foreach_get("uv", uv_arr)
+    uv_l = uv_arr.reshape(n_loops, 2)
+    n_verts = len(me.vertices)
+    v_coords = np.empty(n_verts * 3, dtype=np.float32)
+    me.vertices.foreach_get("co", v_coords)
+    V_xy = v_coords.reshape(n_verts, 3)[:, :2]
+    loop_vi = np.empty(n_loops, dtype=np.int32)
+    me.loops.foreach_get("vertex_index", loop_vi)
+    loop_tot = np.empty(len(me.polygons), dtype=np.int32)
+    me.polygons.foreach_get("loop_total", loop_tot)
+    is_plinth_loop = np.repeat(~is_ter_face, loop_tot)
+    uv_l[is_plinth_loop] = np.clip((V_xy[loop_vi[is_plinth_loop]] + R) / (2.0 * R), 0.0, 1.0)
+    me.uv_layers["UVMap"].data.foreach_set("uv", uv_l.ravel())
+    me.update()
+
     for ul in obj.data.uv_layers:
         ul.active = (ul.name == "UVMap")
         ul.active_render = (ul.name == "UVMap")
@@ -601,32 +696,52 @@ def bake_pbr_maps(scene: bpy.types.Scene, obj: bpy.types.Object, out_dir: Path, 
     normal_p = out_dir / "baked_normal.png"
     rough_p = out_dir / "baked_roughness.png"
 
+    im_dummy = bpy.data.images.new("Bake_Dummy", width=64, height=64)
     im_a = bpy.data.images.new("Bake_Albedo", width=albedo_res, height=albedo_res)
-    for m in obj.data.materials:
-        n = m.node_tree.nodes.new("ShaderNodeTexImage")
-        n.name = "__BAKE__"
-        n.image = im_a
-        m.node_tree.nodes.active = n
+    m_pl = bpy.data.materials.get("Plinth_Gunmetal")
+    m_ter = bpy.data.materials.get("Hero360_Terrain")
+    for m, target_im in [(m_pl, im_dummy), (m_ter, im_a)]:
+        if m:
+            n = m.node_tree.nodes.new("ShaderNodeTexImage")
+            n.name = "__BAKE__"
+            n.image = target_im
+            m.node_tree.nodes.active = n
 
     scene.cycles.samples = samples
     scene.render.bake.use_pass_direct = False
     scene.render.bake.use_pass_indirect = False
     scene.render.bake.use_pass_color = True
     scene.render.bake.margin = 6
-    print(f"  [Bake] Cycles DIFFUSE ({albedo_res}x{albedo_res})...")
+    print(f"  [Bake] Cycles DIFFUSE ({albedo_res}x{albedo_res} exclusivo terreno)...")
     bpy.ops.object.bake(type="DIFFUSE", pass_filter={"COLOR"})
     im_a.filepath_raw = str(albedo_p)
     im_a.file_format = "PNG"
     im_a.save()
 
-    # Esculpir fisicamente en 3D sobre la normal real leyendo el albedo recien horneado
+    # Unsharp 4K limpio en el interior de las islas UV (cero halos oscuros en bordes)
+    arr4 = _load_img_topdown_np(str(albedo_p))
+    valid4 = np.max(arr4, axis=-1) > 0.015
+    for _ in range(2):
+        p_m = np.pad(valid4, 1, mode="constant", constant_values=False)
+        valid4 = p_m[1:-1, 1:-1] & p_m[:-2, 1:-1] & p_m[2:, 1:-1] & p_m[1:-1, :-2] & p_m[1:-1, 2:]
+    p_rgb = np.pad(arr4, ((1, 1), (1, 1), (0, 0)), mode="edge")
+    blur4 = (
+        4.0 * arr4
+        + 2.0 * (p_rgb[:-2, 1:-1] + p_rgb[2:, 1:-1] + p_rgb[1:-1, :-2] + p_rgb[1:-1, 2:])
+        + 1.0 * (p_rgb[:-2, :-2] + p_rgb[:-2, 2:] + p_rgb[2:, :-2] + p_rgb[2:, 2:])
+    ) / 16.0
+    arr4_sharp = np.where(valid4[..., None], np.clip(arr4 + 0.36 * (arr4 - blur4), 0.0, 1.0), arr4)
+    _save_np_rgb_png(arr4_sharp, albedo_p)
+    occ_pct = 100.0 * float((np.max(arr4_sharp, axis=-1) > 0.012).mean())
+    print(f"  [UV Stats] Cobertura activa terreno en atlas 4K = {occ_pct:.1f}%")
+
+    # Esculpir fisicamente en 3D sobre la normal real leyendo el albedo 4K nitido bilineal
     sculpt_3d_from_baked_albedo(obj, albedo_p)
     obj.data.polygons.foreach_set("use_smooth", is_ter_face.tolist())
     obj.data.update()
 
-    # Conectar Bump sutil + Roughness por luminancia del albedo en Hero360_Terrain y hornear Normal + Roughness
+    # Conectar micro-grano mineral + albedo en Bump para NORMAL 4K nítido y ROUGHNESS diferenciada
     map_res = max(2048, min(albedo_res, 4096))
-    m_ter = bpy.data.materials.get("Hero360_Terrain")
     if m_ter:
         nt = m_ter.node_tree
         bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
@@ -640,25 +755,45 @@ def bake_pbr_maps(scene: bpy.types.Scene, obj: bpy.types.Object, out_dir: Path, 
         rgb2bw = nt.nodes.new("ShaderNodeRGBToBW")
         nt.links.new(t_alb.outputs["Color"], rgb2bw.inputs["Color"])
 
+        tc_obj = nt.nodes.new("ShaderNodeTexCoord")
+        noise_rock = nt.nodes.new("ShaderNodeTexNoise")
+        noise_rock.inputs["Scale"].default_value = 3.8
+        noise_rock.inputs["Detail"].default_value = 8.0
+        noise_rock.inputs["Roughness"].default_value = 0.62
+        nt.links.new(tc_obj.outputs["Object"], noise_rock.inputs["Vector"])
+
+        mix_h = nt.nodes.new("ShaderNodeMix")
+        mix_h.data_type = "FLOAT"
+        mix_h.inputs["Factor"].default_value = 0.42
+        nt.links.new(rgb2bw.outputs["Val"], mix_h.inputs["A"])
+        nt.links.new(noise_rock.outputs["Fac"], mix_h.inputs["B"])
+
+        bump_str = nt.nodes.new("ShaderNodeMapRange")
+        bump_str.inputs["From Min"].default_value = 0.66
+        bump_str.inputs["From Max"].default_value = 0.84
+        bump_str.inputs["To Min"].default_value = 0.42
+        bump_str.inputs["To Max"].default_value = 0.06
+        nt.links.new(rgb2bw.outputs["Val"], bump_str.inputs["Value"])
+
         bump = nt.nodes.new("ShaderNodeBump")
-        bump.inputs["Strength"].default_value = 0.24
-        bump.inputs["Distance"].default_value = 0.16
-        nt.links.new(rgb2bw.outputs["Val"], bump.inputs["Height"])
+        bump.inputs["Distance"].default_value = 0.14
+        nt.links.new(bump_str.outputs["Result"], bump.inputs["Strength"])
+        nt.links.new(mix_h.outputs["Result"], bump.inputs["Height"])
         nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
 
-        # Nieve satinada (~0.45), roca/pradera mate (~0.86)
+        # Nieve satinada (~0.42), roca/grietas mate (~0.90)
         mr = nt.nodes.new("ShaderNodeMapRange")
         mr.inputs["From Min"].default_value = 0.65
         mr.inputs["From Max"].default_value = 0.85
-        mr.inputs["To Min"].default_value = 0.86
-        mr.inputs["To Max"].default_value = 0.45
+        mr.inputs["To Min"].default_value = 0.90
+        mr.inputs["To Max"].default_value = 0.42
         nt.links.new(rgb2bw.outputs["Val"], mr.inputs["Value"])
         nt.links.new(mr.outputs["Result"], bsdf.inputs["Roughness"])
 
     im_n = bpy.data.images.new("Bake_Normal", width=map_res, height=map_res)
     im_n.colorspace_settings.name = "Non-Color"
-    for m in obj.data.materials:
-        m.node_tree.nodes["__BAKE__"].image = im_n
+    if m_ter:
+        m_ter.node_tree.nodes["__BAKE__"].image = im_n
     print(f"  [Bake] Cycles NORMAL ({map_res}x{map_res})...")
     bpy.ops.object.bake(type="NORMAL", normal_space="TANGENT")
     im_n.filepath_raw = str(normal_p)
@@ -667,15 +802,15 @@ def bake_pbr_maps(scene: bpy.types.Scene, obj: bpy.types.Object, out_dir: Path, 
 
     im_r = bpy.data.images.new("Bake_Roughness", width=map_res, height=map_res)
     im_r.colorspace_settings.name = "Non-Color"
-    for m in obj.data.materials:
-        m.node_tree.nodes["__BAKE__"].image = im_r
+    if m_ter:
+        m_ter.node_tree.nodes["__BAKE__"].image = im_r
     print(f"  [Bake] Cycles ROUGHNESS ({map_res}x{map_res})...")
     bpy.ops.object.bake(type="ROUGHNESS")
     im_r.filepath_raw = str(rough_p)
     im_r.file_format = "PNG"
     im_r.save()
 
-    # Limpiar UV layers auxiliares de camara y dejar material PBR unico empacado sobre UVMap
+    # Limpiar UV layers auxiliares de camara y asignar 2 materiales PBR dedicados (Zocalo + Terreno 4K)
     while len(obj.data.uv_layers) > 1:
         for ul in list(obj.data.uv_layers):
             if ul.name != "UVMap":
@@ -684,7 +819,17 @@ def bake_pbr_maps(scene: bpy.types.Scene, obj: bpy.types.Object, out_dir: Path, 
     for attr in list(obj.data.color_attributes):
         obj.data.color_attributes.remove(attr)
 
-    mat, nt, bsdf, _ = _new_material("Catan_Hero360_PBR")
+    mat_pl_final, nt_p, bsdf_p, _ = _new_material("Catan_Hero360_Plinth")
+    tc_p = nt_p.nodes.new("ShaderNodeTexCoord")
+    t_plf = nt_p.nodes.new("ShaderNodeTexImage")
+    im_plf = bpy.data.images.load(str(plinth_albedo_p), check_existing=False); im_plf.pack()
+    t_plf.image = im_plf
+    nt_p.links.new(tc_p.outputs["UV"], t_plf.inputs["Vector"])
+    nt_p.links.new(t_plf.outputs["Color"], bsdf_p.inputs["Base Color"])
+    bsdf_p.inputs["Roughness"].default_value = 0.44
+    bsdf_p.inputs["Metallic"].default_value = 0.18
+
+    mat_ter_final, nt, bsdf, _ = _new_material("Catan_Hero360_Terrain")
     tc = nt.nodes.new("ShaderNodeTexCoord")
 
     ta = nt.nodes.new("ShaderNodeTexImage")
@@ -706,9 +851,12 @@ def bake_pbr_maps(scene: bpy.types.Scene, obj: bpy.types.Object, out_dir: Path, 
     tr.image = ir
     nt.links.new(tc.outputs["UV"], tr.inputs["Vector"])
     nt.links.new(tr.outputs["Color"], bsdf.inputs["Roughness"])
+    bsdf.inputs["Metallic"].default_value = 0.02
 
     obj.data.materials.clear()
-    obj.data.materials.append(mat)
+    obj.data.materials.append(mat_pl_final)
+    obj.data.materials.append(mat_ter_final)
+    obj.data.polygons.foreach_set("material_index", is_ter_face.astype(np.int32).tolist())
     obj.data.polygons.foreach_set("use_smooth", is_ter_face.tolist())
     obj.data.update()
     return albedo_p, normal_p, rough_p
@@ -769,6 +917,8 @@ def render_6views_audit(scene: bpy.types.Scene, obj: bpy.types.Object, cams: Dic
 
     def render_keys(keys: List[str], res_px: int, is_clay: bool) -> List[np.ndarray]:
         orig_mats = list(obj.data.materials)
+        orig_idx = np.empty(len(obj.data.polygons), dtype=np.int32)
+        obj.data.polygons.foreach_get("material_index", orig_idx)
         fill_l = bpy.data.lights.get("FillSun")
         key_l = bpy.data.lights.get("KeySun")
         orig_bg = bg.inputs["Strength"].default_value if bg else 0.82
@@ -798,6 +948,8 @@ def render_6views_audit(scene: bpy.types.Scene, obj: bpy.types.Object, cams: Dic
             obj.data.materials.clear()
             for m in orig_mats:
                 obj.data.materials.append(m)
+            obj.data.polygons.foreach_set("material_index", orig_idx.tolist())
+            obj.data.update()
             if bg:
                 bg.inputs["Strength"].default_value = orig_bg
             if fill_l:
@@ -869,9 +1021,9 @@ def main() -> None:
     obj = bpy.context.selected_objects[0]
     obj.name = "Catan_Hero360"
 
-    subdivide_steep_terrain_edges(obj, max_edge_mm=0.24, max_passes=3, target_max_faces=2200000)
+    subdivide_steep_terrain_edges(obj, max_edge_mm=0.21, max_passes=3, target_max_faces=2900000)
 
-    m_pl = build_plinth_material()
+    m_pl, plinth_albedo_p = build_plinth_material(out_dir)
     m_ter = setup_camera_projections_and_shader(obj, cams)
     obj.data.materials.clear()
     obj.data.materials.append(m_pl)
@@ -880,7 +1032,15 @@ def main() -> None:
     obj.data.polygons.foreach_set("use_smooth", is_ter_face.tolist())
     obj.data.update()
 
-    bake_pbr_maps(scene, obj, out_dir, is_ter_face=is_ter_face, albedo_res=args.bake_res, samples=args.bake_samples)
+    bake_pbr_maps(
+        scene,
+        obj,
+        out_dir,
+        is_ter_face=is_ter_face,
+        plinth_albedo_p=plinth_albedo_p,
+        albedo_res=args.bake_res,
+        samples=args.bake_samples,
+    )
 
     master_stl = out_dir / "tile_master.stl"
     bpy.ops.object.select_all(action="DESELECT")

@@ -1006,3 +1006,30 @@ Hallazgos medidos y cambios persistidos:
 - **`.agents/skills/print-audit-and-webgl/SKILL.md`:** Añadido estándar de iluminación de estudio (`PCFSoftShadowMap 2048×2048`, `bias=-0.00025`, `normalBias=0.08`, sol rasante, `RoomEnvironment <= 0.15`, rugosidad diferenciada en grietas y peana pizarra oscura).
 - **`.agents/skills/nanobanana-3d-sculpt/SKILL.md`:** Actualizado paso 4 de Branch C alineándolo con aislamiento UV `4K`, super-resolución de cámaras `1024×1024` y sombras `PCFSoftShadowMap`.
 ================================================================================
+
+SESIÓN: 22/11/2026 - IMPLEMENTACIÓN COMPLETA `/learn` EN `montana_hero360` (`2.52M Δ · 4K HD STUDIO + PCFSOFTSHADOWMAP`)
+- Prompts literales del usuario:
+  * [22/11/2026 18:29]: "Procede /goal "
+- Objetivo: Materializar todas las mejoras persistidas vía `/learn` en `montana_hero360_prep.py`, `tools/blender/catan_hero360_bake.py` y `tools/webgl/optimize_and_build_viewer.py`, regenerar `montana_hero360` a máxima nitidez 4K con sombras reales de estudio, auditar estanqueidad/imprimibilidad y validar todos los planos y primeros planos en navegador headless.
+
+Implementación ejecutada:
+- **`Tableros-Catan/pipeline-biomas/montana_hero360_prep.py` (`--stage export-3d`):**
+  * Filtrado del bisel metálico interior en máscaras `060°–300°` usando distancia exacta `hex_dist(hx, hy)` / `vert_dist(hx, hy)`.
+  * Super-resolución `2048×2048` (`Image.Resampling.LANCZOS`) + nitidez multiescala (`0.44/0.22`) + micro-grano mineral (`±3.6%` en roca/musgo excluyendo nieve glaciar) en `views_2k/` y `cameras.json` (`W=H=2048`). Malla base `320,706 V / 641,408 F` (`chi=2`).
+- **`tools/blender/catan_hero360_bake.py`:**
+  * Subdivisión adaptativa `subdivide_steep_terrain_edges(..., max_edge_mm=0.21, target_max_faces=2900000)` -> `2,521,320` caras isotrópicas.
+  * Aislamiento UV zócalo vs relieve: `Smart UV Project` ejecutado exclusivamente sobre las `2,519,921` caras orgánicas del relieve (`52.2%` cobertura activa en `4096×4096`, frente a `26.3%` anterior) + Unsharp `4K` libre de halos en islas UV.
+  * Material independiente `Catan_Hero360_Plinth` (`plinth_albedo_1k.png` pizarra oscura maquinada con aros concéntricos en los `6` pads y biseles CAD) mapeado por UV planar XY.
+  * Proyección `ndotv^5.5` sin difuminar caras frontales (`feather` de `1` pasada solo donde `max_w < 0.72`), `rim_pull` mínimo (`<= 0.65 mm`) sin estiramiento radial, guardia `moss_fac` en `CamW1.B` + `ShaderNodeSeparateColor(mode='HSV')`, esculpido bilineal `[-0.820, +0.319] mm`, `use_smooth=True` exclusivo del relieve y micro-bump mineral `4K` (`NORMAL/ROUGHNESS 4096×4096`).
+  * Restauración explícita de `orig_idx` (`material_index`) tras el pase de `Arcilla CAD` en `render_6views_audit()` corrigiendo el render `audit_ortho.png`.
+- **`tools/webgl/optimize_and_build_viewer.py`:**
+  * Habilitado `THREE.PCFSoftShadowMap` (`2048×2048`, frustum ajustado a `maxDim`, `bias=-0.00025`, `normalBias=0.08`), `castShadow = receiveShadow = true`, `RoomEnvironment=0.14`, iluminación de estudio contrastada (`hemi=0.44`, `keyLight=2.25`, `fillLight=0.20`, `rimLight=0.42`), anisotropía máxima de texturas (`<= 16×`), `normalScale=(1.30, 1.30)` y `camera.near = maxDim * 0.002`.
+
+Resultados y métricas verificadas:
+- **Auditoría `tools/audit/mesh_and_print_audit.py --catan-check --export-3mf` sobre `tile_master.stl` (`exit 0`, sin laminar):**
+  * `repaired=false`, `1,260,662 V / 2,521,320 F`, `is_watertight=true`, `euler_number=2`, `degenerate_faces=0`, `non_manifold_edges=0`, `boundary_edges=0`, `connected_components=1`.
+  * `manifold_status=Error.NoError`, `manifold_valid=true`, `volume_cm3=346.429`, `overhang_gt_deg_pct=0.028%`, `thin_wall_lt_2nozzle_pct=0.0%`.
+  * `catan_dims_ok=true` (`110.8512 × 128.0 × 70.9102 mm`), `magnet_cavity_ok=true` (`5.2 mm`), `pads_flat_25mm_ok=true` (`6/6` a `25.0 mm`), exportado `catan_montana_hero360.3mf` (`46,009,438 B`).
+- **Visor WebGL `4K HD Studio` (`Visores-HTML/catan-bioma-montana-hero360.html`):** `105,962,980 B -> 14,760,960 B` (`86.07%` ahorro), HTML autónomo de **`18.787 MB`**.
+- **Verificación visual completa en Chromium (`http://localhost:8792`, `0` errores consola/JS/HTTP):** inspeccionadas vistas `Isométrica 0°`, frontal directa PBR, zoom cercano frontal PBR y `Arcilla CAD`, espalda `~180°` PBR, y zoom cercano trasero `~180°` PBR y `Arcilla CAD`, junto con el showcase actualizado (`montana_hero360_showcase.md`).
+================================================================================
