@@ -1080,3 +1080,13 @@ Decisiones técnicas y archivos creados/modificados:
   * **Documentación de relevo:** Generado y verificado visualmente (3 páginas A4 vía Chrome headless) `Tableros-Catan/pipeline-biomas/montana_hero360/work_v05/Estado_Continuacion_Montana_Hero360_v05.pdf` (`219,799 B`) con estrategia 3-imágenes (`_pbr` + `_clay` + `patch_B2_150_nb.jpg`) y hoja de ruta F5.3→F10; actualizado `docs/ia/ESTADO.md`.
   * **Persistencia `/learn` (aprobada por usuario):** Actualizadas `.agents/rules/maker3d-architecture.md`, `.agents/skills/blender-sculpt-bake/SKILL.md` (Sección 5: Macro High-Pass 8K + anclaje 3 imágenes + aislamiento `Slot 2`) y `.agents/skills/print-audit-and-webgl/SKILL.md` (carga GLB en chunks Base64 `--compress none` / `>50 MB`).
 ================================================================================
+
+SESIÓN: 24/11/2026 - CONSULTA USO DE GOOGLE COLAB CON TESLA T4 PARA MAKER3D
+- Prompts literales del usuario:
+  * [24/11/2026 20:44]: "Tengo acceso a una T4 para hacer running de cosas con google collab. Nos puede servir de algo?"
+  * [24/11/2026 20:46]: "A ver, realmente tengo collab pro por estar suscrito en google AI pro. Guarda ese ultimo dato en la memoria. Por ende, tengo acceso a desde la blackwell pro 6000 a los nuevos TPUs de google, T4, L4..."
+- Objetivo: Evaluar con precisión técnica dónde aporta valor real una GPU en Google Colab Pro (`T4` / `L4` / `RTX PRO 6000 Blackwell` + High-RAM vía Google AI Pro) para `montana_hero360 v05-macro8k` y Maker3D 2.0, y registrar este recurso en `docs/ia/ESTADO.md`.
+
+Decisiones técnicas y archivos creados/modificados:
+- **`docs/ia/ESTADO.md`:** Registrado en la sección de motores el acceso de usuario a **Google Colab Pro (Google AI Pro)** con High-RAM y GPUs `T4`, `L4`, hasta `RTX PRO 6000 Blackwell` y TPUs.
+================================================================================
