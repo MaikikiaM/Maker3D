@@ -97,6 +97,13 @@ def get_credentials(
 
 
 def _api_headers(creds: Credentials, project_id: Optional[str] = None) -> Dict[str, str]:
+    if (not creds.valid or creds.expired) and creds.refresh_token:
+        creds.refresh(Request())
+        try:
+            DEFAULT_TOKEN_PATH.parent.mkdir(parents=True, exist_ok=True)
+            DEFAULT_TOKEN_PATH.write_text(creds.to_json(), encoding="utf-8")
+        except Exception:
+            pass
     h = {
         "Authorization": f"Bearer {creds.token}",
         "Content-Type": "application/json",
@@ -255,32 +262,53 @@ def execute_jupyter_code(
         "Content-Type": "application/json",
     }
 
-    kr = requests.post(f"{base_url}/api/kernels", headers=j_headers, json={"name": "python3"}, timeout=30)
-    kr.raise_for_status()
+    kr = None
+    for attempt in range(4):
+        try:
+            kr = requests.post(f"{base_url}/api/kernels", headers=j_headers, json={"name": "python3"}, timeout=35)
+            if kr.ok:
+                break
+        except Exception:
+            pass
+        time.sleep(1.5 * (attempt + 1))
+    if kr is None or not kr.ok:
+        raise RuntimeError(f"POST /api/kernels falló tras reintentos ({getattr(kr, 'status_code', 'timeout')})")
     kid = kr.json()["id"]
 
-    # Esperar brevemente a que el kernel pase de "starting" a "idle"
+    # Esperar brevemente a que el kernel pase de "starting" a "idle" tolerando fallos transitorios de red
     t_wait = time.time()
-    while time.time() - t_wait < 25.0:
-        kst = requests.get(f"{base_url}/api/kernels/{kid}", headers=j_headers, timeout=15)
-        if kst.ok and kst.json().get("execution_state") == "idle":
-            break
-        time.sleep(0.75)
+    while time.time() - t_wait < 45.0:
+        try:
+            kst = requests.get(f"{base_url}/api/kernels/{kid}", headers=j_headers, timeout=20)
+            if kst.ok and kst.json().get("execution_state") == "idle":
+                break
+        except Exception:
+            pass
+        time.sleep(1.0)
 
     msg_id = uuid.uuid4().hex
     session_id = uuid.uuid4().hex
     parsed = urlparse(base_url)
     ws_scheme = "wss" if parsed.scheme == "https" else "ws"
     ws_url = f"{ws_scheme}://{parsed.netloc}{parsed.path}/api/kernels/{kid}/channels?session_id={session_id}"
-    ws = websocket.create_connection(
-        ws_url,
-        header=[
-            f"X-Colab-Runtime-Proxy-Token: {token}",
-            "X-Colab-Client-Agent: vscode",
-        ],
-        origin=base_url,
-        timeout=timeout_s,
-    )
+    ws = None
+    for attempt in range(3):
+        try:
+            ws = websocket.create_connection(
+                ws_url,
+                header=[
+                    f"X-Colab-Runtime-Proxy-Token: {token}",
+                    "X-Colab-Client-Agent: vscode",
+                ],
+                origin=base_url,
+                timeout=timeout_s,
+            )
+            break
+        except Exception:
+            if attempt == 2:
+                raise
+            time.sleep(2.0)
+    assert ws is not None
     req_msg = {
         "header": {
             "msg_id": msg_id,

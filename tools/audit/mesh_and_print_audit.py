@@ -79,10 +79,30 @@ def check_manifold_and_pymeshlab(stl_path: Path) -> Dict[str, Any]:
 def repair_mesh_stl(in_stl: Path, out_stl: Path) -> Path:
     """Repara duplicados, caras degeneradas y estanqueidad vía PyMeshLab / trimesh."""
     mesh = load_as_trimesh(in_stl)
-    mesh.merge_vertices()
-    mesh.update_faces(mesh.nondegenerate_faces(height=1e-9))
-    mesh.update_faces(mesh.unique_faces())
-    mesh.remove_unreferenced_vertices()
+    if mesh.is_watertight and int(mesh.euler_number) == 2 and int((mesh.area_faces < 1e-10).sum()) > 0:
+        V = mesh.vertices.copy()
+        F = mesh.faces.copy()
+        for _ in range(6):
+            p0, p1, p2 = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
+            areas = 0.5 * np.linalg.norm(np.cross(p1 - p0, p2 - p0), axis=1)
+            bad = areas < 1e-10
+            if not np.any(bad):
+                break
+            bad_v = np.unique(F[bad])
+            mask_f = np.isin(F[:, 0], bad_v) | np.isin(F[:, 1], bad_v) | np.isin(F[:, 2], bad_v)
+            sub_f = F[mask_f]
+            for v in bad_v:
+                inc = sub_f[np.any(sub_f == v, axis=1)]
+                nbrs = np.setdiff1d(np.unique(inc), [v])
+                if len(nbrs):
+                    V[v] = 0.80 * V[v] + 0.20 * V[nbrs].mean(axis=0)
+        mesh = trimesh.Trimesh(vertices=V, faces=F, process=False)
+
+    if (not mesh.is_watertight) or (int(mesh.euler_number) != 2):
+        mesh.merge_vertices()
+        mesh.update_faces(mesh.nondegenerate_faces(height=1e-9))
+        mesh.update_faces(mesh.unique_faces())
+        mesh.remove_unreferenced_vertices()
     if not mesh.is_watertight:
         trimesh.repair.fill_holes(mesh)
         trimesh.repair.fix_winding(mesh)

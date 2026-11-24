@@ -462,6 +462,11 @@ def project_highpass_and_ao(
 
     print(f"  [MacroHP] Proyectando {len(accepted_ids)} parches High-Pass al atlas {atlas_res}x{atlas_res}...")
     me = obj.data
+    for ul in list(me.uv_layers):
+        if ul.name != "UVMap":
+            me.uv_layers.remove(ul)
+    for attr in list(me.color_attributes):
+        me.color_attributes.remove(attr)
     n_verts = len(me.vertices)
     coords = np.empty(n_verts * 3, dtype=np.float64)
     normals = np.empty(n_verts * 3, dtype=np.float64)

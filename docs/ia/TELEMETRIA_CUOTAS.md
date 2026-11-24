@@ -26,4 +26,5 @@ Registro estructurado y verificable del consumo real medido en cada plataforma d
 
 | Fecha | Recurso (`tools/colab/colab_api_runner.py`) | Especificaciones Verificadas | Notas |
 | :--- | :--- | :--- | :--- |
-| `24/11/2026` | **`L4` (`SHAPE_STANDARD`, headless OAuth2)** | `NVIDIA L4` (`23,034 MiB` VRAM, `55,530,568 kB` / `~53 GiB` RAM) | Prioridad por defecto (`OPTIX` en Blender `5.3.0`) con apagado automático `DeleteRuntime` al acabar. Elegibles también: `A100 (HIGHMEM/STD)`, `G4 (STD)`, `T4 (HIGHMEM/STD)`. |
+| `24/11/2026` | **`L4` (`SHAPE_STANDARD`, prueba smoke)** | `NVIDIA L4` (`23,034 MiB` VRAM, `55,530,568 kB` / `~53 GiB` RAM) | Prioridad por defecto (`OPTIX` en Blender `5.3.0`) con apagado automático `DeleteRuntime` al acabar. Elegibles también: `A100 (HIGHMEM/STD)`, `G4 (STD)`, `T4 (HIGHMEM/STD)`. |
+| `24/11/2026` | **`L4` (`--stage passB 8K` completo, `6.15M Δ`)** | Upload `449.8 MB` en `~1m 58s` (8 hilos); Blender `5.3.0 OPTIX` bake `8K` + `Sculpt3D` + `6` PBR + `6` Clay + Ortho en **`19m 03s`** (pico `21.59 GiB` RAM, `2.63 GiB` VRAM, `52 °C`); download `541.7 MB` en **`29s`** (8 hilos). | `DeleteRuntime` verificó `0` runtimes activos al terminar. Regla operativa: refrescar token OAuth automáticamente en `_api_headers` para ejecuciones `>= 60 min`. |

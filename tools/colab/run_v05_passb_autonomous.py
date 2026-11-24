@@ -35,7 +35,7 @@ SCRATCH_DIR = Path(
 )
 
 CHUNK_BYTES = 8 * 1024 * 1024  # 8 MB crudos (~10.7 MB Base64, óptimo para transferencia paralela)
-MAX_WORKERS = 6
+MAX_WORKERS = 8
 T0 = time.time()
 TELEM_LOCK = threading.Lock()
 _THREAD_LOCAL = threading.local()
@@ -77,9 +77,19 @@ def update_telem(**kw: Any) -> None:
     with TELEM_LOCK:
         TELEM.update(kw)
         TELEM["elapsed_s"] = round(time.time() - T0, 1)
+        payload = json.dumps(TELEM, indent=2)
         tmp = TELEM_PATH.with_suffix(".tmp")
-        tmp.write_text(json.dumps(TELEM, indent=2), encoding="utf-8")
-        tmp.replace(TELEM_PATH)
+        for attempt in range(10):
+            try:
+                tmp.write_text(payload, encoding="utf-8")
+                tmp.replace(TELEM_PATH)
+                return
+            except PermissionError:
+                time.sleep(0.03 * (attempt + 1))
+        try:
+            TELEM_PATH.write_text(payload, encoding="utf-8")
+        except Exception:
+            pass
 
 
 def log_line(msg: str) -> None:
@@ -224,19 +234,28 @@ def upload_chunks_to_colab(creds: Any, proj: str | None, rt_name: str, local_fil
             raw = f.read(CHUNK_BYTES)
         b64 = base64.b64encode(raw).decode("ascii")
         rpath = f"{root_prefix}_in_chunk_{idx:04d}.bin"
-        sess = _get_session()
-        for attempt in range(3):
-            r = sess.put(
-                f"{base_url}/api/contents/{rpath}",
-                headers=hdrs,
-                json={"type": "file", "format": "base64", "content": b64},
-                timeout=180,
-            )
-            if r.ok:
-                break
-            if attempt == 2:
-                raise RuntimeError(f"Error subiendo chunk {idx}: {r.status_code} {r.text[:200]}")
-            time.sleep(1.5)
+        for attempt in range(4):
+            sess = _get_session()
+            try:
+                r = sess.put(
+                    f"{base_url}/api/contents/{rpath}",
+                    headers=hdrs,
+                    json={"type": "file", "format": "base64", "content": b64},
+                    timeout=180,
+                )
+                if r.ok:
+                    break
+                if attempt == 3:
+                    raise RuntimeError(f"Error subiendo chunk {idx}: {r.status_code} {r.text[:200]}")
+            except Exception as exc:
+                try:
+                    sess.close()
+                except Exception:
+                    pass
+                _THREAD_LOCAL.session = requests.Session()
+                if attempt == 3:
+                    raise RuntimeError(f"Excepción subiendo chunk {idx}: {exc}") from exc
+            time.sleep(1.5 * (attempt + 1))
         with state_lock:
             state["done_bytes"] += len(raw)
             state["done_chunks"] += 1
@@ -424,14 +443,25 @@ def download_chunks_from_colab(creds: Any, proj: str | None, rt_name: str, root_
 
     def _download_one(idx: int) -> Path:
         rpath = f"{root_prefix}_out_chunk_{idx:04d}.bin"
-        sess = _get_session()
-        for attempt in range(3):
-            r = sess.get(f"{base_url}/api/contents/{rpath}?content=1", headers=hdrs, timeout=180)
-            if r.ok:
-                break
-            if attempt == 2:
-                raise RuntimeError(f"Error descargando chunk {idx}: {r.status_code} {r.text[:200]}")
-            time.sleep(1.5)
+        r = None
+        for attempt in range(4):
+            sess = _get_session()
+            try:
+                r = sess.get(f"{base_url}/api/contents/{rpath}?content=1", headers=hdrs, timeout=180)
+                if r.ok:
+                    break
+                if attempt == 3:
+                    raise RuntimeError(f"Error descargando chunk {idx}: {r.status_code} {r.text[:200]}")
+            except Exception as exc:
+                try:
+                    sess.close()
+                except Exception:
+                    pass
+                _THREAD_LOCAL.session = requests.Session()
+                if attempt == 3:
+                    raise RuntimeError(f"Excepción descargando chunk {idx}: {exc}") from exc
+            time.sleep(1.5 * (attempt + 1))
+        assert r is not None
         raw = base64.b64decode(r.json()["content"])
         part_p = tmp_dir / f"_dl_{idx:04d}.bin"
         part_p.write_bytes(raw)

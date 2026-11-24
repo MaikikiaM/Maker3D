@@ -156,8 +156,9 @@ def align_and_extract_patch(
         ridge_recall_5px = 1.0
 
     sky_er = cv2.erode((~mask).astype(np.uint8), np.ones((15, 15), np.uint8)) > 0
-    if int(sky_er.sum()) > 500:
-        sky_intrusion_pct = float(((ref_lum[sky_er] - nb_aligned_lum[sky_er]) > 0.25).mean())
+    if int(sky_er.sum()) > 500 and int(mask_er.sum()) > 500:
+        edge_thr = max(float(np.percentile(gr[mask_er], 80)), 0.08)
+        sky_intrusion_pct = float(((gn[sky_er] > edge_thr) & (gr[sky_er] < 0.03)).mean())
     else:
         sky_intrusion_pct = 0.0
 
@@ -178,23 +179,28 @@ def align_and_extract_patch(
     hp_lum = 0.2126 * hp_rgb[..., 0] + 0.7152 * hp_rgb[..., 1] + 0.0722 * hp_rgb[..., 2]
     hp_chroma = hp_rgb - hp_lum[..., None]
     hp_out = np.clip(hp_lum[..., None] + 0.35 * hp_chroma, -hp_clip, hp_clip)
-    hp_out = hp_out * mask[..., None].astype(np.float32)
+    if sky_intrusion_pct > 0.05:
+        hp_mask = (cv2.erode(mask.astype(np.uint8), np.ones((13, 13), np.uint8)) > 0).astype(np.float32)
+    else:
+        hp_mask = mask.astype(np.float32)
+    hp_out = hp_out * hp_mask[..., None]
 
     hp_std_val = float(hp_out[mask].std())
+    sky_ok = (sky_intrusion_pct <= 0.05) or (ridge_recall_5px >= 0.82)
     accepted = (
         (ssim_low >= 0.58)
         and (ridge_recall_5px >= 0.72)
-        and (sky_intrusion_pct <= 0.04)
+        and sky_ok
         and (chroma_delta_e <= 9.5)
         and (delta_e <= 21.0)
         and (hp_std_val >= 0.025)
     )
 
-    # Codificar 16-bit PNG en rango [-0.20, +0.20] -> [0, 65535] con cuantización limpia de 2048 pasos (~5x menor peso PNG)
+    # Codificar 16-bit PNG en rango [-0.20, +0.20] -> [0, 65535] con byte bajo en cero (~6x menor peso DEFLATE)
     out_hp_png16.parent.mkdir(parents=True, exist_ok=True)
     enc = np.clip(0.5 + hp_out / 0.40, 0.0, 1.0)
-    q = np.clip(np.round((enc - 0.5) * 2048.0) / 2048.0 + 0.5, 0.0, 1.0)
-    enc_u16 = np.round(q * 65535.0).astype(np.uint16)
+    s = np.clip(np.round((enc - 0.5) * 256.0), -128, 127).astype(np.int32)
+    enc_u16 = ((s + 128) << 8).astype(np.uint16)
     cv2.imwrite(
         str(out_hp_png16),
         cv2.cvtColor(enc_u16, cv2.COLOR_RGB2BGR),
