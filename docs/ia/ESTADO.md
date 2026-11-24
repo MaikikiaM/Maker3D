@@ -6,7 +6,7 @@ Suite modular CAD/Mesh/Escultura 3D con IA (**Maker3D 2.0**) para piezas paramé
 
 ## Arquitectura y Estado de Motores (OPERATIVA)
 - **Motores Locales:** `Blender 5.3.0`, `OpenSCAD Nightly 2026.11.21` (`Manifold + BOSL2`), `Bambu Studio 02.08.02.61` (incluidos perfiles `a1_n02 / p1s_n02 / x1c_n02` de `0.20 mm`), `Node v24` + `@gltf-transform/cli 4.5.1`, Python 3.12 (`build123d`, `pymeshlab`, `landlab`, `lib3mf`, `trimesh`, `manifold3d`, `opencv-python-headless 5.1.0`). `python tools/env_check.py` -> `PASS`.
-- **Cómputo Remoto Colab Pro (Google AI Pro):** Usuario dispone de **Google Colab Pro** (High-RAM + GPUs `T4`, `L4`, hasta `RTX PRO 6000 Blackwell` y TPUs) utilizable para `Cycles OptiX/CUDA` pesado, `TRELLIS.2`/`Hunyuan3D` sin tope HF `300 s/día` y refinado/upscaling neural en lote.
+- **Cómputo Remoto Colab Pro (Google AI Pro — AUTÓNOMO VERIFICADO):** Runner headless [colab_api_runner.py](tools/colab/colab_api_runner.py) autenticado vía OAuth2 (`colab-token.json` en `~/.gemini/secrets/`). Probado en vivo creando y apagando automáticamente **`NVIDIA L4` (`23,034 MiB` VRAM + `55.5 GB` RAM)**; disponibles también `G4`, `A100` (`HIGHMEM`/`STD`) y `T4` para ejecutar `Cycles OptiX/CUDA` sin CPU local.
 - **MCPs Verificados:** `build123d`, `openscad`, `blender`.
 - **Skills Maker3D 2.0:** `maker3d-router`, `parametric-brep-cad`, `generative-3d-mesh`, `terrain-geology-engine`, `blender-sculpt-bake`, `print-audit-and-webgl` (+ `nanobanana-3d-sculpt` legacy).
 
@@ -21,5 +21,5 @@ Suite modular CAD/Mesh/Escultura 3D con IA (**Maker3D 2.0**) para piezas paramé
 
 ## Próximas Tareas Prioritarias (Retomar en F5.3 → F10)
 1. Generar/recibir las 15 vistas macro al nivel de `patch_B2_150_nb.jpg` y alinear con `tools/generative/macro_patch_align.py --macro-dir .../work_v05/macro --sigma-hp 6.0`.
-2. Ejecutar Blender `--stage passB --bake-res 8192 --normal-res 8192 --rough-res 4096` -> `tile_master.stl` + `tile_viewer.glb` + auditoría `--nozzle-mm 0.2 --catan-check` (`watertight=true`, `χ=2`, `degen=0`, sin `--bambu-slice`).
+2. Ejecutar Blender `--stage passB --device gpu --bake-res 8192 --normal-res 8192 --rough-res 4096` en Colab Pro `L4` (`colab_api_runner.py` o `blender_cycles_gpu_colab.ipynb`) -> `tile_master.stl` + `tile_viewer.glb` + auditoría `--nozzle-mm 0.2 --catan-check` (`watertight=true`, `χ=2`, `degen=0`, sin `--bambu-slice`).
 3. Generar y verificar en Chromium los visores `...-v05-macro8k.html` y `...-v05-macro8k-raw.html`, QA lado a lado frente a `V4`, archivar en `versiones/v05_macro8k/` y sincronizar con GitHub.

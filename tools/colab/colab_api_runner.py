@@ -136,12 +136,12 @@ def list_runtimes(creds: Credentials, project_id: Optional[str]) -> List[Dict[st
     return r.json().get("runtimes", [])
 
 
-def pick_best_gpu_spec(
+def rank_gpu_specs(
     specs: List[Dict[str, Any]],
     accel_req: str = "auto",
     prefer_highmem: bool = True,
-) -> Dict[str, Any]:
-    """Selecciona RuntimeSpec GPU elegible según preferencia uso-calidad."""
+) -> List[Dict[str, Any]]:
+    """Devuelve lista ordenada de RuntimeSpec GPU elegibles según preferencia uso-calidad."""
     gpu_specs = [
         s for s in specs
         if s.get("eligible") and s.get("key", {}).get("variant") == "VARIANT_GPU"
@@ -178,7 +178,7 @@ def pick_best_gpu_spec(
         return (rank, shape_pen, acc)
 
     pool.sort(key=_score)
-    return pool[0]["key"]
+    return [s["key"] for s in pool]
 
 
 def create_runtime(
@@ -238,22 +238,38 @@ def execute_jupyter_code(
     """Crea kernel Jupyter en el runtime Colab y ejecuta código transmitiendo stdout/stderr."""
     base_url = conn_info["url"].rstrip("/")
     token = conn_info["token"]
-    j_headers = {"Authorization": f"token {token}", "Content-Type": "application/json"}
+    j_headers = {
+        "X-Colab-Runtime-Proxy-Token": token,
+        "X-Colab-Client-Agent": "vscode",
+        "Content-Type": "application/json",
+    }
 
     kr = requests.post(f"{base_url}/api/kernels", headers=j_headers, json={"name": "python3"}, timeout=30)
-    if kr.status_code in (401, 403):
-        j_headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-        kr = requests.post(f"{base_url}/api/kernels", headers=j_headers, json={"name": "python3"}, timeout=30)
     kr.raise_for_status()
     kid = kr.json()["id"]
 
-    parsed = urlparse(base_url)
-    ws_scheme = "wss" if parsed.scheme == "https" else "ws"
-    ws_url = f"{ws_scheme}://{parsed.netloc}{parsed.path}/api/kernels/{kid}/channels?token={token}"
-    ws = websocket.create_connection(ws_url, header=[f"Authorization: {j_headers['Authorization']}"], timeout=timeout_s)
+    # Esperar brevemente a que el kernel pase de "starting" a "idle"
+    t_wait = time.time()
+    while time.time() - t_wait < 25.0:
+        kst = requests.get(f"{base_url}/api/kernels/{kid}", headers=j_headers, timeout=15)
+        if kst.ok and kst.json().get("execution_state") == "idle":
+            break
+        time.sleep(0.75)
 
     msg_id = uuid.uuid4().hex
     session_id = uuid.uuid4().hex
+    parsed = urlparse(base_url)
+    ws_scheme = "wss" if parsed.scheme == "https" else "ws"
+    ws_url = f"{ws_scheme}://{parsed.netloc}{parsed.path}/api/kernels/{kid}/channels?session_id={session_id}"
+    ws = websocket.create_connection(
+        ws_url,
+        header=[
+            f"X-Colab-Runtime-Proxy-Token: {token}",
+            "X-Colab-Client-Agent: vscode",
+        ],
+        origin=base_url,
+        timeout=timeout_s,
+    )
     req_msg = {
         "header": {
             "msg_id": msg_id,
@@ -323,6 +339,7 @@ def main() -> None:
     p_run.add_argument("--no-highmem", action="store_true")
     p_run.add_argument("--code", default=None, help="Código Python inline")
     p_run.add_argument("--script", default=None, help="Archivo .py local a ejecutar en Colab")
+    p_run.add_argument("--reuse-active", action="store_true", help="Reutilizar runtime GPU ya activo (no lo borra al salir)")
     p_run.add_argument("--keep-runtime", action="store_true", help="No borrar runtime al terminar")
 
     p_del = sub.add_parser("delete-all", help="Cerrar todos los runtimes Colab API activos")
@@ -356,17 +373,50 @@ def main() -> None:
         if not args.code and not args.script:
             raise SystemExit("Debes pasar --code o --script")
         code = Path(args.script).read_text(encoding="utf-8") if args.script else args.code
-        specs = list_runtime_specs(creds, proj)
-        spec_key = pick_best_gpu_spec(specs, accel_req=args.gpu, prefer_highmem=(not args.no_highmem))
-        print(f"[Colab] Provisionando runtime: {spec_key} ...")
-        rt = create_runtime(creds, proj, spec_key)
+
+        rt = None
+        created_by_us = False
+        if args.reuse_active:
+            active = list_runtimes(creds, proj)
+            req_up = args.gpu.strip().upper()
+            for r in active:
+                rspec = r.get("runtimeSpec", {})
+                if rspec.get("variant") == "VARIANT_GPU" and (
+                    req_up == "AUTO" or req_up in rspec.get("accelerator", "").upper()
+                ):
+                    rt = r
+                    print(f"[Colab] Reutilizando runtime activo: {rt.get('name')} ({rspec})")
+                    break
+
+        if rt is None:
+            specs = list_runtime_specs(creds, proj)
+            candidates = rank_gpu_specs(specs, accel_req=args.gpu, prefer_highmem=(not args.no_highmem))
+            last_err: Optional[Exception] = None
+            for spec_key in candidates:
+                print(f"[Colab] Provisionando runtime: {spec_key} ...")
+                try:
+                    rt = create_runtime(creds, proj, spec_key)
+                    created_by_us = True
+                    break
+                except Exception as exc:
+                    last_err = exc
+                    msg = str(exc)
+                    if "TOO_MANY_ACTIVE_RUNTIMES" in msg:
+                        raise RuntimeError(
+                            "Límite de runtimes simultáneos activos alcanzado en Colab. "
+                            "Usa --reuse-active si ya tienes una GPU abierta o cierra sesiones previas."
+                        ) from exc
+                    print(f"  [Colab] Sin disponibilidad en {spec_key.get('accelerator')}: {msg}")
+            if rt is None:
+                raise RuntimeError(f"No se pudo provisionar ninguna GPU elegible ({last_err})")
+
         rt_name = rt.get("name", "")
-        print(f"[Colab] Runtime activo: {rt_name}")
+        print(f"[Colab] Runtime conectado: {rt_name}")
         rc = 1
         try:
             rc = execute_jupyter_code(rt["connectionInfo"], code)
         finally:
-            if rt_name and not args.keep_runtime:
+            if created_by_us and rt_name and not args.keep_runtime:
                 print(f"[Colab] Cerrando runtime para ahorrar unidades: {rt_name}")
                 delete_runtime(creds, proj, rt_name)
         raise SystemExit(rc)
