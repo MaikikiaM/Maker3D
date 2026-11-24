@@ -1267,6 +1267,7 @@ En resumen: si solo vas a cambiar una cosa hoy, prueba Antigravity IDE (o VS Cod
   * [24/11/2026 21:18]: "hecho"
   * [24/11/2026 21:20]: "Y too many no quiere decir que todas las L4s estan en uso?"
   * [24/11/2026 21:21]: "me sale esto al intentar conectarme en esa pestaña de google collab con una. Aunque justo ahora ya he podido conectarme"
+  * [24/11/2026 21:22]: "<captura Active sessions: Untitled0.ipynb (GPU) + Making the most of your colab subscription (CPU)>"
 - Objetivo: Evaluar el uso real de Google Colab Pro (`Blackwell PRO 6000` / `L4` / `A100` / `T4`) para Blender Cycles GPU (descartando explícitamente TRELLIS/Hunyuan), habilitar aceleración GPU `OPTIX`/`CUDA` real y portabilidad Windows->Linux en los scripts de bake Hero 360°, y dejar listo un notebook Colab ejecutable.
 
 Decisiones técnicas y archivos creados/modificados:
