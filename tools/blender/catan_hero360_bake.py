@@ -1245,10 +1245,10 @@ def sculpt_3d_from_highpass_bandlimited(
 
     de, dv = _hex_distances_arr(V[:, 0], V[:, 1])
     safe_b = _smoothstep(ROAD_MARGIN + 2.0, ROAD_MARGIN + 4.0, de) * _smoothstep(PAD_RADIUS + 2.0, PAD_RADIUS + 4.0, dv) * _smoothstep(Z_BASE + 0.4, Z_BASE + 1.5, V[:, 2])
-    # Solo pendientes >= 35° (N[:, 2] <= cos(35°) = 0.8191) y fuera de nieve/rocas talus
-    slope_35 = (1.0 - _smoothstep(0.76, 0.84, N[:, 2])) * _smoothstep(-0.20, 0.05, N[:, 2])
+    # Refuerzo completo en pendientes >= 35° y relieve suave (~45%) en cojines de musgo 3D en valles (< 35°)
+    slope_w = (0.45 + 0.55 * (1.0 - _smoothstep(0.76, 0.84, N[:, 2]))) * _smoothstep(-0.20, 0.05, N[:, 2])
     snow_m = _smoothstep(0.68, 0.84, lum) * (1.0 - _smoothstep(0.10, 0.20, sat)) * _smoothstep(Z_BASE + 3.0, Z_BASE + 8.0, V[:, 2])
-    m = safe_b * slope_35 * (1.0 - 0.90 * snow_m) * (~is_talus_v).astype(np.float64)
+    m = safe_b * slope_w * (1.0 - 0.90 * snow_m) * (~is_talus_v).astype(np.float64)
 
     disp = np.clip(m * (hp_v / 0.14) * max_amp_mm, -max_amp_mm, max_amp_mm)
     V_new = V + N * disp[:, None]
@@ -1572,7 +1572,7 @@ def render_clay_f2_preview(scene: bpy.types.Scene, obj: bpy.types.Object, cams: 
 def main() -> None:
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     p = argparse.ArgumentParser(description="Fábrica Modular Maker3D — Cycles Smart UV 3D Camera-Projection Bake")
-    p.add_argument("--stl", required=True)
+    p.add_argument("--stl", required=False, default="")
     p.add_argument("--cameras", required=True)
     p.add_argument("--out-dir", required=True)
     p.add_argument("--bake-res", type=int, default=4096)

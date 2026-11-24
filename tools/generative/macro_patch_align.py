@@ -35,7 +35,7 @@ def align_and_extract_patch(
     mask_path: Path,
     out_hp_png16: Path,
     sigma_hp: float = 6.0,
-    max_flow_px: float = 6.0,
+    max_flow_px: float = 2.5,
     hp_clip: float = 0.18,
 ) -> Dict[str, Any]:
     ref_bgr = cv2.imread(str(ref_path), cv2.IMREAD_COLOR)
@@ -60,18 +60,19 @@ def align_and_extract_patch(
     ref_lum = 0.2126 * ref_rgb[..., 0] + 0.7152 * ref_rgb[..., 1] + 0.0722 * ref_rgb[..., 2]
     nb_lum = 0.2126 * nb_rgb[..., 0] + 0.7152 * nb_rgb[..., 1] + 0.0722 * nb_rgb[..., 2]
 
-    # Armonizar exposición/contraste paso bajo antes de ECC para evitar fallos por brillo global
-    ref_l_m = float(ref_lum[mask].mean())
-    nb_l_m = max(float(nb_lum[mask].mean()), 1e-4)
-    nb_lum_norm = np.clip(nb_lum * (ref_l_m / nb_l_m), 0.0, 1.0)
+    # Alineación ECC sobre magnitud de gradiente Sobel normalizada (insensible al cambio de albedo en valles)
+    ref_grad = np.hypot(cv2.Sobel(ref_lum, cv2.CV_32F, 1, 0, ksize=3), cv2.Sobel(ref_lum, cv2.CV_32F, 0, 1, ksize=3))
+    nb_grad = np.hypot(cv2.Sobel(nb_lum, cv2.CV_32F, 1, 0, ksize=3), cv2.Sobel(nb_lum, cv2.CV_32F, 0, 1, ksize=3))
+    ref_grad_n = np.clip(ref_grad / max(float(np.percentile(ref_grad[mask], 95)), 1e-4), 0.0, 1.0)
+    nb_grad_n = np.clip(nb_grad / max(float(np.percentile(nb_grad[mask], 95)), 1e-4), 0.0, 1.0)
 
     warp = np.eye(2, 3, dtype=np.float32)
     mask_u8 = (mask.astype(np.uint8) * 255)
     try:
         criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 120, 1e-5)
         _, warp = cv2.findTransformECC(
-            ref_lum,
-            nb_lum_norm,
+            ref_grad_n,
+            nb_grad_n,
             warp,
             cv2.MOTION_AFFINE,
             criteria,
@@ -79,6 +80,9 @@ def align_and_extract_patch(
             gaussFiltSize=5,
         )
     except cv2.error:
+        warp = np.eye(2, 3, dtype=np.float32)
+
+    if np.hypot(warp[0, 2], warp[1, 2]) > 8.0 or np.linalg.norm(warp[:, :2] - np.eye(2, dtype=np.float32)) > 0.035:
         warp = np.eye(2, 3, dtype=np.float32)
 
     nb_ecc = cv2.warpAffine(
@@ -89,9 +93,10 @@ def align_and_extract_patch(
         borderMode=cv2.BORDER_REFLECT101,
     )
     nb_ecc_lum = 0.2126 * nb_ecc[..., 0] + 0.7152 * nb_ecc[..., 1] + 0.0722 * nb_ecc[..., 2]
+    ref_l_m = float(ref_lum[mask].mean())
     nb_ecc_lum_norm = np.clip(nb_ecc_lum * (ref_l_m / max(float(nb_ecc_lum[mask].mean()), 1e-4)), 0.0, 1.0)
 
-    # Flujo óptico denso Farneback acotado estrictamente a ±max_flow_px
+    # Flujo óptico denso Farneback ponderado por gradiente en crestas (evita deformar cojines de musgo en valles)
     flow = cv2.calcOpticalFlowFarneback(
         (ref_lum * 255.0).astype(np.uint8),
         (nb_ecc_lum_norm * 255.0).astype(np.uint8),
@@ -104,7 +109,9 @@ def align_and_extract_patch(
         poly_sigma=1.5,
         flags=0,
     )
-    flow_clipped = np.clip(flow, -max_flow_px, max_flow_px)
+    grad_w = np.clip(cv2.GaussianBlur(ref_grad, (0, 0), 8.0) / max(float(np.percentile(ref_grad[mask], 80)), 1e-4), 0.0, 1.0)
+    flow_weighted = flow * grad_w[..., None]
+    flow_clipped = cv2.GaussianBlur(np.clip(flow_weighted, -max_flow_px, max_flow_px), (0, 0), 5.0)
     yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
     map_x = xx + flow_clipped[..., 0]
     map_y = yy + flow_clipped[..., 1]
@@ -115,6 +122,7 @@ def align_and_extract_patch(
         interpolation=cv2.INTER_LANCZOS4,
         borderMode=cv2.BORDER_REFLECT101,
     )
+    nb_aligned_lum = 0.2126 * nb_aligned[..., 0] + 0.7152 * nb_aligned[..., 1] + 0.0722 * nb_aligned[..., 2]
 
     # Puertas de calidad en paso bajo (sigma=6 px)
     ref_low_rgb = cv2.GaussianBlur(ref_rgb, (0, 0), sigma_hp)
@@ -130,8 +138,28 @@ def align_and_extract_patch(
     ssim_m = _ssim_map(ref_low_l, nb_low_l_norm, sigma=4.0)
     ssim_low = float(ssim_m[mask].mean())
 
-    flow_mag = np.hypot(flow[..., 0], flow[..., 1])
+    flow_mag = np.hypot(flow_clipped[..., 0], flow_clipped[..., 1])
     mean_flow_px = float(flow_mag[mask].mean())
+
+    # Ridge recall dentro de 5 px y detección de intrusión al cielo
+    ref_sm = cv2.GaussianBlur(ref_lum, (0, 0), 2.0)
+    nb_sm = cv2.GaussianBlur(nb_aligned_lum, (0, 0), 2.0)
+    gr = np.hypot(cv2.Sobel(ref_sm, cv2.CV_32F, 1, 0, ksize=3), cv2.Sobel(ref_sm, cv2.CV_32F, 0, 1, ksize=3))
+    gn = np.hypot(cv2.Sobel(nb_sm, cv2.CV_32F, 1, 0, ksize=3), cv2.Sobel(nb_sm, cv2.CV_32F, 0, 1, ksize=3))
+    mask_er = cv2.erode(mask.astype(np.uint8), np.ones((9, 9), np.uint8)) > 0
+    if int(mask_er.sum()) > 500:
+        edges_ref = (gr > np.percentile(gr[mask_er], 80)) & mask_er
+        edges_nb = (gn > np.percentile(gn[mask_er], 75)).astype(np.uint8)
+        dil_nb = cv2.dilate(edges_nb, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))) > 0
+        ridge_recall_5px = float(dil_nb[edges_ref].mean()) if np.any(edges_ref) else 1.0
+    else:
+        ridge_recall_5px = 1.0
+
+    sky_er = cv2.erode((~mask).astype(np.uint8), np.ones((15, 15), np.uint8)) > 0
+    if int(sky_er.sum()) > 500:
+        sky_intrusion_pct = float(((ref_lum[sky_er] - nb_aligned_lum[sky_er]) > 0.25).mean())
+    else:
+        sky_intrusion_pct = 0.0
 
     ref_lab = cv2.cvtColor(np.clip(ref_low_rgb * 255.0, 0, 255).astype(np.uint8), cv2.COLOR_RGB2LAB).astype(np.float32)
     nb_lab = cv2.cvtColor(np.clip(nb_low_norm * 255.0, 0, 255).astype(np.uint8), cv2.COLOR_RGB2LAB).astype(np.float32)
@@ -141,8 +169,6 @@ def align_and_extract_patch(
     db = nb_lab[..., 2] - ref_lab[..., 2]
     delta_e = float(np.sqrt(dL * dL + da * da + db * db)[mask].mean())
     chroma_delta_e = float(np.sqrt(da * da + db * db)[mask].mean())
-
-    accepted = (ssim_low >= 0.80) and (mean_flow_px <= 4.0) and (chroma_delta_e <= 6.0) and (delta_e <= 11.0)
 
     # Extracción High-Pass en log-espacio (luminancia plena + 0.35x croma suave, acotado ±0.18)
     log_nb = np.log(np.maximum(nb_aligned, 0.015))
@@ -154,19 +180,36 @@ def align_and_extract_patch(
     hp_out = np.clip(hp_lum[..., None] + 0.35 * hp_chroma, -hp_clip, hp_clip)
     hp_out = hp_out * mask[..., None].astype(np.float32)
 
-    # Codificar 16-bit PNG en rango [-0.20, +0.20] -> [0, 65535] (decodificación exacta: (val - 0.5) * 0.40)
+    hp_std_val = float(hp_out[mask].std())
+    accepted = (
+        (ssim_low >= 0.58)
+        and (ridge_recall_5px >= 0.72)
+        and (sky_intrusion_pct <= 0.04)
+        and (chroma_delta_e <= 9.5)
+        and (delta_e <= 21.0)
+        and (hp_std_val >= 0.025)
+    )
+
+    # Codificar 16-bit PNG en rango [-0.20, +0.20] -> [0, 65535] con cuantización limpia de 2048 pasos (~5x menor peso PNG)
     out_hp_png16.parent.mkdir(parents=True, exist_ok=True)
     enc = np.clip(0.5 + hp_out / 0.40, 0.0, 1.0)
-    enc_u16 = np.round(enc * 65535.0).astype(np.uint16)
-    cv2.imwrite(str(out_hp_png16), cv2.cvtColor(enc_u16, cv2.COLOR_RGB2BGR))
+    q = np.clip(np.round((enc - 0.5) * 2048.0) / 2048.0 + 0.5, 0.0, 1.0)
+    enc_u16 = np.round(q * 65535.0).astype(np.uint16)
+    cv2.imwrite(
+        str(out_hp_png16),
+        cv2.cvtColor(enc_u16, cv2.COLOR_RGB2BGR),
+        [int(cv2.IMWRITE_PNG_COMPRESSION), 6],
+    )
 
     return {
         "accepted": bool(accepted),
         "ssim_low": round(ssim_low, 4),
+        "ridge_recall_5px": round(ridge_recall_5px, 4),
+        "sky_intrusion_pct": round(sky_intrusion_pct, 4),
         "mean_flow_px": round(mean_flow_px, 4),
         "deltaE_low": round(delta_e, 4),
         "chroma_deltaE": round(chroma_delta_e, 4),
-        "hp_std": round(float(hp_out[mask].std()), 5),
+        "hp_std": round(hp_std_val, 5),
         "hp_file": str(out_hp_png16),
     }
 

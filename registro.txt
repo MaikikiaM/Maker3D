@@ -1275,6 +1275,11 @@ En resumen: si solo vas a cambiar una cosa hoy, prueba Antigravity IDE (o VS Cod
   * [24/11/2026 21:39]: "Y al estar añadiendo vegetacion en cada toma sin concierto no va a haber problemas de compatibilidad?"
   * [24/11/2026 21:51]: "Le he dado a descargar la imagen en tamaño completo, me ha salido descargada pero no la encuentro "
   * [24/11/2026 21:56]: "Btw, guarda en algun lado que hacer todas las imagenes del PDF ese ha gastado un 91% del uso. Todas a la primera. Hace fakta guardar ese tipo de info asik ya sabes, en algun lugar debe quedar registrado y con la posibilidad de checarlo. Btw, no lo hice en navegador sino en la app"
+  * [24/11/2026 22:16]: "Ya estan todas. Pregunta qt¡ue te hago antes de empezar: Si supuestamente son de maxima calidad, como pueden ocupar solo 3.53 MB? Las fotos de mi movil no bajan de los 10 MB"
+  * [24/11/2026 22:20]: "B2_150 fue la referencia. No me parece necesario la verdad.
+No empieces hasta que no te lo ordene. Dime qué vas a hacer ahora, cuánto vas a tardar... Necesito que me faciloites un link para ver como trabajas con la maquina pq me da curiosidad, etc"
+  * [24/11/2026 22:23]: "Y no puedo desde una pestaña de colab cómo avanza? Hay mucha diferencia entre el tiempo de computo con la NVIDIA L4 y mi grafica? Radeon 860 M"
+  * [24/11/2026 22:28]: "Procede en 100% desantedido por API + link. Entiendo que en el localhost podre ver el uso que haces de la nvidia L4 y todo el espacio en general igual que en en colabs? /goal "
 - Objetivo: Evaluar el uso real de Google Colab Pro (`Blackwell PRO 6000` / `L4` / `A100` / `T4`) para Blender Cycles GPU (descartando explícitamente TRELLIS/Hunyuan), habilitar aceleración GPU `OPTIX`/`CUDA` real y portabilidad Windows->Linux en los scripts de bake Hero 360°, y dejar listo un notebook Colab ejecutable.
 
 Decisiones técnicas y archivos creados/modificados:

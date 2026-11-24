@@ -92,4 +92,6 @@ tools/smoke_test_out/
 *.gcode
 *.preview.html
 *.pdf
+**/work_v05/live_telemetry.json
+**/work_v05/live_console.log
 

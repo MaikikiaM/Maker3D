@@ -220,6 +220,16 @@ def create_runtime(
     raise TimeoutError(f"CreateRuntime superó {timeout_s}s ({op_name})")
 
 
+def get_runtime(creds: Credentials, project_id: Optional[str], runtime_name: str) -> Dict[str, Any]:
+    r = requests.get(
+        f"{COLAB_V1BETA}/{runtime_name}",
+        headers=_api_headers(creds, project_id),
+        timeout=20,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
 def delete_runtime(creds: Credentials, project_id: Optional[str], runtime_name: str) -> None:
     r = requests.delete(
         f"{COLAB_V1BETA}/{runtime_name}",
@@ -234,6 +244,7 @@ def execute_jupyter_code(
     conn_info: Dict[str, Any],
     code: str,
     timeout_s: int = 1800,
+    line_cb: Optional[Any] = None,
 ) -> int:
     """Crea kernel Jupyter en el runtime Colab y ejecuta código transmitiendo stdout/stderr."""
     base_url = conn_info["url"].rstrip("/")
@@ -291,6 +302,8 @@ def execute_jupyter_code(
         "channel": "shell",
     }
     exit_code = 0
+    buf_out = ""
+    buf_err = ""
     try:
         ws.send(json.dumps(req_msg))
         while True:
@@ -305,15 +318,32 @@ def execute_jupyter_code(
                 if content.get("name") == "stderr":
                     sys.stderr.write(text)
                     sys.stderr.flush()
+                    if line_cb is not None:
+                        buf_err += text
+                        while "\n" in buf_err:
+                            ln, buf_err = buf_err.split("\n", 1)
+                            line_cb("stderr", ln)
                 else:
                     sys.stdout.write(text)
                     sys.stdout.flush()
+                    if line_cb is not None:
+                        buf_out += text
+                        while "\n" in buf_out:
+                            ln, buf_out = buf_out.split("\n", 1)
+                            line_cb("stdout", ln)
             elif mtype == "error":
                 exit_code = 1
                 tb = "\n".join(content.get("traceback", []))
                 sys.stderr.write(f"\n[Colab Kernel Error] {content.get('ename')}: {content.get('evalue')}\n{tb}\n")
                 sys.stderr.flush()
+                if line_cb is not None:
+                    line_cb("error", f"{content.get('ename')}: {content.get('evalue')}")
             elif mtype == "execute_reply":
+                if line_cb is not None:
+                    if buf_out:
+                        line_cb("stdout", buf_out)
+                    if buf_err:
+                        line_cb("stderr", buf_err)
                 if content.get("status") != "ok":
                     exit_code = 1
                 break

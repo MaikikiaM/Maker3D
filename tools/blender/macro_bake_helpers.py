@@ -552,7 +552,8 @@ def project_highpass_and_ao(
             # Atenuación suave hacia los bordes del encuadre para evitar cortes
             edge_dist = np.minimum(np.minimum(u_bl, 1.0 - u_bl), np.minimum(v_bl, 1.0 - v_bl))
             edge_fade = _smoothstep(0.01, 0.08, edge_dist)
-            W_b[:, bi] = np.where(vis, (np.maximum(ndotv, 0.0) ** 4.0) * m_val * edge_fade, 0.0).astype(np.float32)
+            dist_w = np.clip(82.0 / np.maximum(dist, 28.0), 0.25, 2.5) ** 2.0
+            W_b[:, bi] = np.where(vis, (np.maximum(ndotv, 0.0) ** 8.0) * dist_w * m_val * edge_fade, 0.0).astype(np.float32)
 
         ca_name = "_MacroW"
         if ca_name in me.color_attributes:
