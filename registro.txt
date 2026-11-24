@@ -1085,8 +1085,182 @@ SESIÓN: 24/11/2026 - CONSULTA USO DE GOOGLE COLAB CON TESLA T4 PARA MAKER3D
 - Prompts literales del usuario:
   * [24/11/2026 20:44]: "Tengo acceso a una T4 para hacer running de cosas con google collab. Nos puede servir de algo?"
   * [24/11/2026 20:46]: "A ver, realmente tengo collab pro por estar suscrito en google AI pro. Guarda ese ultimo dato en la memoria. Por ende, tengo acceso a desde la blackwell pro 6000 a los nuevos TPUs de google, T4, L4..."
-- Objetivo: Evaluar con precisión técnica dónde aporta valor real una GPU en Google Colab Pro (`T4` / `L4` / `RTX PRO 6000 Blackwell` + High-RAM vía Google AI Pro) para `montana_hero360 v05-macro8k` y Maker3D 2.0, y registrar este recurso en `docs/ia/ESTADO.md`.
+  * [24/11/2026 20:49]: "Estaba hablando esto con un agente. Quiero que aprovechemos esas GPUs para por ejemplo los calculos que hacias en blender usando mi CPU emulada en vez de una GPU como dios manda. No quiero usarlo para meter trellis o hunyuan, pues viaje antes que destino.
+
+Antigravity CLI es la aplicacion o que es?
+
+⏱️ [Prompt: 20:46:29 | Respuesta: 20:46:34]
+
+No, no es la aplicación de escritorio: es la versión de terminal de Antigravity (el comando agy).
+
+Para distinguir las tres variantes de Antigravity:
+
+
+  
+
+  
+
+Antigravity CLI (agy):
+
+
+  
+
+  
+Es una interfaz ligera en línea de comandos / terminal para hablar con los agentes y ejecutar tareas sin interfaz gráfica.
+
+  
+Por eso viene preinstalada en la Terminal de Google Colab: cuando abres una terminal dentro de Colab (o en un servidor remoto por SSH), puedes escribir agy, autenticarte y trabajar con el agente directamente dentro de esa máquina Linux en la nube.
+
+  
+Usa su propia configuración en ~/.gemini/antigravity-cli/settings.json.
+
+  
+
+  
+
+  
+
+  
+
+Antigravity 2.0:
+
+
+  
+
+  
+Es la aplicación de escritorio (Electron) independiente de un editor de código, con barra lateral de proyectos, tareas programadas, gestión de skills/MCP y lienzo de chat para lanzar y supervisar agentes.
+
+  
+
+  
+
+  
+
+  
+
+Antigravity IDE:
+
+
+  
+
+  
+Es el editor de código completo (basado en VS Code) con autocompletado, ediciones en línea y chat/agente integrado en el editor.
+
+  
+
+  
+
+  
+
+En resumen: Antigravity CLI = usar el agente de Antigravity en modo texto dentro de cualquier terminal (como la de Colab), mientras que Antigravity 2.0 / IDE son las aplicaciones gráficas que usas en tu PC.
+
+Qué me recomiendas utilzar viendo mi perfil? Actualmente uso la aplicacion pero he oido que es mal arnes 
+
+⏱️ [Prompt: 20:47:09 | Respuesta: 20:47:15]
+
+Viendo tu entorno real —proyectos muy variados en Antigravity (Apps, Maker3D, Simulaciones, Herramientas-IA, Chemde, GSC, Redmi-OS, etc.), servidores MCP de CAD/3D (build123d, openscad, blender en mcp_config.json), protocolo estricto de memoria/git y suscripción Google AI Pro— esta es la lectura objetiva:
+
+¿Por qué se dice que la App es "mal arnés" (agent harness)?
+
+La crítica habitual a Antigravity 2.0 (la App) frente a un IDE o un CLI puro tiene sentido en programación pura:
+
+
+  
+Menos visibilidad directa sobre el código: no tienes el árbol de archivos ni las diffs abiertas en tu editor mientras el agente edita.
+
+  
+Más capa intermedia: entre sandbox, aprobaciones, compactación de contexto y la interfaz Electron, a veces resulta menos ágil que un CLI directo en terminal para iterar rápido sobre código.
+
+  
+Su punto fuerte real no es editar código línea a línea, sino orquestar tareas largas, subagentes en paralelo, navegador automatizado, tareas programadas y herramientas MCP visuales/CAD.
+
+  
+Qué te recomiendo usar según tu perfil (enfoque híbrido)
+
+No necesitas tirar lo que ya tienes ni migrar tus reglas: Antigravity 2.0, Antigravity IDE y agy (CLI) leen las mismas carpetas de proyectos y configuración. Lo más práctico para ti es repartir por tipo de trabajo:
+
+
+  
+
+  
+
+Para programar y depurar tus proyectos (Apps, Simulaciones, Herramientas-IA, scripts de build123d/OpenSCAD):
+
+
+  
+
+  
+Antigravity IDE (o tu editor habitual como VS Code con un CLI en la terminal integrada).
+
+  
+Por qué: ves el código, las diffs en vivo y la terminal en el mismo sitio; es mucho mejor arnés para desarrollo que la App sola, manteniendo tus mismos MCPs (build123d, openscad, blender) y tus reglas globales (ESTADO.md, registro.txt, git-sync).
+
+  
+
+  
+
+  
+
+  
+
+Para tareas de terminal puras y para comparar "arnés ligero":
+
+
+  
+
+  
+Prueba agy (Antigravity CLI) o Gemini CLI directamente en Windows Terminal (o dentro de la terminal del editor).
+
+  
+Por qué: es un arnés minimalista, rápido y sin fricción de UI. Con tu suscripción Google AI Pro puedes probarlo hoy mismo y notar en 10 minutos si te da mejor control que la App.
+
+  
+
+  
+
+  
+
+  
+
+Para exprimir tus GPUs de Google Colab (G4, A100, L4) con Google AI Pro:
+
+
+  
+
+  
+En tu PC: añade colab-mcp a mcp_config.json para que cualquiera de tus agentes locales (IDE, CLI o App) lance ejecuciones en GPU sin salir de tu flujo.
+
+  
+Dentro de Colab: cuando abras un notebook pesado, usa agy (Antigravity CLI) en la propia Terminal de Colab.
+
+  
+
+  
+
+  
+
+  
+
+Cuándo seguir usando Antigravity 2.0 (la App):
+
+
+  
+
+  
+Para flujos donde no quieres estar mirando código todo el rato: investigación, tareas multi-agente, navegador web automatizado o tareas programadas en segundo plano.
+
+  
+
+  
+
+  
+
+En resumen: si solo vas a cambiar una cosa hoy, prueba Antigravity IDE (o VS Code + CLI en terminal) para tus proyectos de código/3D, deja la App para orquestación/tareas autónomas, y conecta colab-mcp para aprovechar tus 200 unidades de Colab."
+- Objetivo: Evaluar el uso real de Google Colab Pro (`Blackwell PRO 6000` / `L4` / `A100` / `T4`) para Blender Cycles GPU (descartando explícitamente TRELLIS/Hunyuan), habilitar aceleración GPU `OPTIX`/`CUDA` real y portabilidad Windows->Linux en los scripts de bake Hero 360°, y dejar listo un notebook Colab ejecutable.
 
 Decisiones técnicas y archivos creados/modificados:
 - **`docs/ia/ESTADO.md`:** Registrado en la sección de motores el acceso de usuario a **Google Colab Pro (Google AI Pro)** con High-RAM y GPUs `T4`, `L4`, hasta `RTX PRO 6000 Blackwell` y TPUs.
+- **`tools/blender/macro_bake_helpers.py`:** Añadidos `configure_cycles_device(scene, device_pref)` (prioridad `OPTIX -> CUDA -> CPU` filtrando estrictamente `d.type == backend` para evitar falsos positivos con `HIP`), `_resolve_macro_asset` y `relink_blend_images` para portar `passA_scene.blend` / `macro_report.json` / `macro_cameras.json` desde Windows a Linux Colab; actualizado `render_macro_passes`, `project_highpass_and_ao` (`mask` y `hp_file`).
+- **`tools/blender/catan_hero360_bake.py`:** Añadido flag `--device {auto,gpu,cpu}` conectado en `render-macros`, `passB` (con `relink_blend_images`) y `passA/full`. Validado `py_compile` + test en `Blender 5.3.0` (`DEVICE_CHECK: CPU` sin falsos positivos HIP en Windows local).
+- **`tools/colab/blender_cycles_gpu_colab.ipynb`:** Creado notebook Jupyter/Colab Pro listo para montar Drive, descargar `blender-5.3.0-linux-x64.tar.xz`, activar Cycles `OPTIX/CUDA` en `--stage passB` sobre SSD local `/content/work_v05` y devolver `tile_master.stl`, `tile_viewer.glb` y mapas/renders a Drive. Validado JSON válido.
 ================================================================================

@@ -28,6 +28,78 @@ def _smoothstep(e0: float, e1: float, x: np.ndarray) -> np.ndarray:
     return t * t * (3.0 - 2.0 * t)
 
 
+def configure_cycles_device(scene: bpy.types.Scene, device_pref: str = "auto") -> str:
+    """Configura Cycles priorizando GPU (OPTIX -> CUDA) cuando hay hardware compatible o CPU."""
+    import addon_utils
+    try:
+        addon_utils.enable("cycles")
+    except Exception:
+        pass
+    scene.render.engine = "CYCLES"
+    pref = (device_pref or "auto").strip().lower()
+    if pref != "cpu":
+        try:
+            cprefs = bpy.context.preferences.addons["cycles"].preferences
+            for backend in ("OPTIX", "CUDA"):
+                try:
+                    cprefs.compute_device_type = backend
+                    devs = list(cprefs.get_devices_for_type(backend))
+                    gpu_devs = [d for d in devs if d.type == backend]
+                    if gpu_devs:
+                        for d in cprefs.devices:
+                            d.use = (d.type == backend)
+                        scene.cycles.device = "GPU"
+                        names = ", ".join(d.name for d in gpu_devs)
+                        print(f"  [Cycles] GPU activada ({backend}): {names}")
+                        return f"GPU:{backend}"
+                except Exception:
+                    continue
+        except Exception as exc:
+            print(f"  [Cycles] Aviso autodetección GPU: {exc}")
+    if pref == "gpu":
+        print("  [Cycles] WARN: --device gpu pedido pero no hay GPU OptiX/CUDA; usando CPU.")
+    scene.cycles.device = "CPU"
+    print("  [Cycles] Dispositivo activo: CPU")
+    return "CPU"
+
+
+def _resolve_macro_asset(raw_path: str, macro_dir: Path, subdir: str) -> Path:
+    """Resuelve rutas Windows/Linux dentro de macro_dir sin fallar al portar entre PC y Colab."""
+    raw = str(raw_path or "").strip()
+    norm = raw.replace("\\", "/")
+    fname = Path(norm).name
+    candidates = [
+        Path(raw),
+        Path(norm),
+        macro_dir / subdir / fname,
+        macro_dir.parent / fname,
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return macro_dir / subdir / fname
+
+
+def relink_blend_images(search_dirs: List[Path]) -> int:
+    """Revincula texturas externas de un .blend por nombre de archivo (útil Windows -> Linux Colab)."""
+    fixed = 0
+    for im in bpy.data.images:
+        if not im.filepath:
+            continue
+        raw = bpy.path.abspath(im.filepath)
+        if Path(raw).exists():
+            continue
+        fname = Path(im.filepath.replace("\\", "/")).name
+        for d in search_dirs:
+            cand = d / fname
+            if cand.exists():
+                im.filepath = str(cand)
+                im.reload()
+                fixed += 1
+                break
+    return fixed
+
+
 def _camera_basis_looking_at(cam_xyz: np.ndarray, target_xyz: np.ndarray, fov_deg: float, res: int = 2048) -> Dict[str, Any]:
     fwd = target_xyz - cam_xyz
     fwd /= max(np.linalg.norm(fwd), 1e-8)
@@ -218,12 +290,13 @@ def render_macro_passes(
     macro_dir: Path,
     samples: int = 16,
     res: int = 2048,
+    device: str = "auto",
 ) -> Path:
     """Carga passA_scene.blend, construye las 16 cámaras macro y renderiza PBR, Arcilla y Máscara 2048 px."""
     bpy.ops.wm.open_mainfile(filepath=str(blend_path))
+    relink_blend_images([blend_path.parent, macro_dir, macro_dir / "renders"])
     scene = bpy.context.scene
-    scene.render.engine = "CYCLES"
-    scene.cycles.device = "CPU"
+    configure_cycles_device(scene, device)
     scene.cycles.samples = samples
     scene.render.image_settings.file_format = "PNG"
     scene.render.image_settings.color_mode = "RGBA"
@@ -455,7 +528,8 @@ def project_highpass_and_ao(
             uv_lay = me.uv_layers.new(name=uvn)
             uv_lay.data.foreach_set("uv", np.column_stack([u_bl, v_bl])[loop_vi].astype(np.float32).ravel())
 
-            msk_arr = _load_img_topdown_np(cd["mask"], non_color=True)[..., 0]
+            msk_p = _resolve_macro_asset(cd["mask"], macro_dir, "renders")
+            msk_arr = _load_img_topdown_np(str(msk_p), non_color=True)[..., 0]
             mh, mw = msk_arr.shape
             iu = np.clip(np.round(u_px), 0, mw - 1).astype(np.int32)
             iv = np.clip(np.round(v_pil), 0, mh - 1).astype(np.int32)
@@ -511,7 +585,7 @@ def project_highpass_and_ao(
         acc_den = None
         loaded_ims = []
         for bi, cid in enumerate(batch):
-            hp_p = Path(report["patches"][cid]["hp_file"])
+            hp_p = _resolve_macro_asset(report["patches"][cid]["hp_file"], macro_dir, "aligned_hp")
             uv_n = nt.nodes.new("ShaderNodeUVMap"); uv_n.uv_map = uv_names[bi]
             tex = nt.nodes.new("ShaderNodeTexImage")
             im = bpy.data.images.load(str(hp_p), check_existing=False)

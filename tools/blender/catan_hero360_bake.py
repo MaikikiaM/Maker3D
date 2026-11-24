@@ -1587,6 +1587,7 @@ def main() -> None:
     p.add_argument("--talus-manifest", default=None)
     p.add_argument("--macro-dir", default=None)
     p.add_argument("--stage", choices=["full", "clay-preview", "export-geology", "passA", "render-macros", "passB"], default="full")
+    p.add_argument("--device", choices=["auto", "gpu", "cpu"], default="auto")
     p.add_argument("--use-v4-front", default=None)
     args = p.parse_args(argv)
 
@@ -1597,15 +1598,15 @@ def main() -> None:
 
     if args.stage == "render-macros":
         macro_dir = Path(args.macro_dir).resolve() if args.macro_dir else (out_dir / "macro")
-        mbh.render_macro_passes(out_dir / "passA_scene.blend", macro_dir, samples=args.render_samples, res=2048)
+        mbh.render_macro_passes(out_dir / "passA_scene.blend", macro_dir, samples=args.render_samples, res=2048, device=args.device)
         return
 
     if args.stage == "passB":
         macro_dir = Path(args.macro_dir).resolve() if args.macro_dir else (out_dir / "macro")
         bpy.ops.wm.open_mainfile(filepath=str(out_dir / "passA_scene.blend"))
+        mbh.relink_blend_images([out_dir, macro_dir, macro_dir / "renders", macro_dir / "aligned_hp", out_dir.parent / "views_2k"])
         scene = bpy.context.scene
-        scene.render.engine = "CYCLES"
-        scene.cycles.device = "CPU"
+        mbh.configure_cycles_device(scene, args.device)
         obj = bpy.data.objects.get("Catan_Hero360") or bpy.context.selected_objects[0]
         bpy.ops.object.select_all(action="DESELECT"); obj.select_set(True); bpy.context.view_layer.objects.active = obj
 
@@ -1650,13 +1651,7 @@ def main() -> None:
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
-    import addon_utils
-    try:
-        addon_utils.enable("cycles")
-    except Exception:
-        pass
-    scene.render.engine = "CYCLES"
-    scene.cycles.device = "CPU"
+    mbh.configure_cycles_device(scene, args.device)
     if hasattr(scene.cycles, "use_denoising"):
         try:
             scene.cycles.use_denoising = True
