@@ -11,6 +11,12 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+try:
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+except Exception:
+    pass
+
 import bmesh
 import bpy
 import mathutils
@@ -727,7 +733,23 @@ def sculpt_3d_from_baked_albedo(obj: bpy.types.Object, albedo_path: Path) -> Non
     crevice_micro = np.clip((l_sm_mid - lum_sc) - 0.004, 0.0, 0.45) * 2.60
     ridge = np.clip((l_sm_mid - l_sm_wide) * 2.20 + np.clip(lum_sc - l_sm_mid, 0.0, 0.35) * 1.40, 0.0, 0.55)
 
-    disp_mm = weight_border * (1.0 - 0.90 * snow_mask) * (0.58 * ridge - 0.72 * crevice_macro - 0.52 * crevice_micro)
+    # Anti-cráter: las grietas/aristas negativas se limitan a escarpes rocosos (>= 42°, Nz baja);
+    # la tierra/pedregal/musgo plano (< 40°) recibe 0.000 mm de excavación negativa por sombras de piedrecitas.
+    cliff_gate = 1.0 - _smoothstep(0.45, 0.74, np.abs(N[:, 2]))
+    raw_relief = cliff_gate * (0.58 * ridge - 0.72 * crevice_macro - 0.52 * crevice_micro)
+
+    # Ondulación positiva ultra-suave (+0..+0.10 mm) solo en cojines de musgo verde plano/suave
+    green_excess = np.clip(rgb[:, 1] - np.maximum(rgb[:, 0], rgb[:, 2]) * 0.96, 0.0, 0.25)
+    moss_raw = _smoothstep(0.015, 0.075, green_excess) * _smoothstep(0.70, 0.88, np.abs(N[:, 2]))
+    moss_sm = moss_raw.copy()
+    for _ in range(28):
+        acc_m = np.zeros(n_verts, dtype=np.float32)
+        np.add.at(acc_m, e0, moss_sm[e1])
+        np.add.at(acc_m, e1, moss_sm[e0])
+        moss_sm = np.where(is_ter_v, acc_m / deg, moss_sm)
+    moss_lift = np.clip(moss_sm * 0.10, 0.0, 0.10)
+
+    disp_mm = weight_border * (1.0 - 0.90 * snow_mask) * (raw_relief + moss_lift)
     disp_mm = np.clip(disp_mm, -0.82, 0.44)
 
     V_new = V + N * disp_mm[:, None]
@@ -1586,7 +1608,8 @@ def main() -> None:
     p.add_argument("--micro-strata", action="store_true")
     p.add_argument("--talus-manifest", default=None)
     p.add_argument("--macro-dir", default=None)
-    p.add_argument("--stage", choices=["full", "clay-preview", "export-geology", "passA", "render-macros", "passB"], default="full")
+    p.add_argument("--stage", choices=["full", "clay-preview", "export-geology", "passA", "render-macros", "passB", "prep-local", "gpu-bake-only", "finalize-local"], default="full")
+    p.add_argument("--projection-mode", choices=["full", "highpass"], default="full")
     p.add_argument("--device", choices=["auto", "gpu", "cpu"], default="auto")
     p.add_argument("--use-v4-front", default=None)
     args = p.parse_args(argv)
@@ -1596,6 +1619,141 @@ def main() -> None:
     with open(args.cameras, "r", encoding="utf-8") as f:
         cams = json.load(f)
 
+    if args.stage == "prep-local":
+        macro_dir = Path(args.macro_dir).resolve() if args.macro_dir else (out_dir / "macro")
+        bpy.ops.wm.open_mainfile(filepath=str(out_dir / "passA_scene.blend"))
+        obj = bpy.data.objects.get("Catan_Hero360") or bpy.context.selected_objects[0]
+        me = obj.data
+        for ul in list(me.uv_layers):
+            if ul.name != "UVMap":
+                me.uv_layers.remove(ul)
+        for attr in list(me.color_attributes):
+            me.color_attributes.remove(attr)
+        dst_blend = out_dir / "gpu_job_scene.blend"
+        bpy.ops.wm.save_as_mainfile(filepath=str(dst_blend), compress=True)
+        print(f"[PrepLocal Done] {dst_blend} ({dst_blend.stat().st_size / (1024*1024):.1f} MB)", flush=True)
+        if (macro_dir / "macro_cameras.json").exists() and (macro_dir / "macro_report.json").exists():
+            m_cams = json.loads((macro_dir / "macro_cameras.json").read_text(encoding="utf-8"))
+            m_rep = json.loads((macro_dir / "macro_report.json").read_text(encoding="utf-8"))
+            acc_ids = [cid for cid in sorted(m_cams.keys()) if m_rep["patches"].get(cid, {}).get("accepted")]
+            if acc_ids:
+                n_v = len(me.vertices)
+                co = np.empty(n_v * 3, dtype=np.float64); me.vertices.foreach_get("co", co)
+                nm = np.empty(n_v * 3, dtype=np.float64); me.vertices.foreach_get("normal", nm)
+                pm = np.empty(len(me.polygons), dtype=np.int32); me.polygons.foreach_get("material_index", pm)
+                lv = np.empty(len(me.loops), dtype=np.int32); me.loops.foreach_get("vertex_index", lv)
+                lt = np.empty(len(me.polygons), dtype=np.int32); me.polygons.foreach_get("loop_total", lt)
+                is_tv = np.zeros(n_v, dtype=bool); is_tv[lv[np.repeat(pm >= 1, lt)]] = True
+                mbh.get_or_build_bvh_visibility_cache(
+                    me, co.reshape(n_v, 3), nm.reshape(n_v, 3), is_tv, m_cams, acc_ids, macro_dir
+                )
+        return
+
+    if args.stage == "gpu-bake-only":
+        macro_dir = Path(args.macro_dir).resolve() if args.macro_dir else (out_dir / "macro")
+        src_blend = out_dir / "gpu_job_scene.blend"
+        if not src_blend.exists():
+            src_blend = out_dir / "passA_scene.blend"
+        bpy.ops.wm.open_mainfile(filepath=str(src_blend))
+        mbh.relink_blend_images([out_dir, macro_dir, macro_dir / "renders", macro_dir / "aligned_hp", macro_dir / "aligned_rgb", out_dir.parent / "views_2k"])
+        scene = bpy.context.scene
+        dev_res = mbh.configure_cycles_device(scene, args.device)
+        if args.device == "gpu" and not dev_res.startswith("GPU:"):
+            raise RuntimeError("Abortando --stage gpu-bake-only: --device gpu requerido y no se activó GPU OPTIX/CUDA.")
+        obj = bpy.data.objects.get("Catan_Hero360") or bpy.context.selected_objects[0]
+        bpy.ops.object.select_all(action="DESELECT"); obj.select_set(True); bpy.context.view_layer.objects.active = obj
+
+        poly_mat = np.empty(len(obj.data.polygons), dtype=np.int32)
+        obj.data.polygons.foreach_get("material_index", poly_mat)
+        is_ter_face = poly_mat >= 1
+        passA_alb = _load_img_topdown_np(str(out_dir / "passA_albedo_8k.png"))
+
+        if args.projection_mode == "full":
+            albedo_final, _ao = mbh.project_full_albedo_and_ao(
+                scene, obj, macro_dir, passA_alb, atlas_res=args.bake_res, samples=max(2, args.bake_samples // 2)
+            )
+            hp_top = np.zeros((args.bake_res, args.bake_res, 3), dtype=np.float32)
+        else:
+            hp_top, ao_top = mbh.project_highpass_and_ao(
+                scene, obj, macro_dir, atlas_res=args.bake_res, samples=max(2, args.bake_samples // 2)
+            )
+            ao_mul = 1.0 - 0.18 * (1.0 - np.clip(ao_top, 0.0, 1.0))
+            albedo_final = np.clip(passA_alb * np.exp(hp_top) * ao_mul[..., None], 0.0, 1.0)
+
+        final_alb_p = out_dir / "baked_albedo.png"
+        _save_np_rgb_png(albedo_final, final_alb_p)
+        print(f"[GpuBake] Saved {final_alb_p}", flush=True)
+
+        plinth_p = out_dir / "plinth_albedo_1k.png"
+        if not plinth_p.exists():
+            plinth_p = build_plinth_texture(out_dir)
+        map_n_res = args.normal_res or args.bake_res
+        map_r_res = args.rough_res or max(2048, min(args.bake_res, 4096))
+        _bake_normal_and_roughness_passB(
+            scene, obj, out_dir, final_alb_p, plinth_p, hp_top, is_ter_face,
+            map_n_res=map_n_res, map_r_res=map_r_res, samples=args.bake_samples,
+        )
+        print("[GpuBakeOnly Done] Solo PNGs PBR horneados en GPU (sin CPU STL/GLB).", flush=True)
+        return
+
+    if args.stage == "finalize-local":
+        src_blend = out_dir / "gpu_job_scene.blend"
+        if not src_blend.exists():
+            src_blend = out_dir / "passA_scene.blend"
+        bpy.ops.wm.open_mainfile(filepath=str(src_blend))
+        scene = bpy.context.scene
+        mbh.configure_cycles_device(scene, args.device)
+        obj = bpy.data.objects.get("Catan_Hero360") or bpy.context.selected_objects[0]
+        bpy.ops.object.select_all(action="DESELECT"); obj.select_set(True); bpy.context.view_layer.objects.active = obj
+
+        poly_mat = np.empty(len(obj.data.polygons), dtype=np.int32)
+        obj.data.polygons.foreach_get("material_index", poly_mat)
+        is_ter_face = poly_mat >= 1
+
+        final_alb_p = out_dir / "baked_albedo.png"
+        normal_p = out_dir / "baked_normal.png"
+        rough_p = out_dir / "baked_roughness.png"
+        plinth_p = out_dir / "plinth_albedo_1k.png"
+        if not plinth_p.exists():
+            plinth_p = build_plinth_texture(out_dir)
+
+        sculpt_3d_from_baked_albedo(obj, final_alb_p)
+        obj.data.polygons.foreach_set("use_smooth", is_ter_face.tolist())
+        obj.data.update()
+
+        mat_pl_f, nt_pf, bsdf_pf, _ = _new_material("Catan_Hero360_Plinth")
+        tc_pf = nt_pf.nodes.new("ShaderNodeTexCoord"); t_plf = nt_pf.nodes.new("ShaderNodeTexImage")
+        im_plf = bpy.data.images.load(str(plinth_p), check_existing=False); im_plf.pack()
+        t_plf.image = im_plf; nt_pf.links.new(tc_pf.outputs["UV"], t_plf.inputs["Vector"]); nt_pf.links.new(t_plf.outputs["Color"], bsdf_pf.inputs["Base Color"])
+        bsdf_pf.inputs["Roughness"].default_value = 0.44; bsdf_pf.inputs["Metallic"].default_value = 0.18
+
+        mat_ter_f, ntf, bsdff, _ = _new_material("Catan_Hero360_Terrain")
+        tcf = ntf.nodes.new("ShaderNodeTexCoord")
+        ta = ntf.nodes.new("ShaderNodeTexImage"); ia = bpy.data.images.load(str(final_alb_p), check_existing=False); ia.pack(); ta.image = ia
+        ntf.links.new(tcf.outputs["UV"], ta.inputs["Vector"]); ntf.links.new(ta.outputs["Color"], bsdff.inputs["Base Color"])
+        tn = ntf.nodes.new("ShaderNodeTexImage"); inm = bpy.data.images.load(str(normal_p), check_existing=False); inm.colorspace_settings.name = "Non-Color"; inm.pack(); tn.image = inm
+        ntf.links.new(tcf.outputs["UV"], tn.inputs["Vector"]); nmap = ntf.nodes.new("ShaderNodeNormalMap"); ntf.links.new(tn.outputs["Color"], nmap.inputs["Color"]); ntf.links.new(nmap.outputs["Normal"], bsdff.inputs["Normal"])
+        tr = ntf.nodes.new("ShaderNodeTexImage"); ir = bpy.data.images.load(str(rough_p), check_existing=False); ir.colorspace_settings.name = "Non-Color"; ir.pack(); tr.image = ir
+        ntf.links.new(tcf.outputs["UV"], tr.inputs["Vector"]); ntf.links.new(tr.outputs["Color"], bsdff.inputs["Roughness"])
+        bsdff.inputs["Metallic"].default_value = 0.02
+
+        obj.data.materials.clear()
+        obj.data.materials.append(mat_pl_f)
+        obj.data.materials.append(mat_ter_f)
+        obj.data.polygons.foreach_set("material_index", is_ter_face.astype(np.int32).tolist())
+        obj.data.polygons.foreach_set("use_smooth", is_ter_face.tolist())
+        obj.data.update()
+
+        master_stl = out_dir / "tile_master.stl"
+        bpy.ops.object.select_all(action="DESELECT"); obj.select_set(True); bpy.context.view_layer.objects.active = obj
+        bpy.ops.wm.stl_export(filepath=str(master_stl), export_selected_objects=True, ascii_format=False)
+        glb_path = out_dir / "tile_viewer.glb"
+        bpy.ops.export_scene.gltf(filepath=str(glb_path), export_format="GLB", use_selection=True, export_apply=True)
+        if args.render_samples > 0:
+            render_6views_audit(scene, obj, cams, out_dir, samples=args.render_samples)
+        print(f"[FinalizeLocal Done] STL={master_stl}, GLB={glb_path}", flush=True)
+        return
+
     if args.stage == "render-macros":
         macro_dir = Path(args.macro_dir).resolve() if args.macro_dir else (out_dir / "macro")
         mbh.render_macro_passes(out_dir / "passA_scene.blend", macro_dir, samples=args.render_samples, res=2048, device=args.device)
@@ -1604,7 +1762,7 @@ def main() -> None:
     if args.stage == "passB":
         macro_dir = Path(args.macro_dir).resolve() if args.macro_dir else (out_dir / "macro")
         bpy.ops.wm.open_mainfile(filepath=str(out_dir / "passA_scene.blend"))
-        mbh.relink_blend_images([out_dir, macro_dir, macro_dir / "renders", macro_dir / "aligned_hp", out_dir.parent / "views_2k"])
+        mbh.relink_blend_images([out_dir, macro_dir, macro_dir / "renders", macro_dir / "aligned_hp", macro_dir / "aligned_rgb", out_dir.parent / "views_2k"])
         scene = bpy.context.scene
         mbh.configure_cycles_device(scene, args.device)
         obj = bpy.data.objects.get("Catan_Hero360") or bpy.context.selected_objects[0]
@@ -1614,18 +1772,24 @@ def main() -> None:
         poly_mat = np.empty(len(obj.data.polygons), dtype=np.int32)
         obj.data.polygons.foreach_get("material_index", poly_mat)
         is_ter_face = poly_mat >= 1
-
-        hp_top, ao_top = mbh.project_highpass_and_ao(scene, obj, macro_dir, atlas_res=args.bake_res, samples=max(2, args.bake_samples // 2))
         passA_alb = _load_img_topdown_np(str(out_dir / "passA_albedo_8k.png"))
-        # F6.1: albedo_final = passA * exp(HP) * lerp(1, AO_cavidad, 0.30)
-        ao_mul = 1.0 - 0.30 * (1.0 - np.clip(ao_top, 0.0, 1.0))
-        albedo_final = np.clip(passA_alb * np.exp(hp_top) * ao_mul[..., None], 0.0, 1.0)
+
+        if args.projection_mode == "full":
+            albedo_final, _ao = mbh.project_full_albedo_and_ao(
+                scene, obj, macro_dir, passA_alb, atlas_res=args.bake_res, samples=max(2, args.bake_samples // 2)
+            )
+            hp_top = np.zeros((args.bake_res, args.bake_res, 3), dtype=np.float32)
+        else:
+            hp_top, ao_top = mbh.project_highpass_and_ao(scene, obj, macro_dir, atlas_res=args.bake_res, samples=max(2, args.bake_samples // 2))
+            ao_mul = 1.0 - 0.18 * (1.0 - np.clip(ao_top, 0.0, 1.0))
+            albedo_final = np.clip(passA_alb * np.exp(hp_top) * ao_mul[..., None], 0.0, 1.0)
         final_alb_p = out_dir / "baked_albedo.png"
         _save_np_rgb_png(albedo_final, final_alb_p)
 
-        # Esculpido físico principal desde albedo + micro-desplazamiento desde HP filtrado >= 0.25 mm
+        # Esculpido físico anti-cráter desde albedo (pendiente >= 42° + musgo suave positivo)
         sculpt_3d_from_baked_albedo(obj, final_alb_p)
-        sculpt_3d_from_highpass_bandlimited(obj, hp_top, final_alb_p, max_amp_mm=0.12)
+        if args.projection_mode == "highpass":
+            sculpt_3d_from_highpass_bandlimited(obj, hp_top, final_alb_p, max_amp_mm=0.10)
         obj.data.polygons.foreach_set("use_smooth", is_ter_face.tolist())
         obj.data.update()
 

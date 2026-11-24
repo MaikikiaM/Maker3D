@@ -126,8 +126,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     <div class="sec-title">Atmósfera</div>
     <div class="btn-grid-3">
-      <button class="ctrl-btn active" data-atmo="studio">Estudio</button>
-      <button class="ctrl-btn" data-atmo="alpine">Sol Alpino</button>
+      <button class="ctrl-btn" data-atmo="studio">Estudio</button>
+      <button class="ctrl-btn active" data-atmo="alpine">Sol Alpino</button>
       <button class="ctrl-btn" data-atmo="forge">Forja</button>
     </div>
 
@@ -168,7 +168,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     if (window.innerWidth <= 860) drawer.classList.add("collapsed");
     document.getElementById("drawer-toggle").addEventListener("click", () => drawer.classList.toggle("collapsed"));
 
-    window.__MAKER3D_VIEWER__ = { loaded: false, mode: "pbr", atmo: "studio", triangles: 0, errors: [] };
+    window.__MAKER3D_VIEWER__ = { loaded: false, mode: "pbr", atmo: "alpine", triangles: 0, errors: [] };
     function reportErr(msg) {
       window.__MAKER3D_VIEWER__.errors.push(String(msg));
       const eb = document.getElementById("err-banner");
@@ -267,26 +267,26 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     function applyAtmo(atmo) {
       window.__MAKER3D_VIEWER__.atmo = atmo;
       if (atmo === "alpine") {
-        scene.background = new THREE.Color(0x07111c);
-        if ("environmentIntensity" in scene) scene.environmentIntensity = 0.16;
-        hemi.color.setHex(0xdbeafe); hemi.groundColor.setHex(0x1e293b); hemi.intensity = 0.52;
-        keyLight.color.setHex(0xffffff); keyLight.intensity = 2.40;
-        fillLight.color.setHex(0x7dd3fc); fillLight.intensity = 0.26;
-        rimLight.color.setHex(0xbae6fd); rimLight.intensity = 0.48;
+        scene.background = new THREE.Color(0x0b1524);
+        if ("environmentIntensity" in scene) scene.environmentIntensity = 0.40;
+        hemi.color.setHex(0xe8f1ff); hemi.groundColor.setHex(0x283548); hemi.intensity = 0.74;
+        keyLight.color.setHex(0xffffff); keyLight.intensity = 2.60;
+        fillLight.color.setHex(0x93c5fd); fillLight.intensity = 0.50;
+        rimLight.color.setHex(0xbae6fd); rimLight.intensity = 0.55;
       } else if (atmo === "forge") {
         scene.background = new THREE.Color(0x0d0806);
-        if ("environmentIntensity" in scene) scene.environmentIntensity = 0.12;
-        hemi.color.setHex(0xfed7aa); hemi.groundColor.setHex(0x1c1917); hemi.intensity = 0.38;
-        keyLight.color.setHex(0xfb923c); keyLight.intensity = 2.50;
-        fillLight.color.setHex(0x38bdf8); fillLight.intensity = 0.22;
-        rimLight.color.setHex(0xfdba74); rimLight.intensity = 0.45;
+        if ("environmentIntensity" in scene) scene.environmentIntensity = 0.22;
+        hemi.color.setHex(0xfed7aa); hemi.groundColor.setHex(0x1c1917); hemi.intensity = 0.48;
+        keyLight.color.setHex(0xfb923c); keyLight.intensity = 2.55;
+        fillLight.color.setHex(0x38bdf8); fillLight.intensity = 0.30;
+        rimLight.color.setHex(0xfdba74); rimLight.intensity = 0.48;
       } else {
         scene.background = new THREE.Color(0x05080f);
-        if ("environmentIntensity" in scene) scene.environmentIntensity = 0.14;
-        hemi.color.setHex(0xdcebff); hemi.groundColor.setHex(0x161d29); hemi.intensity = 0.44;
-        keyLight.color.setHex(0xfff7ea); keyLight.intensity = 2.25;
-        fillLight.color.setHex(0x93c5fd); fillLight.intensity = 0.20;
-        rimLight.color.setHex(0x7dd3fc); rimLight.intensity = 0.42;
+        if ("environmentIntensity" in scene) scene.environmentIntensity = 0.24;
+        hemi.color.setHex(0xdcebff); hemi.groundColor.setHex(0x161d29); hemi.intensity = 0.56;
+        keyLight.color.setHex(0xfff7ea); keyLight.intensity = 2.35;
+        fillLight.color.setHex(0x93c5fd); fillLight.intensity = 0.32;
+        rimLight.color.setHex(0x7dd3fc); rimLight.intensity = 0.45;
       }
     }
 
@@ -386,6 +386,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           camera.near = maxDim * 0.002;
           camera.far = maxDim * 40.0;
           camera.updateProjectionMatrix();
+          applyAtmo("alpine");
           setCameraPreset("iso");
 
           window.__MAKER3D_VIEWER__.loaded = true;

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -16,6 +17,16 @@ import bpy
 import mathutils
 from mathutils.bvhtree import BVHTree
 import numpy as np
+
+try:
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+except Exception:
+    pass
+
+
+def _log(msg: str) -> None:
+    print(msg, flush=True)
 
 R = 64.0
 Z_BASE = 25.0
@@ -439,34 +450,117 @@ def _save_np_rgb_png_bottomup_from_topdown(arr_topdown: np.ndarray, path: Path, 
     bpy.data.images.remove(im)
 
 
-def project_highpass_and_ao(
+def get_or_build_bvh_visibility_cache(
+    me: bpy.types.Mesh,
+    V: np.ndarray,
+    N: np.ndarray,
+    is_ter_v: np.ndarray,
+    cams: Dict[str, dict],
+    accepted_ids: List[str],
+    macro_dir: Path,
+) -> Dict[str, np.ndarray]:
+    """
+    Calcula o carga caché exacta de visibilidad BVHTree (`macro_vis_cache.npz` con `np.packbits`, ~1.2 MB).
+    Se precalcula en PC local durante `--stage prep-local` (0 créditos) y se descomprime en ~0.01s en Colab L4.
+    """
+    cache_p = macro_dir / "macro_vis_cache.npz"
+    n_verts = len(V)
+    if cache_p.exists():
+        try:
+            with np.load(str(cache_p)) as npz:
+                if int(npz.get("n_verts", -1)) == n_verts and all(f"vis_{cid}" in npz for cid in accepted_ids):
+                    vis_map = {
+                        cid: np.unpackbits(npz[f"vis_{cid}"])[:n_verts].astype(bool)
+                        for cid in accepted_ids
+                    }
+                    _log(f"  [VisCache] Cargada caché BVH exacta ({len(accepted_ids)} cámaras, {cache_p.stat().st_size/1024:.0f} KB)")
+                    return vis_map
+        except Exception:
+            pass
+
+    _log(f"  [VisCache] Construyendo caché BVH exacta para {len(accepted_ids)} cámaras ({n_verts:,} vértices)...")
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bvh = BVHTree.FromBMesh(bm)
+    bm.free()
+
+    vec_M = mathutils.Vector
+    vis_map: Dict[str, np.ndarray] = {}
+    for idx, cid in enumerate(accepted_ids, 1):
+        cd = cams[cid]
+        cam_pos = np.array(cd["cam_xyz"], dtype=np.float64)
+        fwd = np.array(cd["fwd"], dtype=np.float64)
+        right_r = np.array(cd["right_r"], dtype=np.float64)
+        up_r = np.array(cd["up_r"], dtype=np.float64)
+        W_img, H_img = float(cd["W"]), float(cd["H"])
+        f_px = (H_img * 0.5) / math.tan(math.radians(cd["fov_deg"] * 0.5))
+
+        rel = V - cam_pos[None, :]
+        xc = rel @ right_r
+        yc = rel @ up_r
+        zc = np.maximum(rel @ fwd, 1e-4)
+        u_px = W_img * 0.5 + f_px * (xc / zc)
+        v_pil = H_img * 0.5 - f_px * (yc / zc)
+
+        msk_p = _resolve_macro_asset(cd["mask"], macro_dir, "renders")
+        msk_arr = _load_img_topdown_np(str(msk_p), non_color=True)[..., 0]
+        mh, mw = msk_arr.shape
+        iu = np.clip(np.round(u_px), 0, mw - 1).astype(np.int32)
+        iv = np.clip(np.round(v_pil), 0, mh - 1).astype(np.int32)
+        m_val = msk_arr[iv, iu]
+
+        d2c = cam_pos[None, :] - V
+        dist = np.linalg.norm(d2c, axis=1)
+        dn = d2c / np.maximum(dist[:, None], 1e-6)
+        ndotv = np.sum(N * dn, axis=1)
+        in_b = (rel @ fwd > 1.0) & (u_px > 6.0) & (u_px < W_img - 6.0) & (v_pil > 6.0) & (v_pil < H_img - 6.0)
+        cand_idx = np.where(is_ter_v & in_b & (m_val > 0.15) & (ndotv > 0.18))[0]
+
+        vis = np.zeros(n_verts, dtype=bool)
+        for vi_idx in cand_idx:
+            p = V[vi_idx] + N[vi_idx] * 0.14
+            hit_loc, _, _, _ = bvh.ray_cast(vec_M(p), vec_M(dn[vi_idx]), float(dist[vi_idx]) - 0.5)
+            if hit_loc is None:
+                vis[vi_idx] = True
+        vis_map[cid] = vis
+        _log(f"    [VisCache {idx}/{len(accepted_ids)}] {cid} OK ({int(vis.sum()):,} verts visibles)")
+
+    cache_p.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(cache_p, n_verts=n_verts, **{f"vis_{cid}": np.packbits(vis) for cid, vis in vis_map.items()})
+    _log(f"  [VisCache] Guardado {cache_p.name} ({cache_p.stat().st_size / (1024*1024):.2f} MB)")
+    return vis_map
+
+
+def _project_batches_to_atlas(
     scene: bpy.types.Scene,
     obj: bpy.types.Object,
     macro_dir: Path,
+    mode: str = "full",
     atlas_res: int = 8192,
     samples: int = 4,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Proyecta todos los parches High-Pass aceptados en macro_report.json sobre UVMap 8K
-    acumulando Σ(w·HP) y Σw en float32 EXR, y hornea AO de cavidad 8K.
-    Devuelve (HP_atlas_topdown float32 [H,W,3], AO_topdown float32 [H,W]).
+    Proyecta todos los parches aceptados al atlas 8K usando caché BVH exacta + Cycles EMIT float32.
+    mode='full' proyecta RGB completo 2K; mode='hp' proyecta alta frecuencia log-espacio [-0.18, +0.18].
     """
     cams = json.loads((macro_dir / "macro_cameras.json").read_text(encoding="utf-8"))
     report = json.loads((macro_dir / "macro_report.json").read_text(encoding="utf-8"))
     accepted_ids = [cid for cid in sorted(cams.keys()) if report["patches"].get(cid, {}).get("accepted")]
     if not accepted_ids:
-        print("  [MacroHP] WARN: 0 parches aceptados; usando HP=0.")
-        zero_hp = np.zeros((atlas_res, atlas_res, 3), dtype=np.float32)
+        _log("  [MacroProj] WARN: 0 parches aceptados; devolviendo mapa vacío.")
+        zero = np.zeros((atlas_res, atlas_res, 3), dtype=np.float32)
+        den_z = np.zeros((atlas_res, atlas_res), dtype=np.float32)
         ao = bake_cavity_ao(scene, obj, macro_dir / "ao_cavity_8k.png", res=atlas_res, samples=6)
-        return zero_hp, ao
+        return zero, den_z, ao
 
-    print(f"  [MacroHP] Proyectando {len(accepted_ids)} parches High-Pass al atlas {atlas_res}x{atlas_res}...")
+    _log(f"  [MacroProj:{mode}] Proyectando {len(accepted_ids)} parches al atlas {atlas_res}x{atlas_res} (VisCache + OptiX EMIT)...")
     me = obj.data
     for ul in list(me.uv_layers):
         if ul.name != "UVMap":
             me.uv_layers.remove(ul)
     for attr in list(me.color_attributes):
         me.color_attributes.remove(attr)
+
     n_verts = len(me.vertices)
     coords = np.empty(n_verts * 3, dtype=np.float64)
     normals = np.empty(n_verts * 3, dtype=np.float64)
@@ -475,7 +569,6 @@ def project_highpass_and_ao(
     V = coords.reshape(n_verts, 3)
     N = normals.reshape(n_verts, 3)
 
-    # Identificar vértices de terreno+talus (z >= Z_BASE - 0.02 dentro del borde seguro)
     n_polys = len(me.polygons)
     poly_mat = np.empty(n_polys, dtype=np.int32)
     me.polygons.foreach_get("material_index", poly_mat)
@@ -483,17 +576,14 @@ def project_highpass_and_ao(
     me.loops.foreach_get("vertex_index", loop_vi)
     loop_tot = np.empty(n_polys, dtype=np.int32)
     me.polygons.foreach_get("loop_total", loop_tot)
+
     is_ter_v = np.zeros(n_verts, dtype=bool)
-    is_ter_loop = np.repeat(poly_mat >= 1, loop_tot)
-    is_ter_v[loop_vi[is_ter_loop]] = True
+    is_ter_v[loop_vi[np.repeat(poly_mat >= 1, loop_tot)]] = True
 
-    bm = bmesh.new()
-    bm.from_mesh(me)
-    bvh = BVHTree.FromBMesh(bm)
-    bm.free()
+    vis_map = get_or_build_bvh_visibility_cache(me, V, N, is_ter_v, cams, accepted_ids, macro_dir)
 
-    hp_accum_num = np.zeros((atlas_res, atlas_res, 3), dtype=np.float32)
-    hp_accum_den = np.zeros((atlas_res, atlas_res), dtype=np.float32)
+    accum_num = np.zeros((atlas_res, atlas_res, 3), dtype=np.float32)
+    accum_den = np.zeros((atlas_res, atlas_res), dtype=np.float32)
 
     orig_mats = list(obj.data.materials)
     scene.cycles.samples = samples
@@ -501,8 +591,9 @@ def project_highpass_and_ao(
     scene.render.bake.use_pass_indirect = False
     scene.render.bake.margin = 4
 
-    vec_M = mathutils.Vector
+    hero_front_ids = {"A0_000", "B0_030", "B5_330", "D0_valleyS"}
     batch_sz = 4
+    n_batches = (len(accepted_ids) + batch_sz - 1) // batch_sz
     for b_start in range(0, len(accepted_ids), batch_sz):
         batch = accepted_ids[b_start : b_start + batch_sz]
         uv_names = []
@@ -526,13 +617,6 @@ def project_highpass_and_ao(
             u_bl = np.clip(u_px / W_img, 0.0, 1.0)
             v_bl = np.clip(1.0 - (v_pil / H_img), 0.0, 1.0)
 
-            uvn = f"_UV_M_{bi}"
-            uv_names.append(uvn)
-            if uvn in me.uv_layers:
-                me.uv_layers.remove(me.uv_layers[uvn])
-            uv_lay = me.uv_layers.new(name=uvn)
-            uv_lay.data.foreach_set("uv", np.column_stack([u_bl, v_bl])[loop_vi].astype(np.float32).ravel())
-
             msk_p = _resolve_macro_asset(cd["mask"], macro_dir, "renders")
             msk_arr = _load_img_topdown_np(str(msk_p), non_color=True)[..., 0]
             mh, mw = msk_arr.shape
@@ -544,21 +628,24 @@ def project_highpass_and_ao(
             dist = np.linalg.norm(d2c, axis=1)
             dn = d2c / np.maximum(dist[:, None], 1e-6)
             ndotv = np.sum(N * dn, axis=1)
-            in_b = (u_px > 6.0) & (u_px < W_img - 6.0) & (v_pil > 6.0) & (v_pil < H_img - 6.0)
-            cand_idx = np.where(is_ter_v & in_b & (m_val > 0.15) & (ndotv > 0.18))[0]
+            vis = vis_map[cid]
 
-            vis = np.zeros(n_verts, dtype=bool)
-            for vi_idx in cand_idx:
-                p = V[vi_idx] + N[vi_idx] * 0.14
-                hit_loc, _, _, _ = bvh.ray_cast(vec_M(p), vec_M(dn[vi_idx]), float(dist[vi_idx]) - 0.5)
-                if hit_loc is None:
-                    vis[vi_idx] = True
+            uvn = f"_UV_M_{bi}"
+            uv_names.append(uvn)
+            if uvn in me.uv_layers:
+                me.uv_layers.remove(me.uv_layers[uvn])
+            uv_lay = me.uv_layers.new(name=uvn)
+            uv_lay.data.foreach_set("uv", np.column_stack([u_bl, v_bl])[loop_vi].astype(np.float32).ravel())
 
-            # Atenuación suave hacia los bordes del encuadre para evitar cortes
             edge_dist = np.minimum(np.minimum(u_bl, 1.0 - u_bl), np.minimum(v_bl, 1.0 - v_bl))
             edge_fade = _smoothstep(0.01, 0.08, edge_dist)
             dist_w = np.clip(82.0 / np.maximum(dist, 28.0), 0.25, 2.5) ** 2.0
-            W_b[:, bi] = np.where(vis, (np.maximum(ndotv, 0.0) ** 8.0) * dist_w * m_val * edge_fade, 0.0).astype(np.float32)
+            if mode == "full":
+                hero_boost = 1.35 if cid in hero_front_ids else 1.0
+                ang_w = (np.maximum(ndotv, 0.0) ** 10.0) * hero_boost
+            else:
+                ang_w = np.maximum(ndotv, 0.0) ** 8.0
+            W_b[:, bi] = np.where(vis, ang_w * dist_w * m_val * edge_fade, 0.0).astype(np.float32)
 
         ca_name = "_MacroW"
         if ca_name in me.color_attributes:
@@ -571,9 +658,7 @@ def project_highpass_and_ao(
             ul.active = (ul.name == "UVMap")
             ul.active_render = (ul.name == "UVMap")
 
-        # 1. Material de emisión para Σ(w·HP) codificado en [0..1] con offset +0.5 (se decodifica por pixel!)
-        # Como EMIT recorta si negativo en PNG pero en float_buffer=True preserva negativos reales:
-        m_num = bpy.data.materials.new("_BakeHPNum")
+        m_num = bpy.data.materials.new("_BakeProjNum")
         m_num.use_nodes = True
         nt = m_num.node_tree
         nt.nodes.clear()
@@ -591,26 +676,32 @@ def project_highpass_and_ao(
         acc_den = None
         loaded_ims = []
         for bi, cid in enumerate(batch):
-            hp_p = _resolve_macro_asset(report["patches"][cid]["hp_file"], macro_dir, "aligned_hp")
+            if mode == "full":
+                raw_p = report["patches"][cid].get("aligned_rgb_file") or f"patch_{cid}_aligned.png"
+                src_p = _resolve_macro_asset(raw_p, macro_dir, "aligned_rgb")
+            else:
+                src_p = _resolve_macro_asset(report["patches"][cid]["hp_file"], macro_dir, "aligned_hp")
             uv_n = nt.nodes.new("ShaderNodeUVMap"); uv_n.uv_map = uv_names[bi]
             tex = nt.nodes.new("ShaderNodeTexImage")
-            im = bpy.data.images.load(str(hp_p), check_existing=False)
+            im = bpy.data.images.load(str(src_p), check_existing=False)
             im.colorspace_settings.name = "Non-Color"
             tex.image = im; tex.extension = "EXTEND"
             loaded_ims.append(im)
             nt.links.new(uv_n.outputs["UV"], tex.inputs["Vector"])
 
-            # Decodificar (Color - 0.5) * 0.40
-            vsub = nt.nodes.new("ShaderNodeVectorMath"); vsub.operation = "SUBTRACT"
-            vsub.inputs[1].default_value = (0.5, 0.5, 0.5)
-            nt.links.new(tex.outputs["Color"], vsub.inputs[0])
-
-            vmul = nt.nodes.new("ShaderNodeVectorMath"); vmul.operation = "SCALE"
-            vmul.inputs["Scale"].default_value = 0.40
-            nt.links.new(vsub.outputs["Vector"], vmul.inputs[0])
+            if mode == "full":
+                val_sock = tex.outputs["Color"]
+            else:
+                vsub = nt.nodes.new("ShaderNodeVectorMath"); vsub.operation = "SUBTRACT"
+                vsub.inputs[1].default_value = (0.5, 0.5, 0.5)
+                nt.links.new(tex.outputs["Color"], vsub.inputs[0])
+                vmul = nt.nodes.new("ShaderNodeVectorMath"); vmul.operation = "SCALE"
+                vmul.inputs["Scale"].default_value = 0.40
+                nt.links.new(vsub.outputs["Vector"], vmul.inputs[0])
+                val_sock = vmul.outputs["Vector"]
 
             vw = nt.nodes.new("ShaderNodeVectorMath"); vw.operation = "SCALE"
-            nt.links.new(vmul.outputs["Vector"], vw.inputs[0])
+            nt.links.new(val_sock, vw.inputs[0])
             nt.links.new(w_sockets[bi], vw.inputs["Scale"])
 
             if acc_num is None:
@@ -624,19 +715,21 @@ def project_highpass_and_ao(
                 nt.links.new(acc_den, da.inputs[0]); nt.links.new(w_sockets[bi], da.inputs[1])
                 acc_den = da.outputs["Value"]
 
-        # Sesgo +0.5 para garantizar EMIT siempre no negativo, aunque float_buffer aguanta directo
-        vbias = nt.nodes.new("ShaderNodeVectorMath"); vbias.operation = "ADD"
-        vbias.inputs[1].default_value = (0.5, 0.5, 0.5)
-        nt.links.new(acc_num, vbias.inputs[0])
-        nt.links.new(vbias.outputs["Vector"], em_n.inputs["Color"])
+        if mode == "hp":
+            vbias = nt.nodes.new("ShaderNodeVectorMath"); vbias.operation = "ADD"
+            vbias.inputs[1].default_value = (0.5, 0.5, 0.5)
+            nt.links.new(acc_num, vbias.inputs[0])
+            nt.links.new(vbias.outputs["Vector"], em_n.inputs["Color"])
+        else:
+            nt.links.new(acc_num, em_n.inputs["Color"])
 
-        im_f = bpy.data.images.new(f"Bake_HP_Num_{b_start}", width=atlas_res, height=atlas_res, float_buffer=True)
+        im_f = bpy.data.images.new(f"Bake_Proj_{b_start}", width=atlas_res, height=atlas_res, float_buffer=True)
         im_f.colorspace_settings.name = "Non-Color"
         tn_b = nt.nodes.new("ShaderNodeTexImage"); tn_b.image = im_f; nt.nodes.active = tn_b
 
-        m_blk = bpy.data.materials.new("_BakeHPZero")
+        m_blk = bpy.data.materials.new("_BakeProjZero")
         m_blk.use_nodes = True
-        im_d = bpy.data.images.new("DummyHP", width=64, height=64)
+        im_d = bpy.data.images.new("DummyProj", width=64, height=64)
         t_d = m_blk.node_tree.nodes.new("ShaderNodeTexImage"); t_d.image = im_d; m_blk.node_tree.nodes.active = t_d
 
         obj.data.materials.clear()
@@ -647,17 +740,16 @@ def project_highpass_and_ao(
 
         px_buf = np.empty(atlas_res * atlas_res * 4, dtype=np.float32)
         im_f.pixels.foreach_get(px_buf)
-        num_batch = np.flipud(px_buf.reshape((atlas_res, atlas_res, 4))[..., :3]) - 0.5
-        hp_accum_num += num_batch
+        num_batch = np.flipud(px_buf.reshape((atlas_res, atlas_res, 4))[..., :3])
+        if mode == "hp":
+            num_batch = num_batch - 0.5
+        accum_num += num_batch
 
-        # 2. Hornear Σw en la misma pasada
         nt.links.new(acc_den, em_n.inputs["Color"])
         bpy.ops.object.bake(type="EMIT")
         im_f.pixels.foreach_get(px_buf)
-        den_batch = np.flipud(px_buf.reshape((atlas_res, atlas_res, 4))[..., 0])
-        hp_accum_den += den_batch
+        accum_den += np.flipud(px_buf.reshape((atlas_res, atlas_res, 4))[..., 0])
 
-        # Limpiar imágenes y materiales temporales del lote
         bpy.data.images.remove(im_f)
         bpy.data.images.remove(im_d)
         for im in loaded_ims:
@@ -669,7 +761,7 @@ def project_highpass_and_ao(
                 me.uv_layers.remove(me.uv_layers[uvn])
         if ca_name in me.color_attributes:
             me.color_attributes.remove(me.color_attributes[ca_name])
-        print(f"    [MacroHP Batch {b_start // batch_sz + 1}] OK ({len(batch)} parches)")
+        _log(f"    [MacroProj:{mode} Batch {b_start // batch_sz + 1}/{n_batches}] OK ({len(batch)} parches)")
 
     obj.data.materials.clear()
     for m in orig_mats:
@@ -677,11 +769,28 @@ def project_highpass_and_ao(
     obj.data.polygons.foreach_set("material_index", poly_mat.tolist())
     obj.data.update()
 
+    ao = bake_cavity_ao(scene, obj, macro_dir / "ao_cavity_8k.png", res=atlas_res, samples=6)
+    return accum_num, accum_den, ao
+
+
+def project_highpass_and_ao(
+    scene: bpy.types.Scene,
+    obj: bpy.types.Object,
+    macro_dir: Path,
+    atlas_res: int = 8192,
+    samples: int = 4,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Proyecta todos los parches High-Pass aceptados sobre UVMap 8K
+    acumulando Σ(w·HP) y Σw en float32 EXR, y hornea AO de cavidad 8K.
+    """
+    hp_accum_num, hp_accum_den, ao = _project_batches_to_atlas(
+        scene, obj, macro_dir, mode="hp", atlas_res=atlas_res, samples=samples
+    )
     fade_w = _smoothstep(0.05, 0.30, hp_accum_den)[..., None].astype(np.float32)
     hp_final = np.where(hp_accum_den[..., None] > 1e-4, hp_accum_num / np.maximum(hp_accum_den[..., None], 1e-4), 0.0)
     hp_final = np.clip(hp_final * fade_w, -0.18, 0.18).astype(np.float32)
 
-    # Guardar EXR de auditoría
     exr_p = macro_dir / "macro_hp_accum_8k.exr"
     im_exr = bpy.data.images.new("MacroHP_EXR", width=atlas_res, height=atlas_res, float_buffer=True)
     im_exr.colorspace_settings.name = "Non-Color"
@@ -693,9 +802,41 @@ def project_highpass_and_ao(
     im_exr.file_format = "OPEN_EXR"
     im_exr.save()
     bpy.data.images.remove(im_exr)
-
-    ao = bake_cavity_ao(scene, obj, macro_dir / "ao_cavity_8k.png", res=atlas_res, samples=6)
     return hp_final, ao
+
+
+def project_full_albedo_and_ao(
+    scene: bpy.types.Scene,
+    obj: bpy.types.Object,
+    macro_dir: Path,
+    passA_alb_topdown: np.ndarray,
+    atlas_res: int = 8192,
+    samples: int = 4,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Proyecta el espectro cromático completo 2K de los parches alineados sobre UVMap 8K
+    con fallback alpino desaturado en oclusiones y realce ligero de sombras (V4),
+    conservando intacto el musgo, rocas y colores reales de Nano Banana.
+    """
+    rgb_num, rgb_den, ao = _project_batches_to_atlas(
+        scene, obj, macro_dir, mode="full", atlas_res=atlas_res, samples=samples
+    )
+    proj_rgb = np.where(rgb_den[..., None] > 1e-4, rgb_num / np.maximum(rgb_den[..., None], 1e-4), passA_alb_topdown)
+    fade_w = _smoothstep(0.01, 0.20, rgb_den)[..., None].astype(np.float32)
+
+    # Neutralizar tonos rosados/terracota cálidos de passA en huecos no vistos hacia gris pizarra-oliva frío
+    lum_pa = 0.2126 * passA_alb_topdown[..., 0] + 0.7152 * passA_alb_topdown[..., 1] + 0.0722 * passA_alb_topdown[..., 2]
+    warm_mud = (passA_alb_topdown[..., 0] > passA_alb_topdown[..., 1] * 1.06) & (passA_alb_topdown[..., 0] > passA_alb_topdown[..., 2] * 1.12)
+    slate_fallback = np.stack([lum_pa * 0.90, lum_pa * 0.96, lum_pa * 0.94], axis=-1)
+    passA_clean = np.where(warm_mud[..., None], 0.30 * passA_alb_topdown + 0.70 * slate_fallback, passA_alb_topdown)
+
+    blended = proj_rgb * fade_w + passA_clean * (1.0 - fade_w)
+    # Realce suave V4 en sombras muy profundas + AO sutil (0.18)
+    lum_b = 0.2126 * blended[..., 0] + 0.7152 * blended[..., 1] + 0.0722 * blended[..., 2]
+    lift = np.where(lum_b < 0.22, 1.15, 1.0)[..., None].astype(np.float32)
+    ao_mul = (1.0 - 0.18 * (1.0 - np.clip(ao, 0.0, 1.0)))[..., None].astype(np.float32)
+    albedo_final = np.clip(blended * lift * ao_mul, 0.0, 1.0).astype(np.float32)
+    return albedo_final, ao
 
 
 def bake_cavity_ao(scene: bpy.types.Scene, obj: bpy.types.Object, out_path: Path, res: int = 8192, samples: int = 6) -> np.ndarray:

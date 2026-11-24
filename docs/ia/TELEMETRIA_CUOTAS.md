@@ -28,3 +28,13 @@ Registro estructurado y verificable del consumo real medido en cada plataforma d
 | :--- | :--- | :--- | :--- |
 | `24/11/2026` | **`L4` (`SHAPE_STANDARD`, prueba smoke)** | `NVIDIA L4` (`23,034 MiB` VRAM, `55,530,568 kB` / `~53 GiB` RAM) | Prioridad por defecto (`OPTIX` en Blender `5.3.0`) con apagado automático `DeleteRuntime` al acabar. Elegibles también: `A100 (HIGHMEM/STD)`, `G4 (STD)`, `T4 (HIGHMEM/STD)`. |
 | `24/11/2026` | **`L4` (`--stage passB 8K` completo, `6.15M Δ`)** | Upload `449.8 MB` en `~1m 58s` (8 hilos); Blender `5.3.0 OPTIX` bake `8K` + `Sculpt3D` + `6` PBR + `6` Clay + Ortho en **`19m 03s`** (pico `21.59 GiB` RAM, `2.63 GiB` VRAM, `52 °C`); download `541.7 MB` en **`29s`** (8 hilos). | `DeleteRuntime` verificó `0` runtimes activos al terminar. Regla operativa: refrescar token OAuth automáticamente en `_api_headers` para ejecuciones `>= 60 min`. |
+
+### Auditoría de Eficiencia y Arquitectura Zero-Idle GPU (`v06+`)
+- **Diagnóstico de desperdicio medido en `v05`:**
+  1. Subida HTTP Base64 de `449.8 MB` y descarga de `541.7 MB` ejecutadas con la `NVIDIA L4` ya encendida (y un fallo previo de `timeout=30` en `POST /api/kernels` consumió `~14 min` de `L4` al `0%` GPU).
+  2. El bucle mono-hilo CPU de `bvh.ray_cast` (`~12–15s × 16` cámaras), `sculpt_3d` (96 pasadas sobre `3.07M` vértices), exportación `STL` (`293 MB`) y `GLB` (`399 MB`) corrieron dentro del runtime GPU manteniendo la `L4` al `0%` (`~16.8 W`) casi todo el tramo.
+- **Presupuesto objetivo con Arquitectura Zero-Idle de 4 Fases (`tools/colab/drive_staging.py` + `run_v05_passb_autonomous.py`):**
+  1. **Fase 1 (`prep-local` PC):** alineación OpenCV + caché exacta `BVHTree` (`macro_vis_cache.npz` con `np.packbits`, `~1.2 MB`) + `gpu_job_scene.blend` -> **`0` créditos**.
+  2. **Fase 2 (`Drive staging` PC, GPU apagada):** subida resumable a `Maker3D_Colab_Staging` (`drive.file`) -> **`0` créditos**.
+  3. **Fase 3 (`L4` efímera `--stage gpu-bake-only`):** descarga interna Drive (`< 3s`) + exclusivamente pases `Cycles OptiX` (`~90–150s` GPU activa) + subida PNGs (`~75 MB`, `< 2s`) + `DeleteRuntime` inmediato -> **`~2–2.5 min` facturables (~88% de ahorro vs `v05`)**.
+  4. **Fase 4 (`finalize-local` PC, GPU ya apagada):** descarga desde Drive + borrado temporal Drive + `sculpt_3d` anti-cráter + `STL`/`GLB`/auditoría -> **`0` créditos**.

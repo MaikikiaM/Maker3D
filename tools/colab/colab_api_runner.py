@@ -20,7 +20,10 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-SCOPES = ["https://www.googleapis.com/auth/colaboratory"]
+SCOPES = [
+    "https://www.googleapis.com/auth/colaboratory",
+    "https://www.googleapis.com/auth/drive.file",
+]
 COLAB_V1 = "https://colaboratory.googleapis.com/v1"
 COLAB_V1BETA = "https://colaboratory.googleapis.com/v1beta"
 
@@ -64,23 +67,43 @@ def get_credentials(
     client_secret_path: Optional[str] = None,
     token_path: Path = DEFAULT_TOKEN_PATH,
     interactive: bool = False,
+    require_drive: bool = False,
 ) -> Credentials:
-    """Carga token cacheado y lo refresca; solo abre navegador si interactive=True."""
+    """Carga token cacheado y lo refresca; si falta drive.file y require_drive=True aborta antes de gastar GPU."""
     creds: Optional[Credentials] = None
     if token_path.exists():
-        creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+        # No pasar SCOPES ampliado aquí: si el token cacheado tenía solo `colaboratory`, refrescarlo no debe fallar por invalid_scope.
+        creds = Credentials.from_authorized_user_file(str(token_path))
     if creds and creds.valid:
+        if require_drive:
+            if str(Path(__file__).resolve().parent) not in sys.path:
+                sys.path.insert(0, str(Path(__file__).resolve().parent))
+            import drive_staging as ds
+            if not ds.has_drive_scope(creds, token_path):
+                raise RuntimeError(
+                    "Falta permiso Google Drive (drive.file) para subida previa sin GPU. "
+                    "Ejecuta: python tools/colab/colab_api_runner.py auth"
+                )
         return creds
     if creds and creds.expired and creds.refresh_token:
         try:
             creds.refresh(Request())
             token_path.parent.mkdir(parents=True, exist_ok=True)
             token_path.write_text(creds.to_json(), encoding="utf-8")
+            if require_drive:
+                if str(Path(__file__).resolve().parent) not in sys.path:
+                    sys.path.insert(0, str(Path(__file__).resolve().parent))
+                import drive_staging as ds
+                if not ds.has_drive_scope(creds, token_path):
+                    raise RuntimeError(
+                        "Falta permiso Google Drive (drive.file) para subida previa sin GPU. "
+                        "Ejecuta: python tools/colab/colab_api_runner.py auth"
+                    )
             return creds
         except Exception as exc:
             if not interactive:
                 raise RuntimeError(
-                    f"El token OAuth caducó y no se pudo refrescar automáticamente ({exc}). "
+                    f"El token OAuth caducó o falta alcance ({exc}). "
                     "Ejecuta `python tools/colab/colab_api_runner.py auth`."
                 ) from exc
     if not interactive:
@@ -263,26 +286,31 @@ def execute_jupyter_code(
     }
 
     kr = None
-    for attempt in range(4):
+    for attempt in range(5):
         try:
-            kr = requests.post(f"{base_url}/api/kernels", headers=j_headers, json={"name": "python3"}, timeout=35)
+            kr = requests.post(
+                f"{base_url}/api/kernels",
+                headers=j_headers,
+                json={"name": "python3"},
+                timeout=(10, 60),
+            )
             if kr.ok:
                 break
-        except Exception:
+        except requests.RequestException:
             pass
-        time.sleep(1.5 * (attempt + 1))
+        time.sleep(2.0 * (attempt + 1))
     if kr is None or not kr.ok:
-        raise RuntimeError(f"POST /api/kernels falló tras reintentos ({getattr(kr, 'status_code', 'timeout')})")
+        raise RuntimeError(f"POST /api/kernels falló tras 5 reintentos ({getattr(kr, 'status_code', 'timeout')})")
     kid = kr.json()["id"]
 
-    # Esperar brevemente a que el kernel pase de "starting" a "idle" tolerando fallos transitorios de red
+    # Esperar a que el kernel pase a "idle" tolerando fallos transitorios de red
     t_wait = time.time()
-    while time.time() - t_wait < 45.0:
+    while time.time() - t_wait < 60.0:
         try:
-            kst = requests.get(f"{base_url}/api/kernels/{kid}", headers=j_headers, timeout=20)
+            kst = requests.get(f"{base_url}/api/kernels/{kid}", headers=j_headers, timeout=(10, 30))
             if kst.ok and kst.json().get("execution_state") == "idle":
                 break
-        except Exception:
+        except requests.RequestException:
             pass
         time.sleep(1.0)
 
@@ -292,7 +320,7 @@ def execute_jupyter_code(
     ws_scheme = "wss" if parsed.scheme == "https" else "ws"
     ws_url = f"{ws_scheme}://{parsed.netloc}{parsed.path}/api/kernels/{kid}/channels?session_id={session_id}"
     ws = None
-    for attempt in range(3):
+    for attempt in range(4):
         try:
             ws = websocket.create_connection(
                 ws_url,
@@ -301,14 +329,50 @@ def execute_jupyter_code(
                     "X-Colab-Client-Agent: vscode",
                 ],
                 origin=base_url,
-                timeout=timeout_s,
+                timeout=25.0,
             )
             break
         except Exception:
-            if attempt == 2:
+            if attempt == 3:
                 raise
-            time.sleep(2.0)
+            time.sleep(2.0 * (attempt + 1))
     assert ws is not None
+
+    # Prueba rápida 1+1 para abortar en <25s si el kernel está colgado antes de ejecutar carga pesada
+    probe_id = uuid.uuid4().hex
+    ws.send(json.dumps({
+        "header": {
+            "msg_id": probe_id,
+            "username": "maker3d",
+            "session": session_id,
+            "msg_type": "execute_request",
+            "version": "5.3",
+        },
+        "parent_header": {},
+        "metadata": {},
+        "content": {
+            "code": "print('__KERNEL_OK__', flush=True)",
+            "silent": False,
+            "store_history": False,
+            "user_expressions": {},
+            "allow_stdin": False,
+            "stop_on_error": True,
+        },
+        "channel": "shell",
+    }))
+    t_probe = time.time()
+    probe_ok = False
+    while time.time() - t_probe < 25.0:
+        pm = json.loads(ws.recv())
+        if pm.get("parent_header", {}).get("msg_id") != probe_id:
+            continue
+        if pm.get("msg_type") == "execute_reply":
+            probe_ok = (pm.get("content", {}).get("status") == "ok")
+            break
+    if not probe_ok:
+        ws.close()
+        raise RuntimeError("Fallo en handshake rápido (__KERNEL_OK__) del kernel Colab")
+    ws.settimeout(timeout_s)
     req_msg = {
         "header": {
             "msg_id": msg_id,
@@ -389,8 +453,9 @@ def main() -> None:
     p.add_argument("--client-secret", default=None)
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("auth", help="Autorizar en navegador 1 vez y listar suscripción + GPUs")
+    sub.add_parser("auth", help="Autorizar en navegador 1 vez (Colab + Drive drive.file) y listar GPUs")
     sub.add_parser("specs", help="Listar suscripción, GPUs elegibles y runtimes activos")
+    sub.add_parser("check-drive", help="Comprobar si el token OAuth actual tiene permiso Drive (drive.file)")
 
     p_run = sub.add_parser("run", help="Provisionar GPU Colab, ejecutar código/script y cerrar runtime")
     p_run.add_argument("--gpu", default="auto", help="Acelerador (auto=mejor uso-calidad, L4, A100, T4, etc.)")
@@ -419,6 +484,16 @@ def main() -> None:
         specs = list_runtime_specs(creds, proj)
         print("ELIGIBLE GPU SPECS:", json.dumps([s for s in specs if s.get("eligible") and s.get("key", {}).get("variant") == "VARIANT_GPU"], indent=2))
         print("ACTIVE RUNTIMES:", json.dumps(list_runtimes(creds, proj), indent=2))
+        return
+
+    if args.cmd == "check-drive":
+        import sys as _sys
+        _sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import drive_staging as ds
+        ok = ds.has_drive_scope(creds, DEFAULT_TOKEN_PATH)
+        print("DRIVE_STAGING_READY:", ok)
+        if not ok:
+            print("HINT: Ejecuta `python tools/colab/colab_api_runner.py auth` para autorizar scope drive.file.")
         return
 
     if args.cmd == "delete-all":

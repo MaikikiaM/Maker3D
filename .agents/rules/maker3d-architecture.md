@@ -72,3 +72,14 @@ Antes de escribir código o generar geometría, consultar `.agents/skills/maker3
 - Resolver todas las rutas de herramientas mediante `tools/tool_paths.py` (autodescubrimiento de Blender 5.3, OpenSCAD Nightly + `BOSL2`, Bambu Studio + perfiles BBL, `uv`/`uvx`, `gltf-transform.cmd`).
 - En PowerShell ejecutar **`npm.cmd`**, **`npx.cmd`** y **`gltf-transform.cmd`** (nunca `.ps1` bloqueados por ExecutionPolicy) y usar `--backend=Manifold` al invocar OpenSCAD CLI.
 - No registrar secretos, PDFs pesados/locales ni binarios (`*.stl`, `*.3mf`, `*.glb`, `*.step`, `*.blend`, `*.exr`, `*.pdf`, `work_v*/`, `node_modules/`) en Git.
+
+---
+
+## 5. Protocolo Zero-Idle GPU en Google Colab Pro (Eficiencia Estricta de Créditos)
+
+Para evitar quemar unidades de `Google Colab Pro` (`NVIDIA L4` / `A100` / `G4` / `T4`) en transferencias HTTP ni en cómputo CPU mono-hilo:
+1. **Prohibido encender GPU antes de subir insumos:** Toda subida previa debe ejecutarse con **GPU apagada (`0` créditos)** usando `tools/colab/drive_staging.py` (`drive.file` sobre `Maker3D_Colab_Staging`). Dentro del runtime solo se transfiere por red interna Google Drive ↔ Colab (`< 3s`) y se llama a `DeleteRuntime` **antes** de descargar el resultado al PC local.
+2. **Separación estricta CPU Local vs GPU OptiX (`prep-local` → `gpu-bake-only` → `finalize-local`):**
+   - **PC Local (`0` créditos):** alineación OpenCV, `--stage prep-local` (compresión `.blend` + caché exacta de visibilidad `BVHTree` en `macro_vis_cache.npz` con `np.packbits`), `--stage finalize-local` (esculpido 3D anti-cráter limitado a `slope >= 42°`, STL `293 MB`, GLB `399 MB`, auditoría FDM).
+   - **Colab `L4` (`~2–2.5 min` facturables):** exclusivamente `--stage gpu-bake-only --device gpu` (abortando de inmediato si Cycles cae a CPU).
+3. **Handshake fail-fast, telemetría `t=0s` y `flush=True`:** Verificar el kernel con sonda rápida `__KERNEL_OK__` (`< 25s`) al conectar, iniciar el hilo `[TELEM]` antes de bajar datos y mantener `sys.stdout.reconfigure(line_buffering=True)` en scripts Blender.

@@ -37,6 +37,7 @@ def align_and_extract_patch(
     sigma_hp: float = 6.0,
     max_flow_px: float = 2.5,
     hp_clip: float = 0.18,
+    out_rgb_png: Path | None = None,
 ) -> Dict[str, Any]:
     ref_bgr = cv2.imread(str(ref_path), cv2.IMREAD_COLOR)
     nb_bgr = cv2.imread(str(nb_path), cv2.IMREAD_COLOR)
@@ -196,6 +197,22 @@ def align_and_extract_patch(
         and (hp_std_val >= 0.025)
     )
 
+    # Armonización de exposición ultra-ancha (sigma=180 px) hacia brillo medio objetivo 0.46
+    # para conservar íntegro todo el color/musgo/nieve 2K de Nano Banana sin saltos entre tomas
+    nb_180_l = cv2.GaussianBlur(nb_aligned_lum, (0, 0), 180.0)
+    mean_180 = max(float(nb_180_l[mask].mean()), 0.08)
+    gain_rgb = float(np.clip(0.46 / mean_180, 0.82, 1.22))
+    nb_harmonized_rgb = np.clip(nb_aligned * gain_rgb, 0.0, 1.0)
+    rgb_out_p = out_rgb_png or (
+        out_hp_png16.parent.parent / "aligned_rgb" / out_hp_png16.name.replace("_hp16.png", "_aligned.png")
+    )
+    rgb_out_p.parent.mkdir(parents=True, exist_ok=True)
+    cv2.imwrite(
+        str(rgb_out_p),
+        cv2.cvtColor(np.round(nb_harmonized_rgb * 255.0).astype(np.uint8), cv2.COLOR_RGB2BGR),
+        [int(cv2.IMWRITE_PNG_COMPRESSION), 6],
+    )
+
     # Codificar 16-bit PNG en rango [-0.20, +0.20] -> [0, 65535] con byte bajo en cero (~6x menor peso DEFLATE)
     out_hp_png16.parent.mkdir(parents=True, exist_ok=True)
     enc = np.clip(0.5 + hp_out / 0.40, 0.0, 1.0)
@@ -217,6 +234,7 @@ def align_and_extract_patch(
         "chroma_deltaE": round(chroma_delta_e, 4),
         "hp_std": round(hp_std_val, 5),
         "hp_file": str(out_hp_png16),
+        "aligned_rgb_file": str(rgb_out_p),
     }
 
 
@@ -236,7 +254,8 @@ def main() -> None:
         if not nb_p.exists():
             nb_p = mdir / "nb" / f"patch_{k}_nb.jpg"
         hp_p = mdir / "aligned_hp" / f"patch_{k}_hp16.png"
-        res = align_and_extract_patch(ref_p, nb_p, msk_p, hp_p, sigma_hp=args.sigma_hp)
+        rgb_p = mdir / "aligned_rgb" / f"patch_{k}_aligned.png"
+        res = align_and_extract_patch(ref_p, nb_p, msk_p, hp_p, sigma_hp=args.sigma_hp, out_rgb_png=rgb_p)
         report["patches"][k] = res
         if res.get("accepted"):
             report["accepted"] += 1
