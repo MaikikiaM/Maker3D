@@ -1258,6 +1258,7 @@ Para flujos donde no quieres estar mirando código todo el rato: investigación,
 En resumen: si solo vas a cambiar una cosa hoy, prueba Antigravity IDE (o VS Code + CLI en terminal) para tus proyectos de código/3D, deja la App para orquestación/tareas autónomas, y conecta colab-mcp para aprovechar tus 200 unidades de Colab."
   * [24/11/2026 20:53]: "Entonces, en cuanto te de las fotos tu puedes por tu cuenta ejecutar en google collab con la mejor grafica uso-calidad con mi suscripcion?"
   * [24/11/2026 20:55]: "Quiero independencia por tu parte al 100%. Dime instrucciones para lograrla"
+  * [24/11/2026 20:58]: "Ahora mismo tengo sincronizada a la propia carptea antigravity. Sincronizar cualquier cosa del proyecto seria duplicar. Duplico seguro sincronizaciones?"
 - Objetivo: Evaluar el uso real de Google Colab Pro (`Blackwell PRO 6000` / `L4` / `A100` / `T4`) para Blender Cycles GPU (descartando explícitamente TRELLIS/Hunyuan), habilitar aceleración GPU `OPTIX`/`CUDA` real y portabilidad Windows->Linux en los scripts de bake Hero 360°, y dejar listo un notebook Colab ejecutable.
 
 Decisiones técnicas y archivos creados/modificados:
@@ -1266,4 +1267,5 @@ Decisiones técnicas y archivos creados/modificados:
 - **`tools/blender/catan_hero360_bake.py`:** Añadido flag `--device {auto,gpu,cpu}` conectado en `render-macros`, `passB` (con `relink_blend_images`) y `passA/full`. Validado `py_compile` + test en `Blender 5.3.0` (`DEVICE_CHECK: CPU` sin falsos positivos HIP en Windows local).
 - **`tools/colab/blender_cycles_gpu_colab.ipynb`:** Creado notebook Jupyter/Colab Pro listo para montar Drive, descargar `blender-5.3.0-linux-x64.tar.xz`, activar Cycles `OPTIX/CUDA` en `--stage passB` sobre SSD local `/content/work_v05` y devolver `tile_master.stl`, `tile_viewer.glb` y mapas/renders a Drive. Validado JSON válido.
 - **Guía de autonomía Colab Pro (`[24/11/2026 20:53–20:55]`):** Verificadas opciones reales (`colaboratory.googleapis.com` / MCP remoto + OAuth2 Desktop para creación headless de runtimes, `googlecolab/colab-mcp` con `uvx` para proxy de sesión, y sincronización vía Google Drive Desktop / `rclone`).
+- **Ajuste sin duplicación en Drive (`[24/11/2026 20:58]`):** Actualizado `tools/colab/blender_cycles_gpu_colab.ipynb` para autodetectar el directorio ya sincronizado bajo `/content/drive/MyDrive/Antigravity/Maker3D/...` o `/content/drive/Othercomputers/*/Antigravity/Maker3D/...`, evitando duplicar `work_v05/` en otra carpeta.
 ================================================================================
