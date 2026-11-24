@@ -6,7 +6,7 @@ Suite modular CAD/Mesh/Escultura 3D con IA (**Maker3D 2.0**) para piezas paramé
 
 ## Arquitectura y Estado de Motores (OPERATIVA)
 - **Motores Locales:** `Blender 5.3.0`, `OpenSCAD Nightly 2026.11.21` (`Manifold + BOSL2`), `Bambu Studio 02.08.02.61` (incluidos perfiles `a1_n02 / p1s_n02 / x1c_n02` de `0.20 mm`), `Node v24` + `@gltf-transform/cli 4.5.1`, Python 3.12 (`build123d`, `pymeshlab`, `landlab`, `lib3mf`, `trimesh`, `manifold3d`, `opencv-python-headless 5.1.0`). `python tools/env_check.py` -> `PASS`.
-- **Cómputo Remoto Colab Pro (Google AI Pro — AUTÓNOMO VERIFICADO):** Runner headless [colab_api_runner.py](tools/colab/colab_api_runner.py) autenticado vía OAuth2 (`colab-token.json` en `~/.gemini/secrets/`). Probado en vivo creando y apagando automáticamente **`NVIDIA L4` (`23,034 MiB` VRAM + `55.5 GB` RAM)**; disponibles también `G4`, `A100` (`HIGHMEM`/`STD`) y `T4` para ejecutar `Cycles OptiX/CUDA` sin CPU local.
+- **Cómputo Remoto Colab Pro (Google AI Pro — AUTÓNOMO VERIFICADO):** Runner headless [colab_api_runner.py](tools/colab/colab_api_runner.py) autenticado vía OAuth2 (`colab-token.json` en `~/.gemini/secrets/`). Probado en vivo creando y apagando automáticamente **`NVIDIA L4` (`23,034 MiB` VRAM + `55.5 GB` RAM)**; disponibles también `G4`, `A100` (`HIGHMEM`/`STD`) y `T4` para ejecutar `Cycles OptiX/CUDA` sin CPU local. Ver [TELEMETRIA_CUOTAS.md](docs/ia/TELEMETRIA_CUOTAS.md) para consumos medidos (`15` imgs 3-ref Gemini App `91%`; `Neon` `8%` vs `Hydrogen` `6%`).
 - **MCPs Verificados:** `build123d`, `openscad`, `blender`.
 - **Skills Maker3D 2.0:** `maker3d-router`, `parametric-brep-cad`, `generative-3d-mesh`, `terrain-geology-engine`, `blender-sculpt-bake`, `print-audit-and-webgl` (+ `nanobanana-3d-sculpt` legacy).
 
