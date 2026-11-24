@@ -1269,6 +1269,9 @@ En resumen: si solo vas a cambiar una cosa hoy, prueba Antigravity IDE (o VS Cod
   * [24/11/2026 21:21]: "me sale esto al intentar conectarme en esa pestaña de google collab con una. Aunque justo ahora ya he podido conectarme"
   * [24/11/2026 21:22]: "<captura Active sessions: Untitled0.ipynb (GPU) + Making the most of your colab subscription (CPU)>"
   * [24/11/2026 21:28]: "Vale, te coimento que esto no lo actualizaste al metodo de 2 imagenes a mejorar y la perfecta de referencia "
+  * [24/11/2026 21:32]: "Oye, pues ha salido bien a la primera el fondo. Sería avaricia intentar que la propia montaña se vea con la misma calidad que el fondo?"
+  * [24/11/2026 21:36]: "uso neon alto en el modo disponible o hydrogen alto. Con neon he gastado un 8% en la primera"
+  * [24/11/2026 21:36]: "con hydrogen es un 6%"
 - Objetivo: Evaluar el uso real de Google Colab Pro (`Blackwell PRO 6000` / `L4` / `A100` / `T4`) para Blender Cycles GPU (descartando explícitamente TRELLIS/Hunyuan), habilitar aceleración GPU `OPTIX`/`CUDA` real y portabilidad Windows->Linux en los scripts de bake Hero 360°, y dejar listo un notebook Colab ejecutable.
 
 Decisiones técnicas y archivos creados/modificados:
