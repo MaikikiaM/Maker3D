@@ -187,14 +187,15 @@ def create_runtime(
     spec_key: Dict[str, Any],
     timeout_s: int = 300,
 ) -> Dict[str, Any]:
-    payload = {"runtimeSpec": {"key": spec_key}}
+    payload = {"runtimeSpec": spec_key}
     r = requests.post(
         f"{COLAB_V1BETA}/runtimes",
         headers=_api_headers(creds, project_id),
         json=payload,
         timeout=30,
     )
-    r.raise_for_status()
+    if not r.ok:
+        raise RuntimeError(f"CreateRuntime HTTP {r.status_code}: {r.text}")
     op = r.json()
     if op.get("done"):
         if "error" in op:
