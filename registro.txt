@@ -1374,6 +1374,9 @@ SESIÓN: 25/11/2026 - ESTÁNDAR EXCLUSIVO INFiMECH MX PRO (BOQUILLA 0.20 MM + PL
 - Prompts literales del usuario:
   * [25/11/2026 11:25]: "Esta perfecto. Lo unico son los crateres que si me acerco mucho se ven, pero como es para un catan no sé si eso se acusará. A partir de qué distancia se verán raros esos arbustos y detalles en general en la vida real? Esk al final estamos hablando de una pieza de 7,2 cm de altura. Me parece que este es el ,imite para una multiboquilla como la Infimech MX Pro"
   * [25/11/2026 11:28]: "con boquillas 0.2 mm vamos a trabajar solo y con PLA haciendo tecnicas de full color. Fijate eso en la memoria"
+  * [25/11/2026 11:32]: "Tiramos un barra learn?"
+  * [25/11/2026 11:34]: "/learn "
+  * [25/11/2026 11:36]: "<aprobación Proceed en learning_proposal.md>"
 
 Decisiones y archivos de memoria actualizados:
 - **Fijación permanente en memoria del proyecto (`0.20 mm` + `PLA` Full Color sobre `InfiMech MX Pro` de `8` cabezales independientes):**
@@ -1381,4 +1384,5 @@ Decisiones y archivos de memoria actualizados:
   - `.agents/rules/maker3d-architecture.md` (Sección 2): Sustituido el antiguo perfil base `0.40 mm` por el estándar único **`Boquilla 0.20 mm · PLA Full Color · InfiMech MX Pro 8-Toolhead`** (`pared mínima >= 0.40 mm`, capas `0.04–0.08 mm` en relieve y `0.10–0.12 mm` en zócalo).
   - `.agents/skills/print-audit-and-webgl/SKILL.md`: Eliminada referencia a `--nozzle-mm 0.4` dejando `--nozzle-mm 0.2` como estándar único.
   - `docs/ia/ESTADO.md`: Registrado **Hardware Objetivo FDM: InfiMech MX Pro (`8` cabezales, boquillas `0.20 mm`, `PLA` Full Color)**.
+- **Persistencia `/learn` aprobada (`[25/11/2026 11:36]`):** Aplicados diffs aprobados de [learning_proposal.md](learning_proposal.md) en `.agents/rules/maker3d-architecture.md` (fusión multi-banda ganador-dominante `(S/Smax)^32`, `Quilt 2K`, frecuencia `<= 4.0 ciclos/mm` e islas `>= 0.8 mm`), `.agents/skills/blender-sculpt-bake/SKILL.md` (`build_v07_shrubs.py` local a `0` créditos + tiempo real `L4` `~12–14 min`) y `.agents/skills/maker3d-router/SKILL.md` (estándar `0.20 mm PLA Full Color InfiMech MX Pro` y visores `4K`).
 ================================================================================

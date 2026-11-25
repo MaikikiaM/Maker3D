@@ -33,7 +33,7 @@ Nunca resuelvas un problema 3D con un único martillo. Clasifica la geometría s
 
 ## 2. Protocolo Estándar de Ejecución en 4 Fases
 
-1. **Bloque de Tolerancias:** Define explícitamente las cotas críticas antes de escribir código (holguras `0.20–0.30 mm`, diámetro de imanes `10.20×5.20 mm`, grosor mínimo `>= 0.80 mm`, dimensiones de cama Bambu A1/P1S/X1C).
+1. **Bloque de Tolerancias (`0.20 mm · PLA Full Color · InfiMech MX Pro`):** Define explícitamente las cotas críticas antes de escribir código (holguras `0.20–0.30 mm`, diámetro de imanes `10.20×5.20 mm`, pared mínima estructural `>= 0.40 mm` / `>= 0.80 mm` en clips, detalle XY `>= 0.25 mm`, volumen `InfiMech MX Pro 300×300×300 mm` de `8` cabezales).
 2. **Geometría Exacta + Detalle Orgánico Desacoplado:**
    - Jamás deformes caras funcionales (pads, carreteras, huecos de imán, roscas, chasis) con desplazamiento procedural o voxel remesh destructivo.
    - Protege la base B-Rep y une el detalle esculpido de forma estanca (`Manifold` / `Boolean` / corte limpio).
@@ -42,5 +42,5 @@ Nunca resuelvas un problema 3D con un único martillo. Clasifica la geometría s
    - Si pasas por Blender, inspecciona con `read_file` los renders `audit_6views_pbr.png`, `audit_6views_clay.png` (arcilla sin textura para comprobar 100% paridad 2D-a-3D) y `audit_ortho.png`, comparando frente y espalda cara a cara con la referencia hero antes de aprobar el acabado visual.
 4. **Entrega Triple al Usuario:**
    - Archivo paramétrico fuente (`.step` / `.scad` / `.py`), cuando aplique.
-   - Archivo listo para imprimir (`.stl` / `.3mf` validado y verificado en Bambu Studio CLI).
-   - Visor WebGL autónomo (`.html` optimizado con `Meshopt + WebP` vía `optimize_and_build_viewer.py`, `< 20 MB`, verificado sin errores en navegador headless).
+   - Archivo listo para imprimir (`.stl` / `.3mf` validado con `mesh_and_print_audit.py --nozzle-mm 0.2`; usar `--bambu-slice` solo bajo petición expresa).
+   - Visor WebGL autónomo (`.html` optimizado con `Meshopt + WebP 4K --no-simplify` vía `optimize_and_build_viewer.py`, verificado sin errores en navegador headless; excluir de Git si `> 50 MB`).
