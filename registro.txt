@@ -1386,3 +1386,17 @@ Decisiones y archivos de memoria actualizados:
   - `docs/ia/ESTADO.md`: Registrado **Hardware Objetivo FDM: InfiMech MX Pro (`8` cabezales, boquillas `0.20 mm`, `PLA` Full Color)**.
 - **Persistencia `/learn` aprobada (`[25/11/2026 11:36]`):** Aplicados diffs aprobados de [learning_proposal.md](learning_proposal.md) en `.agents/rules/maker3d-architecture.md` (fusión multi-banda ganador-dominante `(S/Smax)^32`, `Quilt 2K`, frecuencia `<= 4.0 ciclos/mm` e islas `>= 0.8 mm`), `.agents/skills/blender-sculpt-bake/SKILL.md` (`build_v07_shrubs.py` local a `0` créditos + tiempo real `L4` `~12–14 min`) y `.agents/skills/maker3d-router/SKILL.md` (estándar `0.20 mm PLA Full Color InfiMech MX Pro` y visores `4K`).
 ================================================================================
+
+SESIÓN: 25/11/2026 - INSTALACIÓN ORCASLICER 2.5.2 + PRUSASLICER 2.9.7 Y CONSULTAS FINALES V07
+- Prompts literales del usuario:
+  * [25/11/2026 11:38]: "Entonces, hablando de viabilidad de dejarlo ya asi: A partir de qué distancia se van a notar esos bultos? Partiendo de que usamos unos 0.06 mm de altura de capa (y si no, 0.04 mm)"
+  * [25/11/2026 11:41]: "Podrias decirme los nombres de las versiones que se hicieron con generadores externos estilo trellis y huangbyan?"
+  * [25/11/2026 11:41]: "Hay un STL de la ultima version? Voy a ver si curioseo un poco en bambu studio con la H3C"
+  * [25/11/2026 11:43]: "No puedo en bambu studio. Alguna idea de cómo instalar orca slicer para boquillas por induccion full color? Igual deberia usar prusa slicer que tienen el INDX"
+  * [25/11/2026 11:46]: "Instalalos tu xfa"
+
+Resultados verificados:
+- **OrcaSlicer `2.5.2` x64 (`SoftFever.OrcaSlicer`):** Instalado en `C:\Users\migue\AppData\Local\Programs\OrcaSlicer\orca-slicer.exe` (dependencia `Edge WebView2 Runtime 158.0.4370.33` instalada vía `winget` + paquete portátil oficial de GitHub Releases sin bloqueo UAC) y acceso directo en Menú Inicio (`OrcaSlicer.lnk`).
+- **PrusaSlicer `2.9.7` (`Prusa3D.PrusaSlicer`, soporte `INDX` + `ColorMix`):** Instalado en `C:\Users\migue\AppData\Local\Programs\PrusaSlicer\PrusaSlicer-2.9.7\prusa-slicer.exe` (verificado `--help` vía `prusa-slicer-console.exe`) y acceso directo en Menú Inicio (`PrusaSlicer.lnk`).
+- **Memoria actualizada:** Añadidos ambos slicers a `docs/ia/ESTADO.md`.
+================================================================================

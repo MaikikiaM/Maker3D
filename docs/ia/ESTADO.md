@@ -6,7 +6,7 @@ Suite modular CAD/Mesh/Escultura 3D con IA (**Maker3D 2.0**) para piezas paramé
 
 ## Arquitectura y Estado de Motores (OPERATIVA)
 - **Hardware Objetivo FDM:** **InfiMech MX Pro** (`8` cabezales independientes, OrcaSlicer), **exclusivamente boquillas `0.20 mm` + `PLA` con técnicas Full Color**.
-- **Motores Locales:** `Blender 5.3.0`, `OpenSCAD Nightly 2026.11.21` (`Manifold + BOSL2`), `Bambu Studio 02.08.02.61` (perfiles `0.20 mm`), `Node v24` + `@gltf-transform/cli 4.5.1`, Python 3.12 (`build123d`, `pymeshlab`, `landlab`, `lib3mf`, `trimesh`, `manifold3d`, `opencv-python`). `python tools/env_check.py` -> `PASS`.
+- **Motores Locales:** `Blender 5.3.0`, `OrcaSlicer 2.5.2` (`%LOCALAPPDATA%\Programs\OrcaSlicer\orca-slicer.exe`), `PrusaSlicer 2.9.7` (`INDX` + `ColorMix`), `OpenSCAD Nightly 2026.11.21` (`Manifold + BOSL2`), `Bambu Studio 02.08.02.61`, `Node v24` + `@gltf-transform/cli 4.5.1`, Python 3.12 (`build123d`, `pymeshlab`, `landlab`, `lib3mf`, `trimesh`, `manifold3d`, `opencv-python`). `python tools/env_check.py` -> `PASS`.
 - **Cómputo Remoto Colab Pro (`Zero-Idle GPU 4 Fases`):**
   - `drive_staging.py`: pre-subida a Google Drive (`Maker3D_Colab_Staging`, scope `drive.file`) **con GPU apagada (`0` créditos)** y descarga tras `DeleteRuntime`.
   - `colab_api_runner.py`: `SCOPES = colaboratory + drive.file`, `timeout=(10,60)`, 5 reintentos kernel, sonda `__KERNEL_OK__` (`<25s`) y `check-drive`.
