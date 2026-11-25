@@ -1314,6 +1314,9 @@ Quiero que propongas y apliques una arquitectura responsable con los créditos d
 - Separar lo que sea CPU pura (hacerlo en local a 0 créditos, o vectorizar/acelerar en GPU el raycast/proyección) para que la L4 se encienda **solo** para el cómputo GPU real (Cycles OptiX) al ~90-100% de uso y se apague al instante.
 - Endurecer `colab_api_runner.py` (`timeout` + reintentos en creación de kernel, chequeo temprano de kernel y telemetría desde el arranque, además de `flush=True` en logs de Blender).
 - Dejar esta regla de eficiencia reflejada en la documentación/reglas del proyecto para no volver a desperdiciar unidades de Colab."
+  * [25/11/2026 01:35]: "te parece si te tiro un barra learn antes?"
+  * [25/11/2026 01:36]: "/learn "
+  * [25/11/2026 01:38]: "<aprobación Proceed en learning_proposal.md>"
 
 Decisiones técnicas, diagnóstico y archivos creados/modificados (`0` créditos Colab consumidos):
 - **Diagnóstico visual sobre captura del usuario (`media_1795561211557_bc10b04e.jpg`):**
@@ -1328,4 +1331,5 @@ Decisiones técnicas, diagnóstico y archivos creados/modificados (`0` créditos
 - **`tools/webgl/optimize_and_build_viewer.py`:** Atmósfera por defecto cambiada a `alpine` (`Sol Alpino`, `environmentIntensity=0.40`, `hemi=0.74`, `key=2.60`, `fill=0.50`).
 - **Documentación y reglas:** Añadida Sección 5 (`Protocolo Zero-Idle GPU`) en `.agents/rules/maker3d-architecture.md`, regla en `AGENTS.md` y auditoría de eficiencia en `docs/ia/TELEMETRIA_CUOTAS.md` y `docs/ia/ESTADO.md`.
 - **Verificaciones sin coste Colab:** `py_compile` (`7/7` scripts OK), `colab_api_runner.py check-drive` + `specs` (`DRIVE_STAGING_READY: False` sin error al leer token previo; `ACTIVE RUNTIMES: []`) y benchmark `VIS_CACHE_TEST` en `Blender 5.3.0` (`build=14.35s`, `reload=0.0473s`, `exact=True`, `55.2 KB` para 2 cámaras).
+- **Persistencia `/learn` aprobada (`[25/11/2026 01:38]`):** Actualizados tras aprobación `Proceed` en [learning_proposal.md](learning_proposal.md) los archivos [.agents/rules/maker3d-architecture.md](.agents/rules/maker3d-architecture.md) (guardrail anti-cráter `slope >= 42°` + proyección `full`), [.agents/skills/blender-sculpt-bake/SKILL.md](.agents/skills/blender-sculpt-bake/SKILL.md) (Sección 5 renovada + Sección 6 con el runbook de 4 fases Zero-Idle Colab Pro) y [.agents/skills/print-audit-and-webgl/SKILL.md](.agents/skills/print-audit-and-webgl/SKILL.md) (relajación 1-ring para `degen=0`, atmósfera inicial `Sol Alpino` y regla `.gitignore > 50 MB`).
 ================================================================================
