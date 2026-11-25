@@ -1333,3 +1333,25 @@ Decisiones técnicas, diagnóstico y archivos creados/modificados (`0` créditos
 - **Verificaciones sin coste Colab:** `py_compile` (`7/7` scripts OK), `colab_api_runner.py check-drive` + `specs` (`DRIVE_STAGING_READY: False` sin error al leer token previo; `ACTIVE RUNTIMES: []`) y benchmark `VIS_CACHE_TEST` en `Blender 5.3.0` (`build=14.35s`, `reload=0.0473s`, `exact=True`, `55.2 KB` para 2 cámaras).
 - **Persistencia `/learn` aprobada (`[25/11/2026 01:38]`):** Actualizados tras aprobación `Proceed` en [learning_proposal.md](learning_proposal.md) los archivos [.agents/rules/maker3d-architecture.md](.agents/rules/maker3d-architecture.md) (guardrail anti-cráter `slope >= 42°` + proyección `full`), [.agents/skills/blender-sculpt-bake/SKILL.md](.agents/skills/blender-sculpt-bake/SKILL.md) (Sección 5 renovada + Sección 6 con el runbook de 4 fases Zero-Idle Colab Pro) y [.agents/skills/print-audit-and-webgl/SKILL.md](.agents/skills/print-audit-and-webgl/SKILL.md) (relajación 1-ring para `degen=0`, atmósfera inicial `Sol Alpino` y regla `.gitignore > 50 MB`).
 ================================================================================
+
+SESIÓN: 25/11/2026 - MONTANA_HERO360 V06-FULL8K (ZERO-CRATER + ZERO-IDLE GPU COLAB)
+- Prompts literales del usuario:
+  * [25/11/2026 01:41]: "Lo he autorizado ya"
+  * [25/11/2026 01:45]: "Respecto al prompt de generacion anterior, cuanto crees que vas a tardar en este?"
+  * [25/11/2026 01:47]: "Adelante /goal "
+
+Decisiones técnicas, ejecución y resultados verificados:
+- **Respaldo `v05` intacto:** Copiados `baked_albedo.png`, `baked_normal.png` y `baked_roughness.png` de `v05` a `versiones/v05_macro8k/` sin tocar `Visores-HTML/*v05*` ni `catan_montana_hero360_v05.3mf`.
+- **Ajustes `v06` aplicados y compilados (`py_compile` OK):**
+  1. `tools/generative/macro_patch_align.py`: Armonización suave anclada a cada vista (`0.93 * ref_mean_l` en `[0.48, 0.54]`, `gain [0.95, 1.06]`) preservando blancos de nieve y verdes vivos de musgo en `aligned_rgb/`.
+  2. `tools/blender/macro_bake_helpers.py`: En `mode="full"`, peso `ndotv^6` con prioridad `1.45×` frontal, mezcla `fade_w 0.0015..0.025`, `ao` sutil (`0.12`) y `lift 1.10` (`lum < 0.20`).
+  3. `tools/blender/catan_hero360_bake.py`: Triple compuerta anti-cráter (`cliff_gate` con `slope >= 48°`, `no_veg` y `elev_gate > 3.5 mm` sobre `Z_BASE`), cojines de musgo suaves positivos (`0..+0.09 mm`), micro-altura NumPy `_compute_log_highpass_topdown(rad=6)` para bump `8K` (`Distance=0.11`) en modo `full`.
+  4. `tools/colab/run_v05_passb_autonomous.py`: `--bake-samples 16` + verificación `list_runtimes()` inmediatamente tras `DeleteRuntime` antes de descargar en Fase 4.
+- **Ejecución 4 Fases Zero-Idle GPU (`0%` cuota Gemini):**
+  - Fase 1 PC (`0` créd, `3m 09s`): `16/16` RGB+HP aceptados + `gpu_job_scene.blend` (`190.4 MB`) + `macro_vis_cache.npz` (`0.40 MB`) + `gpu_job_in.tar` (`427.3 MB`).
+  - Fase 2 Drive (`0` créd, `22s`): subida resumable `drive.file` con GPU apagada.
+  - Fase 3 `NVIDIA L4 OPTIX`: `gpu_elapsed_s = 728.0s` (`12m 08s`; `14m 10s` totales de runtime, `~37%`/`~62%` ahorro vs `v05`), horneado `8K` completo + `push` `202 MB` a Drive (`16s`) y `DeleteRuntime` verificado (`ACTIVE RUNTIMES: []`) antes de la Fase 4.
+  - Fase 4 PC (`0` créd, `4m 33s`): `sculpt_3d` (`[-0.734, +0.319] mm`), `STL`, `GLB` y renders Blender (`audit_6views_clay.png`, `audit_6views_pbr.png`, `audit_ortho.png`).
+- **Auditoría Geométrica `F7` (`0.20 mm`):** Tras relajar `2` triángulos sub-nanométricos (`--repair`), la re-auditoría limpia sin `--repair` devolvió `exit 0`: `6,149,730` triángulos, `is_watertight=true`, `euler_number=2`, `degenerate_faces=0`, `repaired=false`, `6/6` pads a `25.0 mm`, `catan_montana_hero360_v06.3mf` (`98.41 MB`).
+- **Visores `F8` y QA en Navegador (`0` errores):** `Visores-HTML/catan-bioma-montana-hero360-v06-full8k.html` (`68.93 MB`, añadido a `.gitignore`) y `...-v06-full8k-raw.html` (`542.27 MB`) verificados en `127.0.0.1:8787` (`Sol Alpino` activo por defecto, zoom en valle sur en PBR y Arcilla confirmando **0 mini-cráteres**). Archivado en `versiones/v06_full8k/` y telemetría en `docs/ia/TELEMETRIA_CUOTAS.md`.
+================================================================================
