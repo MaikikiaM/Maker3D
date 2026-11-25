@@ -9,7 +9,8 @@
       "deltaE_low": 14.4086,
       "chroma_deltaE": 5.6377,
       "hp_std": 0.12394,
-      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A0_000_hp16.png"
+      "hp_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A0_000_hp16.png",
+      "aligned_rgb_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_rgb\\patch_A0_000_aligned.png"
     },
     "A1_060": {
       "accepted": true,
@@ -20,7 +21,8 @@
       "deltaE_low": 17.0024,
       "chroma_deltaE": 6.1188,
       "hp_std": 0.13821,
-      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A1_060_hp16.png"
+      "hp_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A1_060_hp16.png",
+      "aligned_rgb_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_rgb\\patch_A1_060_aligned.png"
     },
     "A2_120": {
       "accepted": true,
@@ -31,7 +33,8 @@
       "deltaE_low": 17.4956,
       "chroma_deltaE": 7.1832,
       "hp_std": 0.13098,
-      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A2_120_hp16.png"
+      "hp_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A2_120_hp16.png",
+      "aligned_rgb_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_rgb\\patch_A2_120_aligned.png"
     },
     "A3_180": {
       "accepted": true,
@@ -42,7 +45,8 @@
       "deltaE_low": 11.3171,
       "chroma_deltaE": 4.3772,
       "hp_std": 0.12763,
-      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A3_180_hp16.png"
+      "hp_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A3_180_hp16.png",
+      "aligned_rgb_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_rgb\\patch_A3_180_aligned.png"
     },
     "A4_240": {
       "accepted": true,
@@ -53,7 +57,8 @@
       "deltaE_low": 11.8453,
       "chroma_deltaE": 5.1061,
       "hp_std": 0.12607,
-      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A4_240_hp16.png"
+      "hp_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A4_240_hp16.png",
+      "aligned_rgb_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_rgb\\patch_A4_240_aligned.png"
     },
     "A5_300": {
       "accepted": true,
@@ -64,7 +69,8 @@
       "deltaE_low": 14.9075,
       "chroma_deltaE": 7.1724,
       "hp_std": 0.13235,
-      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A5_300_hp16.png"
+      "hp_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_A5_300_hp16.png",
+      "aligned_rgb_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_rgb\\patch_A5_300_aligned.png"
     },
     "B0_030": {
       "accepted": true,
@@ -75,7 +81,8 @@
       "deltaE_low": 13.3382,
       "chroma_deltaE": 6.4665,
       "hp_std": 0.13244,
-      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_B0_030_hp16.png"
+      "hp_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_B0_030_hp16.png",
+      "aligned_rgb_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_rgb\\patch_B0_030_aligned.png"
     },
     "B1_090": {
       "accepted": true,
@@ -86,7 +93,8 @@
       "deltaE_low": 13.8344,
       "chroma_deltaE": 5.7754,
       "hp_std": 0.13379,
-      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_B1_090_hp16.png"
+      "hp_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_B1_090_hp16.png",
+      "aligned_rgb_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_rgb\\patch_B1_090_aligned.png"
     },
     "B2_150": {
       "accepted": true,
@@ -97,7 +105,8 @@
       "deltaE_low": 9.6009,
       "chroma_deltaE": 3.9369,
       "hp_std": 0.13089,
-      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_B2_150_hp16.png"
+      "hp_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_B2_150_hp16.png",
+      "aligned_rgb_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_rgb\\patch_B2_150_aligned.png"
     },
     "B3_210": {
       "accepted": true,
@@ -108,7 +117,8 @@
       "deltaE_low": 10.4391,
       "chroma_deltaE": 4.0279,
       "hp_std": 0.12745,
-      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_B3_210_hp16.png"
+      "hp_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_B3_210_hp16.png",
+      "aligned_rgb_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_rgb\\patch_B3_210_aligned.png"
     },
     "B4_270": {
       "accepted": true,
@@ -119,7 +129,8 @@
       "deltaE_low": 15.0445,
       "chroma_deltaE": 6.4244,
       "hp_std": 0.13498,
-      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_B4_270_hp16.png"
+      "hp_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_B4_270_hp16.png",
+      "aligned_rgb_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_rgb\\patch_B4_270_aligned.png"
     },
     "B5_330": {
       "accepted": true,
@@ -130,7 +141,8 @@
       "deltaE_low": 13.0207,
       "chroma_deltaE": 6.0613,
       "hp_std": 0.13008,
-      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_B5_330_hp16.png"
+      "hp_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_B5_330_hp16.png",
+      "aligned_rgb_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_rgb\\patch_B5_330_aligned.png"
     },
     "C0_peak": {
       "accepted": true,
@@ -141,7 +153,8 @@
       "deltaE_low": 12.6725,
       "chroma_deltaE": 4.3116,
       "hp_std": 0.12485,
-      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_C0_peak_hp16.png"
+      "hp_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_C0_peak_hp16.png",
+      "aligned_rgb_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_rgb\\patch_C0_peak_aligned.png"
     },
     "C1_cirqueW": {
       "accepted": true,
@@ -152,7 +165,8 @@
       "deltaE_low": 15.9557,
       "chroma_deltaE": 7.2182,
       "hp_std": 0.1306,
-      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_C1_cirqueW_hp16.png"
+      "hp_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_C1_cirqueW_hp16.png",
+      "aligned_rgb_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_rgb\\patch_C1_cirqueW_aligned.png"
     },
     "C2_cirqueE": {
       "accepted": true,
@@ -163,7 +177,8 @@
       "deltaE_low": 14.4271,
       "chroma_deltaE": 6.8673,
       "hp_std": 0.12845,
-      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_C2_cirqueE_hp16.png"
+      "hp_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_C2_cirqueE_hp16.png",
+      "aligned_rgb_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_rgb\\patch_C2_cirqueE_aligned.png"
     },
     "D0_valleyS": {
       "accepted": true,
@@ -174,7 +189,8 @@
       "deltaE_low": 14.0382,
       "chroma_deltaE": 5.9989,
       "hp_std": 0.11988,
-      "hp_file": "Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_D0_valleyS_hp16.png"
+      "hp_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_hp\\patch_D0_valleyS_hp16.png",
+      "aligned_rgb_file": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\pipeline-biomas\\montana_hero360\\work_v05\\macro\\aligned_rgb\\patch_D0_valleyS_aligned.png"
     }
   },
   "accepted": 16,

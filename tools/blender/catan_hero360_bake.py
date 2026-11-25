@@ -733,13 +733,14 @@ def sculpt_3d_from_baked_albedo(obj: bpy.types.Object, albedo_path: Path) -> Non
     crevice_micro = np.clip((l_sm_mid - lum_sc) - 0.004, 0.0, 0.45) * 2.60
     ridge = np.clip((l_sm_mid - l_sm_wide) * 2.20 + np.clip(lum_sc - l_sm_mid, 0.0, 0.35) * 1.40, 0.0, 0.55)
 
-    # Anti-cráter: las grietas/aristas negativas se limitan a escarpes rocosos (>= 42°, Nz baja);
-    # la tierra/pedregal/musgo plano (< 40°) recibe 0.000 mm de excavación negativa por sombras de piedrecitas.
-    cliff_gate = 1.0 - _smoothstep(0.45, 0.74, np.abs(N[:, 2]))
+    # Triple compuerta anti-cráter: solo escarpes rocosos altos (>= 48°), sin vegetación verde ni fondo de valle bajo
+    green_excess = np.clip(rgb[:, 1] - np.maximum(rgb[:, 0], rgb[:, 2]) * 0.96, 0.0, 0.25)
+    no_veg = 1.0 - _smoothstep(0.010, 0.045, green_excess)
+    elev_gate = _smoothstep(Z_BASE + 3.5, Z_BASE + 10.5, V[:, 2])
+    cliff_gate = (1.0 - _smoothstep(0.42, 0.67, np.abs(N[:, 2]))) * no_veg * elev_gate
     raw_relief = cliff_gate * (0.58 * ridge - 0.72 * crevice_macro - 0.52 * crevice_micro)
 
-    # Ondulación positiva ultra-suave (+0..+0.10 mm) solo en cojines de musgo verde plano/suave
-    green_excess = np.clip(rgb[:, 1] - np.maximum(rgb[:, 0], rgb[:, 2]) * 0.96, 0.0, 0.25)
+    # Ondulación positiva ultra-suave (+0..+0.09 mm) solo en cojines de musgo verde plano/suave
     moss_raw = _smoothstep(0.015, 0.075, green_excess) * _smoothstep(0.70, 0.88, np.abs(N[:, 2]))
     moss_sm = moss_raw.copy()
     for _ in range(28):
@@ -747,7 +748,7 @@ def sculpt_3d_from_baked_albedo(obj: bpy.types.Object, albedo_path: Path) -> Non
         np.add.at(acc_m, e0, moss_sm[e1])
         np.add.at(acc_m, e1, moss_sm[e0])
         moss_sm = np.where(is_ter_v, acc_m / deg, moss_sm)
-    moss_lift = np.clip(moss_sm * 0.10, 0.0, 0.10)
+    moss_lift = np.clip(moss_sm * 0.09, 0.0, 0.09)
 
     disp_mm = weight_border * (1.0 - 0.90 * snow_mask) * (raw_relief + moss_lift)
     disp_mm = np.clip(disp_mm, -0.82, 0.44)
@@ -1281,6 +1282,28 @@ def sculpt_3d_from_highpass_bandlimited(
     print(f"  [MicroHP Sculpt] Desplazamiento >=0.25mm aplicado (range=[{disp.min():.4f}, {disp.max():.4f}] mm)")
 
 
+def _compute_log_highpass_topdown(rgb_topdown: np.ndarray, rad: int = 6) -> np.ndarray:
+    """Extrae detalle log-espacio micro-topográfico en NumPy puro (3 pasadas box-blur cumsum) para bump 8K."""
+    lum = (
+        0.2126 * rgb_topdown[..., 0]
+        + 0.7152 * rgb_topdown[..., 1]
+        + 0.0722 * rgb_topdown[..., 2]
+    ).astype(np.float32)
+    log_l = np.log(np.maximum(lum, 0.02)).astype(np.float32)
+    blur = log_l.copy()
+    r = max(2, int(round(rad * (lum.shape[0] / 8192.0))))
+    k = 2 * r + 1
+    for _ in range(3):
+        p_x = np.pad(blur, ((0, 0), (r, r)), mode="edge")
+        c_x = np.cumsum(np.pad(p_x, ((0, 0), (1, 0)), mode="constant"), axis=1, dtype=np.float64)
+        blur = ((c_x[:, k:] - c_x[:, :-k]) / k).astype(np.float32)
+        p_y = np.pad(blur, ((r, r), (0, 0)), mode="edge")
+        c_y = np.cumsum(np.pad(p_y, ((1, 0), (0, 0)), mode="constant"), axis=0, dtype=np.float64)
+        blur = ((c_y[k:, :] - c_y[:-k, :]) / k).astype(np.float32)
+    hp_l = np.clip(log_l - blur, -0.16, 0.16).astype(np.float32)
+    return np.repeat(hp_l[..., None], 3, axis=-1)
+
+
 def _bake_normal_and_roughness_passB(
     scene: bpy.types.Scene,
     obj: bpy.types.Object,
@@ -1335,7 +1358,7 @@ def _bake_normal_and_roughness_passB(
     bump_str.inputs["To Min"].default_value = 0.48; bump_str.inputs["To Max"].default_value = 0.06
     nt.links.new(rgb2bw.outputs["Val"], bump_str.inputs["Value"])
 
-    bump = nt.nodes.new("ShaderNodeBump"); bump.inputs["Distance"].default_value = 0.16
+    bump = nt.nodes.new("ShaderNodeBump"); bump.inputs["Distance"].default_value = 0.11
     nt.links.new(bump_str.outputs["Result"], bump.inputs["Strength"])
     nt.links.new(mix_h.outputs["Result"], bump.inputs["Height"])
     nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
@@ -1670,9 +1693,9 @@ def main() -> None:
 
         if args.projection_mode == "full":
             albedo_final, _ao = mbh.project_full_albedo_and_ao(
-                scene, obj, macro_dir, passA_alb, atlas_res=args.bake_res, samples=max(2, args.bake_samples // 2)
+                scene, obj, macro_dir, passA_alb, atlas_res=args.bake_res, samples=min(6, max(2, args.bake_samples // 2))
             )
-            hp_top = np.zeros((args.bake_res, args.bake_res, 3), dtype=np.float32)
+            hp_top = _compute_log_highpass_topdown(albedo_final, rad=6)
         else:
             hp_top, ao_top = mbh.project_highpass_and_ao(
                 scene, obj, macro_dir, atlas_res=args.bake_res, samples=max(2, args.bake_samples // 2)
@@ -1776,9 +1799,9 @@ def main() -> None:
 
         if args.projection_mode == "full":
             albedo_final, _ao = mbh.project_full_albedo_and_ao(
-                scene, obj, macro_dir, passA_alb, atlas_res=args.bake_res, samples=max(2, args.bake_samples // 2)
+                scene, obj, macro_dir, passA_alb, atlas_res=args.bake_res, samples=min(6, max(2, args.bake_samples // 2))
             )
-            hp_top = np.zeros((args.bake_res, args.bake_res, 3), dtype=np.float32)
+            hp_top = _compute_log_highpass_topdown(albedo_final, rad=6)
         else:
             hp_top, ao_top = mbh.project_highpass_and_ao(scene, obj, macro_dir, atlas_res=args.bake_res, samples=max(2, args.bake_samples // 2))
             ao_mul = 1.0 - 0.18 * (1.0 - np.clip(ao_top, 0.0, 1.0))

@@ -197,11 +197,13 @@ def align_and_extract_patch(
         and (hp_std_val >= 0.025)
     )
 
-    # Armonización de exposición ultra-ancha (sigma=180 px) hacia brillo medio objetivo 0.46
-    # para conservar íntegro todo el color/musgo/nieve 2K de Nano Banana sin saltos entre tomas
+    # Armonización de exposición suave anclada al render PBR de la vista (~0.48–0.54)
+    # conservando blancos de nieve (p95~0.85+) y musgo vivo 2K de Nano Banana sin oscurecer
+    ref_mean_l = float((0.2126 * ref_low_rgb[..., 0] + 0.7152 * ref_low_rgb[..., 1] + 0.0722 * ref_low_rgb[..., 2])[mask].mean())
+    target_l = float(np.clip(0.93 * ref_mean_l, 0.48, 0.54))
     nb_180_l = cv2.GaussianBlur(nb_aligned_lum, (0, 0), 180.0)
     mean_180 = max(float(nb_180_l[mask].mean()), 0.08)
-    gain_rgb = float(np.clip(0.46 / mean_180, 0.82, 1.22))
+    gain_rgb = float(np.clip(target_l / mean_180, 0.95, 1.06))
     nb_harmonized_rgb = np.clip(nb_aligned * gain_rgb, 0.0, 1.0)
     rgb_out_p = out_rgb_png or (
         out_hp_png16.parent.parent / "aligned_rgb" / out_hp_png16.name.replace("_hp16.png", "_aligned.png")

@@ -289,7 +289,7 @@ try:
         "--bake-res", "8192",
         "--normal-res", "8192",
         "--rough-res", "4096",
-        "--bake-samples", "24",
+        "--bake-samples", "16",
         "--device", "gpu",
         "--stage", "gpu-bake-only",
     ]
@@ -414,6 +414,8 @@ def main() -> None:
             log_line(f"Apagando GPU inmediatamente antes de descargar ({rt_name})...")
             try:
                 cr.delete_runtime(creds, proj, rt_name)
+                rem_rts = cr.list_runtimes(creds, proj)
+                log_line(f"Verificación post-DeleteRuntime: runtimes activos = {[r.get('name') for r in rem_rts]}")
             except Exception as exc:
                 log_line(f"Aviso DeleteRuntime: {exc}")
             update_telem(

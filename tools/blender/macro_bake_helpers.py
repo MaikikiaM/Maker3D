@@ -641,8 +641,8 @@ def _project_batches_to_atlas(
             edge_fade = _smoothstep(0.01, 0.08, edge_dist)
             dist_w = np.clip(82.0 / np.maximum(dist, 28.0), 0.25, 2.5) ** 2.0
             if mode == "full":
-                hero_boost = 1.35 if cid in hero_front_ids else 1.0
-                ang_w = (np.maximum(ndotv, 0.0) ** 10.0) * hero_boost
+                hero_boost = 1.45 if cid in hero_front_ids else 1.0
+                ang_w = (np.maximum(ndotv, 0.0) ** 6.0) * hero_boost
             else:
                 ang_w = np.maximum(ndotv, 0.0) ** 8.0
             W_b[:, bi] = np.where(vis, ang_w * dist_w * m_val * edge_fade, 0.0).astype(np.float32)
@@ -822,7 +822,7 @@ def project_full_albedo_and_ao(
         scene, obj, macro_dir, mode="full", atlas_res=atlas_res, samples=samples
     )
     proj_rgb = np.where(rgb_den[..., None] > 1e-4, rgb_num / np.maximum(rgb_den[..., None], 1e-4), passA_alb_topdown)
-    fade_w = _smoothstep(0.01, 0.20, rgb_den)[..., None].astype(np.float32)
+    fade_w = _smoothstep(0.0015, 0.025, rgb_den)[..., None].astype(np.float32)
 
     # Neutralizar tonos rosados/terracota cálidos de passA en huecos no vistos hacia gris pizarra-oliva frío
     lum_pa = 0.2126 * passA_alb_topdown[..., 0] + 0.7152 * passA_alb_topdown[..., 1] + 0.0722 * passA_alb_topdown[..., 2]
@@ -831,10 +831,10 @@ def project_full_albedo_and_ao(
     passA_clean = np.where(warm_mud[..., None], 0.30 * passA_alb_topdown + 0.70 * slate_fallback, passA_alb_topdown)
 
     blended = proj_rgb * fade_w + passA_clean * (1.0 - fade_w)
-    # Realce suave V4 en sombras muy profundas + AO sutil (0.18)
+    # Realce suave V4 en sombras muy profundas + AO sutil (0.12)
     lum_b = 0.2126 * blended[..., 0] + 0.7152 * blended[..., 1] + 0.0722 * blended[..., 2]
-    lift = np.where(lum_b < 0.22, 1.15, 1.0)[..., None].astype(np.float32)
-    ao_mul = (1.0 - 0.18 * (1.0 - np.clip(ao, 0.0, 1.0)))[..., None].astype(np.float32)
+    lift = np.where(lum_b < 0.20, 1.10, 1.0)[..., None].astype(np.float32)
+    ao_mul = (1.0 - 0.12 * (1.0 - np.clip(ao, 0.0, 1.0)))[..., None].astype(np.float32)
     albedo_final = np.clip(blended * lift * ao_mul, 0.0, 1.0).astype(np.float32)
     return albedo_final, ao
 
