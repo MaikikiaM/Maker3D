@@ -25,19 +25,20 @@ Antes de escribir código o generar geometría, consultar `.agents/skills/maker3
 
 ## 2. Invariantes Físicos y Tolerancias de Ingeniería
 
-### Invariantes de Impresión FDM (Boquilla estándar 0.40 mm)
+### Estándar Único de Impresión FDM (`Boquilla 0.20 mm · PLA Full Color · InfiMech MX Pro 8-Toolhead`)
+- **Hardware y material exclusivos:** Toda pieza del proyecto se diseña y valida **exclusivamente para boquillas `0.20 mm` y `PLA`** (puro o mate bien seco sin cargas sólidas/fibras/partículas que atascen `0.20 mm`) en **InfiMech MX Pro (`8` cabezales independientes, OrcaSlicer / InfiMech Orca)** usando **técnicas Full Color** (mezcla óptica por capas finas/transmitancia CMYK+W y regiones limpias de `8` canales sin micro-islas `< 0.8 mm`).
 - **Estanqueidad obligatoria:** `is_watertight == True`, característica de Euler `chi == 2` (1 componente sólido, sin bordes abiertos ni autointersecciones), `degenerate_faces == 0`.
-- **Pared mínima estructural:** `>= 2 * nozzle_mm` (`>= 0.80 mm`, recomendado `>= 1.20 mm` en clips y paredes portantes).
+- **Pared mínima estructural (`--nozzle-mm 0.2`):** `>= 2 * nozzle_mm` (`>= 0.40 mm` absoluto, recomendado `>= 0.80 mm` en clips y paredes portantes).
 - **Holgura de encajes:**
   - Ajuste deslizante / ensamblaje removible: `+0.20 mm` radial / `0.25 mm` por cara (`+0.30 mm` en puentes impresos).
   - Ajuste a presión (imán / pin): `+0.10 mm` radial (p. ej. imán Ø10×5 mm → alojamiento Ø10.20 × 5.20 mm).
 - **Voladizos sin soporte:** Ángulo `<= 45°` respecto a la vertical siempre que sea posible; las caras funcionales que excedan `45°` deben incluir chaflán de transición (`45°`) o documentarse para soportes en el slicer del usuario.
 - **Compensación de pata de elefante:** Chaflán inferior de `0.6–0.8 mm` a `45°` en piezas que requieran ajuste en zócalo/placa.
 
-### Perfil Detalle Fino Catán (por defecto en losetas hero — boquilla 0.20 mm)
-- **Boquilla y altura de capa:** Boquilla **`0.20 mm`**, altura de capa **`0.04–0.06 mm`** en el relieve (`Z >= 25.0 mm`) y **`0.12–0.14 mm`** en el zócalo plano (`0–25 mm`) mediante altura de capa variable.
+### Perfil Detalle Fino Catán (Boquilla 0.20 mm · PLA Full Color)
+- **Boquilla y altura de capa:** Boquilla **`0.20 mm`**, altura de capa **`0.04–0.08 mm`** en el relieve (`Z >= 25.0 mm`, óptimo para mezcla óptica Full Color) y **`0.10–0.12 mm`** en el zócalo plano (`0–25 mm`) mediante altura de capa variable.
 - **Resolución geométrica útil:** Pared mínima estructural `>= 0.40 mm` (`2 * 0.20 mm`), detalle positivo mínimo en XY `>= 0.25 mm`, grietas/diaclasas con ancho `>= 0.25 mm` y profundidad `>= 0.08 mm` (al menos 2 capas de `0.04 mm`).
-- **Tolerancias y material:** Mantener intactas las tolerancias del alojamiento inferior (`Ø10.20 × 5.20 mm`) y usar PLA básico o mate bien seco sin cargas sólidas (sin partículas de madera/mármol/fibra para evitar atascos en `0.20 mm`).
+- **Tolerancias y material:** Mantener intactas las tolerancias del alojamiento inferior (`Ø10.20 × 5.20 mm`) y usar exclusivamente `PLA` bien seco sin cargas sólidas.
 
 ### Invariantes Canon de Losetas Catán
 - Hexágono regular **pointy-top**: `R = 64.00 mm`, apotema `W/2 = 55.4256 mm`, ancho plano a plano `W = 110.8513 mm`, largo vértice a vértice `D = 128.0000 mm`.
