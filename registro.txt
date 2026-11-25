@@ -1400,3 +1400,18 @@ Resultados verificados:
 - **PrusaSlicer `2.9.7` (`Prusa3D.PrusaSlicer`, soporte `INDX` + `ColorMix`):** Instalado en `C:\Users\migue\AppData\Local\Programs\PrusaSlicer\PrusaSlicer-2.9.7\prusa-slicer.exe` (verificado `--help` vía `prusa-slicer-console.exe`) y acceso directo en Menú Inicio (`PrusaSlicer.lnk`).
 - **Memoria actualizada:** Añadidos ambos slicers a `docs/ia/ESTADO.md`.
 ================================================================================
+
+SESIÓN: 25/11/2026 - EXPORTACIÓN PUENTE FULL COLOR (GLB / OBJ+MTL / WEB < 35 MB)
+- Prompts literales del usuario:
+  * [25/11/2026 11:59]: "Como añado en Prusa Slicer la Core One L INDX"
+  * [25/11/2026 12:05]: "donde esta el archivo para mteerlo en el laminado?"
+  * [25/11/2026 12:07]: "T como lo meto para un full color? Segun lo he metido mis 8 cabezales tenian naranja y sale naranja la pieza xd"
+  * [25/11/2026 12:10]: "A ver, hemos perseguido un modelo asi de rico en colores para meterlo un full color como Dios manda"
+  * [25/11/2026 12:11]: "Si"
+
+Resultados y artefactos generados (`0` créditos Colab):
+- **`tools/blender/export_fullcolor_bridge.py`:** Script puente local que elimina mapas Normal/Roughness pesados y exporta geometría + `Base Color` `4K` desde `gpu_job_scene.blend + V_new.npy (v07)`:
+  1. `work_v05/fullcolor_export/catan_v07_fullcolor.glb` (`53.84 MB`, `6,149,730 Δ`, Meshopt + WebP `4K`).
+  2. `work_v05/fullcolor_export/catan_v07_fullcolor.obj` (`711.71 MB`) + `.mtl` + `albedo_4k.png` (`21.64 MB`) + `plinth_1k.png` (`0.78 MB`).
+  3. `work_v05/fullcolor_export/catan_v07_fullcolor_web_2M.glb` (`32.99 MB`, `1,045,454 Δ` protegiendo zócalo/pads `Z<=25.08`, sin Meshopt/Draco + WebP `4K`) verificado con `trimesh` y `gltf-transform inspect` para carga directa en apps web (`Color Mix Lab` / `iDither`).
+================================================================================
