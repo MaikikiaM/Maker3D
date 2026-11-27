@@ -1461,3 +1461,14 @@ Resultados verificados (geometría + vistas pre-proyección):
   - Aprobadas `1:1` (`0°`, `60°`, `180°`, `300°` y `Ortho`) en `Tableros-Catan/losetas/campo/work/painted_views/` y [campo_v1_review.md](C:/Users/migue/.gemini/antigravity/brain/34342c68-2385-41c9-a165-20883e62734d/campo_v1_review.md).
   - `240°` quedó en borrador `v2` y `120°` quedó bloqueada en el intento 3 por límite de cuota de generación de imágenes (`HTTP 429 RESOURCE_EXHAUSTED`, reset en `~4h 57m`).
 ================================================================================
+
+SESIÓN: 27/11/2026 - BIOMA CAMPO v01-CLAY (VISOR WEBGL PRE-PROYECCIÓN Y ARCHIVADO)
+- Prompts literales del usuario:
+  * [27/11/2026 18:20]: "pregunta, no seria mejor usar colab en algunos procesos?"
+  * [27/11/2026 18:21]: "Btw, quiero que me lo dejes en el HTML todo para poder verlo mejor. Ponlo como si fuera una version y ya. O pon el step en el que este la version y punto"
+
+Resultados verificados (empaquetado WebGL v01-clay + QA headless):
+- **Exportación GLB + optimización Meshopt/WebP:** Exportado `Tableros-Catan/losetas/campo/work/tile_clay_v01.glb` (`22.73 MB`, `Plinth_Gunmetal` + `Clay_Sculpt`) desde `campo_clay_scene.blend` en Blender `5.3.0` y optimizado con `tools/webgl/optimize_and_build_viewer.py --compress meshopt --texture-format webp --max-texture-size 4096 --no-simplify` a `Visores-HTML/catan-bioma-campo-v01-clay.html` (`4.715 MiB` / `4.94 MB`, ahorro `83.75%`).
+- **Versionado y galería:** Archivado snapshot completo (`catan-bioma-campo-v01-clay.html`, `tile_clay_master.stl`, `audit_6views_clay.png`, `audit_ortho.png`, `audit_report.json`, `clay_build_metrics.json` y `build_info.txt`) en `Tableros-Catan/losetas/campo/versiones/v01_clay_pre_paint/` y añadida tarjeta `Bioma 5B — Campo / Trigo (v01 · Arcilla 3D · Pre-Proyección)` en `Visores-HTML/index.html`.
+- **Verificación en navegador headless (`http://127.0.0.1:8791`):** Comprobados `index.html` y `catan-bioma-campo-v01-clay.html` (`939,614` triángulos, `110.9×128.0×56.7 mm`, presets `Sol Alpino` y `Perfil` + órbita manual) con `0` errores de consola, `0` errores de página y `0` errores WebGL.
+================================================================================
