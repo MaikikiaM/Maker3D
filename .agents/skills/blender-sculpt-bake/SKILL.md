@@ -32,6 +32,9 @@ blender.exe --background --python tools/blender/sculpt_fuse_bake_render.py -- `
 
 - **Protección estricta de interfaz Catán:**
   - El perímetro exterior hexagonal (`110.8513 × 128.0000 mm`), la altura exacta de base (`25.0000 mm`), el borde plano de carreteras (`3.50 mm`), los 6 pads circulares (`Ø20.00 mm`) y la cavidad inferior del imán (`Ø10.20 × 5.20 mm`) proceden de la base B-Rep (`build123d`) o se refuerzan mediante operación booleana limpia, evitando que la textura o el remesh invadan las zonas funcionales.
+- **Resolución prioritaria e inspección macro en props independientes (fuera de la malla común del terreno):**
+  - Todo objeto que **no** siga la rejilla continua de alta densidad del terreno/cultivo (árboles, arbustos, piedras, vallas, ruedas, balas de heno/paja, gavillas, arados, herramientas, puentes, estructuras o miniaturas) **debe** modelarse con **resolución superficial igual o superior a la de los árboles y el terreno** (`arista <= 0.06–0.10 mm`, icosaedros subdivididos isotrópicos, cilindros/barridos de `48–96` segmentos con vetas, cuerdas, biseles y fibras físicas esculpidas; **prohibido** usar primitivas de `10–24` segmentos o cubos rectos sin biselar).
+  - Todo pase de auditoría (`Clay` y `PBR`) debe incluir e inspeccionar por `read_file` **renders macro dedicados sobre los props** (no solo vista general de loseta) y comprobarlos de cerca en el visor WebGL.
 - **Validación topológica en `bmesh` antes de exportar:**
   - Verifica `non_manifold_edges == 0` y `boundary_edges == 0`.
   - Exporta `tile_master.stl` (impresión) y `tile_viewer.glb` (visor WebGL con materiales PBR y albedo embebido).

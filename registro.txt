@@ -1499,3 +1499,18 @@ Resultados verificados (`tools/blender/build_campo_clay.py` + `mesh_and_print_au
 - **Inspección visual + Visor WebGL `v03-clay`:** Verificados `clay_trees_closeup.png`, `audit_6views_clay.png` y `audit_ortho.png`; exportado `tile_clay_v03.glb` (`74.39 MB`) y generado `Visores-HTML/catan-bioma-campo-v03-clay.html` (`16,051,460 B` / `15.31 MiB`, `83.84%` ahorro `meshopt+webp`, `--no-simplify`), añadido en `Visores-HTML/index.html` y archivado en `Tableros-Catan/losetas/campo/versiones/v03_clay_pre_paint/`.
 - **Verificación headless (`http://127.0.0.1:8793`):** Comprobados `index.html` y `catan-bioma-campo-v03-clay.html` con zoom cercano sobre robles/cipreses (`0` errores de consola, `0` errores de página, `0` errores WebGL, `0` peticiones fallidas).
 ================================================================================
+
+SESIÓN: 27/11/2026 - BIOMA CAMPO v04-CLAY (ALTA RESOLUCIÓN EN RUEDA, BALAS, VALLAS, GAVILLAS, ARADO Y REGLA DE SKILLS)
+- Prompts literales del usuario:
+  * [27/11/2026 19:19]: "La rueda se ve fatal, las balas de heno no se ven muy bien y la valla madera tampoco. Aumenta resoluciones. Tb pon en la skill que todos los objetos que no sigan una malla comun como sí lo hace el trigo deberian tener muchas mas resolucion (el mismo nivel aplicado a los arboles o mayor) y fijarse mas en ellos"
+
+Resultados verificados (`tools/blender/build_campo_clay.py` + skills + `mesh_and_print_audit.py --nozzle-mm 0.2` + WebGL QA):
+- **Regla permanente en skills y arquitectura:** Añadido el requisito obligatorio de resolución superficial igual o superior a los árboles (`arista <= 0.06–0.10 mm`, mallas subdivididas/loft de `48–96` segs, biseles, vetas y ataduras 3D) e inspección visual macro dedicada en `.agents/skills/blender-sculpt-bake/SKILL.md`, `.agents/skills/nanobanana-3d-sculpt/SKILL.md` y `.agents/rules/maker3d-architecture.md`.
+- **Reesculpido integral de props agrícolas (`tools/blender/build_campo_clay.py`):**
+  - Rueda de carro (`~9,124 Δ`, `96` segs, bandaje férreo con `16` remaches, pina de madera, `10` radios ahusados, buje torneado y asiento trasero oculto bajo la mitad enterrada).
+  - Balas de heno (`~15,462 Δ/ud`, `84×52` segs + tapas en espiral concéntrica, fibras cruzadas y doble cuerda trenzada en los estrangulamientos).
+  - Vallas rústicas de madera partida (`~11,132 Δ/tramo`, postes `36` segs con veta vertical y punta biselada, `2` travesaños partidos combados, franja herbácea `fence_clear` + zócalo bajo y membrana rehundida `0.40 mm`).
+  - Gavillas de trigo (`~6,706 Δ/ud`, `64×32` segs con `28` estrías de tallo, cuerda trenzada y corona Voronoi `subdiv=3`) y arado manual (`~2,908 Δ`, timón ascendente hacia el tiro en `(11.4, -17.0)`, reja curva anclada y estevas torneadas).
+- **Auditoría FDM (`0.20 mm` · `--catan-check` · `PASS` nativo `repaired=false`):** `1,595,387` vértices / `3,190,770 Δ`, `is_watertight=true`, `euler_number=2`, `degenerate_faces=0`, `volume_cm3=297.195`, `overhang_gt_deg_pct=0.276%`, `thin_wall_lt_2nozzle_pct=0.0%`, `110.8512×128.0×44.435 mm`, `6/6` pads `25.0 mm`, imán `5.2 mm`.
+- **Inspección macro + Visor WebGL `v04-clay`:** Inspeccionados `clay_props_closeup.png` y `final_step_63.png` (confirmando visualmente rueda, 4 balas, arado, gavillas, vallas y árboles); compilado `Visores-HTML/catan-bioma-campo-v04-clay.html` (`16,555,232 B` / `15.79 MiB`, `83.86%` ahorro `meshopt+webp`), añadido en `Visores-HTML/index.html` y archivado en `Tableros-Catan/losetas/campo/versiones/v04_clay_pre_paint/`. QA WebGL headless en `http://127.0.0.1:8796`: `0` errores consola/página/WebGL (`9/9` peticiones OK).
+================================================================================

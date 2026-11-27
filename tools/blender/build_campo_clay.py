@@ -116,9 +116,16 @@ def build_campo_terrain_fields(res: int = 2560, seed: int = 209) -> Dict[str, np
         _min_dist_to_polyline(X, Y, west_spur),
     ])
 
-    # Claro agrícola junto al cruce (+11.2, -13.8) y claros de raíz bajo todos los árboles de linde
-    d_staging = np.hypot(X - 11.2, Y + 13.8)
-    staging_mask = 1.0 - _smoothstep(3.8, 5.6, d_staging)
+    # Claro agrícola junto al cruce (+11.2, -13.8), claros de árboles y franja herbácea bajo las 3 vallas
+    d_staging = np.hypot(X - 11.2, Y + 14.4)
+    d_clear_wheel = np.hypot(X - 5.4, Y + 15.2)
+    staging_mask = np.maximum(1.0 - _smoothstep(4.6, 6.4, d_staging), 1.0 - _smoothstep(4.2, 6.2, d_clear_wheel))
+    d_fence = np.minimum.reduce([
+        _min_dist_to_polyline(X, Y, [(-10.8, -28.0), (-4.0, -18.5)]),
+        _min_dist_to_polyline(X, Y, [(7.2, 8.5), (14.5, 19.5)]),
+        _min_dist_to_polyline(X, Y, [(-15.0, -10.5), (-25.0, -6.5)]),
+    ])
+    fence_clear = _smoothstep(1.1, 2.2, d_fence)
     oak_clear = np.ones_like(X)
     for ox, oy in [(-0.5, 9.2), (24.0, 22.0), (-28.0, -4.5), (28.0, -10.5), (7.5, 25.5), (11.5, 27.5), (-16.5, -28.0)]:
         oak_clear = np.minimum(oak_clear, _smoothstep(2.2, 3.8, np.hypot(X - ox, Y - oy)))
@@ -161,6 +168,7 @@ def build_campo_terrain_fields(res: int = 2560, seed: int = 209) -> Dict[str, np
         * border_buf
         * (1.0 - staging_mask)
         * oak_clear
+        * fence_clear
     )
 
     parcel_angles_deg = {1: 26.0, 2: -32.0, 3: -58.0, 4: 64.0}
@@ -648,8 +656,70 @@ def _make_stone_boulder(x: float, y: float, z: float, r: float, rng: np.random.G
     return mf.Manifold(mesh2)
 
 
-def _make_solid_fence_segment(p0: Tuple[float, float], p1: Tuple[float, float], dem: np.ndarray):
-    """Valla rústica maciza con zócalo de tierra/madera hasta -2.0 mm bajo el suelo (chi=2 estricto)."""
+def _loft_closed_tube(rings: np.ndarray):
+    """Construye un sólido Manifold estanco a partir de anillos ordenados (n_len, n_rad, 3) con anillo CCW alrededor de +len."""
+    n_len, n_rad, _ = rings.shape
+    verts = rings.reshape(-1, 3).tolist()
+    c_start = np.mean(rings[0], axis=0).tolist()
+    c_end = np.mean(rings[-1], axis=0).tolist()
+    idx_start = len(verts)
+    verts.append(c_start)
+    idx_end = len(verts)
+    verts.append(c_end)
+
+    faces: List[Tuple[int, int, int]] = []
+    for i in range(n_len - 1):
+        r0 = i * n_rad
+        r1 = (i + 1) * n_rad
+        for j in range(n_rad):
+            jn = (j + 1) % n_rad
+            a, b = r0 + j, r0 + jn
+            c, d = r1 + j, r1 + jn
+            faces.append((a, b, d))
+            faces.append((a, d, c))
+
+    top_row = (n_len - 1) * n_rad
+    for j in range(n_rad):
+        jn = (j + 1) % n_rad
+        faces.append((idx_start, jn, j))
+        faces.append((idx_end, top_row + j, top_row + jn))
+
+    mesh = mf.Mesh(
+        vert_properties=np.asarray(verts, dtype=np.float32),
+        tri_verts=np.asarray(faces, dtype=np.uint32),
+    )
+    return mf.Manifold(mesh)
+
+
+def _make_braided_cord_ring(radius: float, cord_r: float = 0.065, n_major: int = 72, n_minor: int = 12, twists: int = 18):
+    """Anillo de cuerda trenzada en espiral de alta resolución (chi=2 estricto si se une con un cuerpo o toro válido)."""
+    u = np.linspace(0.0, 2.0 * math.pi, n_major, endpoint=False)
+    v = np.linspace(0.0, 2.0 * math.pi, n_minor, endpoint=False)
+    U, V = np.meshgrid(u, v, indexing="ij")
+    twist_r = cord_r * (1.0 + 0.24 * np.cos(3.0 * (V + twists * U)))
+    R_maj = radius + twist_r * np.cos(V)
+    X = R_maj * np.cos(U)
+    Y = R_maj * np.sin(U)
+    Z = twist_r * np.sin(V)
+    pts = np.stack([X, Y, Z], axis=-1).reshape(-1, 3)
+    faces: List[Tuple[int, int, int]] = []
+    for i in range(n_major):
+        inxt = (i + 1) % n_major
+        for j in range(n_minor):
+            jn = (j + 1) % n_minor
+            a = i * n_minor + j
+            b = inxt * n_minor + j
+            c = i * n_minor + jn
+            d = inxt * n_minor + jn
+            faces.append((a, b, d))
+            faces.append((a, d, c))
+    return mf.Manifold(mf.Mesh(vert_properties=np.asarray(pts, dtype=np.float32), tri_verts=np.asarray(faces, dtype=np.uint32)))
+
+
+def _make_solid_fence_segment(p0: Tuple[float, float], p1: Tuple[float, float], dem: np.ndarray, rng: np.random.Generator | None = None):
+    """Valla rústica de madera partida de alta resolución: postes con vetas/punta biselada, travesaños con relieve y zócalo bajo de piedra/sombra (chi=2)."""
+    if rng is None:
+        rng = np.random.default_rng(int(round(abs(p0[0] * 31 + p1[1] * 17))) + 91)
     x0, y0 = p0
     x1, y1 = p1
     dx, dy = x1 - x0, y1 - y0
@@ -659,73 +729,255 @@ def _make_solid_fence_segment(p0: Tuple[float, float], p1: Tuple[float, float], 
 
     n_posts = max(2, int(round(L / 4.2)) + 1)
     zs = []
+    n_rad_p = 36
+    n_len_p = 22
+    th_p = np.linspace(0.0, 2.0 * math.pi, n_rad_p, endpoint=False)
     for k in range(n_posts):
         t = k / (n_posts - 1)
         px, py = x0 + t * dx, y0 + t * dy
         pz = Z_BASE - 0.55 + _bilinear(dem, px, py)
         zs.append(pz)
-        post = mf.Manifold.cylinder(height=5.0, radius_low=0.65, radius_high=0.55, circular_segments=10)
-        parts.append(post.translate([px, py, pz - 2.0]))
 
+        # Poste de madera partida con veta vertical, nudos, bisel superior y ligera inclinación orgánica
+        ph1 = float(rng.uniform(0.0, 6.28))
+        lean_x = float(rng.uniform(-0.14, 0.14))
+        lean_y = float(rng.uniform(-0.14, 0.14))
+        rings_p = np.zeros((n_len_p, n_rad_p, 3), dtype=np.float64)
+        for iz, s in enumerate(np.linspace(0.0, 1.0, n_len_p)):
+            z_loc = -2.2 + s * 5.35
+            top_bevel = 1.0 - 0.34 * max(0.0, (s - 0.86) / 0.14) ** 1.3
+            r_mean = (0.58 - 0.10 * s) * top_bevel
+            split_sq = 1.0 + 0.065 * np.cos(4.0 * th_p + 0.35)
+            grain = 1.0 + 0.055 * np.cos(14.0 * th_p + 2.0 * s + ph1) + 0.030 * np.sin(23.0 * th_p - 3.0 * s)
+            rr = r_mean * split_sq * grain
+            rings_p[iz, :, 0] = px + lean_x * s + rr * np.cos(th_p)
+            rings_p[iz, :, 1] = py + lean_y * s + rr * np.sin(th_p)
+            rings_p[iz, :, 2] = pz + z_loc
+        parts.append(_loft_closed_tube(rings_p))
+
+    n_rad_r = 28
+    n_len_r = 24
+    th_r = np.linspace(0.0, 2.0 * math.pi, n_rad_r, endpoint=False)
     for k in range(n_posts - 1):
         t0, t1 = k / (n_posts - 1), (k + 1) / (n_posts - 1)
         mx = x0 + 0.5 * (t0 + t1) * dx
         my = y0 + 0.5 * (t0 + t1) * dy
         mz = 0.5 * (zs[k] + zs[k + 1])
-        seg_len = L / (n_posts - 1) + 0.35
+        seg_len = L / (n_posts - 1) + 0.65
         dz = zs[k + 1] - zs[k]
         pitch_deg = -math.degrees(math.atan2(dz, L / (n_posts - 1)))
 
-        # Rotación explícita pitch primero (Y) y yaw después (Z) + muro enterrado -2.5 mm (chi=2 estricto)
-        wall = mf.Manifold.cube([seg_len, 0.65, 5.8], center=True).rotate([0.0, pitch_deg, 0.0]).rotate([0.0, 0.0, ang_deg]).translate([mx, my, mz - 0.15])
-        parts.append(wall)
-        for h_rail in (1.25, 2.25):
-            rail = mf.Manifold.cube([seg_len, 1.05, 0.70], center=True).rotate([0.0, pitch_deg, 0.0]).rotate([0.0, 0.0, ang_deg]).translate([mx, my, mz + h_rail])
-            parts.append(rail)
+        # Travesaños rústicos partidos en sección ovalada-biselada con vetas longitudinales y comba suave
+        for h_rail in (1.15, 2.15):
+            rings_r = np.zeros((n_len_r, n_rad_r, 3), dtype=np.float64)
+            ph_r = float(rng.uniform(0.0, 6.28))
+            for ix, s in enumerate(np.linspace(-0.5, 0.5, n_len_r)):
+                x_loc = s * seg_len
+                bow_z = -0.10 * (1.0 - 4.0 * s * s)
+                taper_end = 1.0 - 0.14 * max(0.0, (abs(s) - 0.44) / 0.06)
+                grain = 1.0 + 0.06 * np.cos(10.0 * th_r + 3.0 * s + ph_r) + 0.03 * np.sin(18.0 * th_r - 5.0 * s)
+                ry = 0.56 * taper_end * grain * (1.0 + 0.05 * np.cos(4.0 * th_r))
+                rz = 0.36 * taper_end * grain * (1.0 + 0.05 * np.cos(4.0 * th_r))
+                rings_r[ix, :, 0] = x_loc
+                rings_r[ix, :, 1] = ry * np.cos(th_r)
+                rings_r[ix, :, 2] = rz * np.sin(th_r) + bow_z
+            # Rotación para alinear el eje X local (+seg_len) -> +Z antes o rotar tubo directamente en +X
+            rail_mf = _loft_closed_tube(rings_r).rotate([0.0, pitch_deg, 0.0]).rotate([0.0, 0.0, ang_deg]).translate([mx, my, mz + h_rail])
+            parts.append(rail_mf)
+
+        # Zócalo continuo bajo travesaño inferior + membrana de sombra rehundida (0.40 mm) entre travesaños
+        # Evita micro-túneles con el suelo (genus=0 estricto) y deja silueta libre sobre el travesaño superior
+        berm = mf.Manifold.cube([seg_len - 0.10, 1.10, 2.95], center=True).rotate([0.0, pitch_deg, 0.0]).rotate([0.0, 0.0, ang_deg]).translate([mx, my, mz - 0.30])
+        web = mf.Manifold.cube([seg_len - 0.15, 0.40, 3.60], center=True).rotate([0.0, pitch_deg, 0.0]).rotate([0.0, 0.0, ang_deg]).translate([mx, my, mz + 0.30])
+        parts.extend([berm, web])
 
     return mf.Manifold.batch_boolean(parts, mf.OpType.Add)
 
 
-def _make_straw_bale(x: float, y: float, z: float, yaw_deg: float, radius: float = 1.60, length: float = 3.5):
-    body = mf.Manifold.cylinder(length, radius, radius, circular_segments=22, center=True)
-    ring1 = mf.Manifold.cylinder(0.28, radius * 1.03, radius * 1.03, circular_segments=22, center=True).translate([0, 0, -length * 0.25])
-    ring2 = mf.Manifold.cylinder(0.28, radius * 1.03, radius * 1.03, circular_segments=22, center=True).translate([0, 0, length * 0.25])
-    return (body + ring1 + ring2).rotate([0.0, 90.0, 0.0]).rotate([0.0, 0.0, yaw_deg]).translate([x, y, z + radius * 0.58])
+def _make_straw_bale(x: float, y: float, z: float, yaw_deg: float, radius: float = 1.15, length: float = 2.45):
+    """Bala de heno enrollada de alta resolución (~18k Δ): fibras de paja longitudinales/espirales, caras estriadas y doble cuerda trenzada."""
+    n_rad = 84
+    n_len = 52
+    n_cap_rings = 10
+    th = np.linspace(0.0, 2.0 * math.pi, n_rad, endpoint=False)
+    seed_i = int(round(abs(x * 13 + y * 29 + yaw_deg))) + 17
+    rng = np.random.default_rng(seed_i)
+    p1, p2 = float(rng.uniform(0, 6.28)), float(rng.uniform(0, 6.28))
+
+    # Perfil completo: tapa trasera en espiral (n_cap_rings) -> cuerpo cilíndrico (n_len) -> tapa delantera en espiral
+    rings: List[np.ndarray] = []
+
+    def _cap_ring(r_frac: float, z_pos: float, sign_z: float) -> np.ndarray:
+        rr = radius * 0.96 * r_frac
+        spiral = 0.032 * radius * np.sin(14.0 * r_frac * 2.0 * math.pi + 2.0 * th + p1) * (1.0 - 0.35 * (1.0 - r_frac))
+        stalks = 0.018 * radius * np.cos(34.0 * th + 8.0 * r_frac + p2)
+        dome = sign_z * (0.045 * radius * (1.0 - r_frac * r_frac) + spiral + stalks)
+        y_pts = rr * np.cos(th)
+        z_pts = rr * np.sin(th)
+        return np.column_stack([y_pts, z_pts, np.full_like(th, z_pos) + dome])
+
+    # Tapa -length/2 (desde centro hacia borde)
+    for k in range(1, n_cap_rings):
+        rings.append(_cap_ring(k / n_cap_rings, -0.5 * length, -1.0))
+
+    # Cuerpo cilíndrico entre -length/2 y +length/2
+    for s in np.linspace(0.0, 1.0, n_len):
+        z_pos = (-0.5 + s) * length
+        # Abombamiento orgánico + 2 estrangulamientos nítidos donde ciñe la cuerda en s=0.26 y s=0.74
+        crown = 1.0 + 0.045 * math.sin(math.pi * s)
+        cinch = 1.0 - 0.085 * math.exp(-((s - 0.26) / 0.042) ** 2) - 0.085 * math.exp(-((s - 0.74) / 0.042) ** 2)
+        end_chamfer = 1.0 - 0.06 * (abs(2.0 * s - 1.0) ** 8)
+        straw_wraps = 0.034 * np.cos(36.0 * s * math.pi + 2.2 * np.sin(3.0 * th) + p1)
+        straw_cross = 0.024 * np.cos(28.0 * th + 10.0 * s + p2) + 0.016 * np.sin(46.0 * th - 14.0 * s + p1)
+        rr = radius * crown * cinch * end_chamfer * (1.0 + straw_wraps + straw_cross)
+        y_pts = rr * np.cos(th)
+        z_pts = rr * np.sin(th)
+        rings.append(np.column_stack([y_pts, z_pts, np.full_like(th, z_pos)]))
+
+    # Tapa +length/2 (desde borde hacia centro)
+    for k in range(n_cap_rings - 1, 0, -1):
+        rings.append(_cap_ring(k / n_cap_rings, 0.5 * length, 1.0))
+
+    bale_body = _loft_closed_tube(np.asarray(rings, dtype=np.float64))
+    r_cinch = radius * 0.905
+    rope1 = _make_braided_cord_ring(r_cinch, cord_r=0.082, n_major=72, n_minor=12, twists=20).translate([0, 0, -0.24 * length])
+    rope2 = _make_braided_cord_ring(r_cinch, cord_r=0.082, n_major=72, n_minor=12, twists=20).translate([0, 0, 0.24 * length])
+    bale = mf.Manifold.batch_boolean([bale_body, rope1, rope2], mf.OpType.Add)
+    return bale.rotate([0.0, 90.0, 0.0]).rotate([0.0, 0.0, yaw_deg]).translate([x, y, z + radius * 0.56])
 
 
-def _make_wheat_sheaf(x: float, y: float, z: float, yaw_deg: float, scale: float = 1.0):
-    bot = mf.Manifold.cylinder(2.2 * scale, 1.10 * scale, 0.54 * scale, circular_segments=14).translate([0, 0, -0.85 * scale])
-    tie = mf.Manifold.cylinder(0.42 * scale, 0.64 * scale, 0.64 * scale, circular_segments=14).translate([0, 0, 1.25 * scale])
-    top = mf.Manifold.cylinder(2.0 * scale, 0.54 * scale, 1.15 * scale, circular_segments=14).translate([0, 0, 1.45 * scale])
-    cap = mf.Manifold.sphere(1.08 * scale, 14).scale([1.0, 1.0, 0.42]).translate([0, 0, 3.35 * scale])
-    return mf.Manifold.batch_boolean([bot, tie, top, cap], mf.OpType.Add).rotate([3.0, -3.0, 0.0]).rotate([0.0, 0.0, yaw_deg]).translate([x, y, z])
+def _make_wheat_sheaf(x: float, y: float, z: float, yaw_deg: float, scale: float = 0.72):
+    """Gavilla de trigo atada de alta resolución (~14k Δ): 28 tallos acanalados, atadura de cuerda trenzada y corona de espigas Voronoi."""
+    n_rad = 64
+    n_len = 32
+    th = np.linspace(0.0, 2.0 * math.pi, n_rad, endpoint=False)
+    rng = np.random.default_rng(int(round(abs(x * 19 + y * 37))) + 53)
+    ph = float(rng.uniform(0.0, 6.28))
+
+    h_tot = 3.25 * scale
+    rings = np.zeros((n_len, n_rad, 3), dtype=np.float64)
+    for iz, s in enumerate(np.linspace(0.0, 1.0, n_len)):
+        # Reloj de arena ceñido en s=0.58
+        waist = 0.50 + 0.55 * abs(s - 0.58) ** 1.35 + 0.14 * (1.0 - s)
+        cinch = 1.0 - 0.10 * math.exp(-((s - 0.58) / 0.045) ** 2)
+        stalks = 1.0 + 0.070 * np.cos(28.0 * th + 0.6 * s + ph) + 0.032 * np.sin(46.0 * th - 1.2 * s)
+        rr = 0.88 * scale * waist * cinch * stalks
+        rings[iz, :, 0] = rr * np.cos(th)
+        rings[iz, :, 1] = rr * np.sin(th)
+        rings[iz, :, 2] = -0.65 * scale + s * h_tot
+
+    body = _loft_closed_tube(rings)
+    tie = _make_braided_cord_ring(0.415 * scale, cord_r=0.088 * scale, n_major=60, n_minor=12, twists=18).translate([0, 0, -0.65 * scale + 0.58 * h_tot])
+    cap = _botanical_foliage_lobe(
+        0.92 * scale, (1.0, 1.0, 0.52), rng, subdiv=3, n_tufts=54, tuft_amp=0.22, micro_amp=0.08
+    ).translate([0, 0, -0.65 * scale + h_tot * 0.96])
+    sheaf = mf.Manifold.batch_boolean([body, tie, cap], mf.OpType.Add)
+    return sheaf.rotate([3.0, -3.0, 0.0]).rotate([0.0, 0.0, yaw_deg]).translate([x, y, z])
 
 
-def _make_solid_cartwheel(x: float, y: float, z: float, yaw_deg: float, radius: float = 3.3):
-    plate = mf.Manifold.cylinder(0.75, radius - 0.15, radius - 0.15, circular_segments=24, center=True)
-    outer = mf.Manifold.cylinder(1.05, radius, radius, circular_segments=24, center=True)
-    inner = mf.Manifold.cylinder(1.25, radius - 0.85, radius - 0.85, circular_segments=24, center=True)
-    rim = outer - inner
-    hub = mf.Manifold.cylinder(1.35, 0.85, 0.85, circular_segments=14, center=True)
-    parts = [plate, rim, hub]
-    for k in range(8):
-        spoke = mf.Manifold.cube([(radius - 0.35) * 2.0, 0.52, 0.88], center=True).rotate([0, 0, k * 45.0])
+def _make_solid_cartwheel(x: float, y: float, z: float, yaw_deg: float, radius: float = 2.45):
+    """Rueda de carro de madera y hierro forjado de alta resolución (~28k Δ): llanta 96-seg con 16 remaches, pina segmentada, 10 radios ahusados, buje torneado y disco de sombra rehundido (chi=2)."""
+    # Disco de respaldo rehundido (0.42 mm >= 2x boquilla 0.20 mm) para garantizar chi=2 dejando radios y pina en alto relieve (+0.32 mm cada lado)
+    plate = mf.Manifold.cylinder(0.42, radius - 0.42, radius - 0.42, circular_segments=96, center=True)
+
+    # Bandaje exterior de hierro forjado + pina interior de madera con juntas
+    iron_tire = mf.Manifold.cylinder(0.92, radius, radius, circular_segments=96, center=True) - mf.Manifold.cylinder(1.10, radius - 0.16, radius - 0.16, circular_segments=96, center=True)
+    wood_felloe = mf.Manifold.cylinder(0.84, radius - 0.14, radius - 0.14, circular_segments=96, center=True) - mf.Manifold.cylinder(1.10, radius - 0.54, radius - 0.54, circular_segments=96, center=True)
+
+    # Buje central torneado en madera + aros metálicos + eje sobresaliente
+    hub = mf.Manifold.cylinder(1.42, 0.56, 0.52, circular_segments=64, center=True)
+    hub_band_f = mf.Manifold.cylinder(0.18, 0.59, 0.59, circular_segments=64, center=True).translate([0, 0, 0.46])
+    hub_band_b = mf.Manifold.cylinder(0.18, 0.59, 0.59, circular_segments=64, center=True).translate([0, 0, -0.46])
+    axle_pin = mf.Manifold.cylinder(1.75, 0.24, 0.20, circular_segments=24, center=True)
+
+    parts = [plate, iron_tire, wood_felloe, hub, hub_band_f, hub_band_b, axle_pin]
+
+    # 10 radios torneados ahusados (más gruesos en el buje, más finos hacia la pina) sobresaliendo a ambos lados del disco
+    n_spokes = 10
+    for k in range(n_spokes):
+        ang = k * (2.0 * math.pi / n_spokes)
+        rings_sp = np.zeros((10, 20, 3), dtype=np.float64)
+        th_s = np.linspace(0.0, 2.0 * math.pi, 20, endpoint=False)
+        for i, s in enumerate(np.linspace(0.0, 1.0, 10)):
+            r_rad = 0.44 + s * (radius - 0.90)
+            ry = 0.155 * (1.0 - 0.26 * s) * (1.0 + 0.08 * math.sin(math.pi * s))
+            rz = 0.37 * (1.0 - 0.12 * s)
+            rings_sp[i, :, 0] = r_rad
+            rings_sp[i, :, 1] = ry * np.cos(th_s)
+            rings_sp[i, :, 2] = rz * np.sin(th_s)
+        spoke = _loft_closed_tube(rings_sp).rotate([0.0, 0.0, math.degrees(ang)])
         parts.append(spoke)
-    wheel = mf.Manifold.batch_boolean(parts, mf.OpType.Add).rotate([78.0, 0.0, 0.0]).rotate([0.0, 0.0, yaw_deg]).translate([x, y, z + radius * 0.55])
-    plinth_wedge = mf.Manifold.cylinder(2.6, radius * 0.72, radius * 0.55, circular_segments=16).translate([x, y, z - 1.5])
-    return wheel + plinth_wedge
+
+    # 16 remaches metálicos alrededor del bandaje exterior
+    for k in range(16):
+        ang = k * (2.0 * math.pi / 16.0)
+        rivet = mf.Manifold.sphere(0.095, 12).scale([1.0, 1.0, 0.65]).translate([(radius - 0.01) * math.cos(ang), (radius - 0.01) * math.sin(ang), 0.0])
+        parts.append(rivet)
+
+    # Respaldo discreto estrictamente en la mitad inferior enterrada (nunca sobresale tras la mitad superior visible)
+    back_seat = mf.Manifold.cylinder(0.85, radius * 0.56, radius * 0.44, circular_segments=28).translate([0.0, -0.52 * radius, -0.87])
+    parts.append(back_seat)
+
+    wheel = mf.Manifold.batch_boolean(parts, mf.OpType.Add)
+    # Inclinada de lado a 36° sobre el claro agrícola: radios frontales y perfil trasero limpios
+    return wheel.rotate([36.0, 0.0, 0.0]).rotate([0.0, 0.0, yaw_deg]).translate([x, y, z + radius * 0.34])
 
 
 def _make_hand_plow(x: float, y: float, z: float, yaw_deg: float):
-    """Arado manual con cuña continua sólida y rotaciones ordenadas (chi=2 estricto)."""
-    parts = [
-        mf.Manifold.cube([6.4, 0.90, 0.95], center=True).rotate([0, -10, 0]).translate([0.0, 0.0, 1.35]),
-        mf.Manifold.cube([3.2, 1.05, 3.2], center=True).rotate([0, 20, 0]).translate([-1.4, 0.0, 0.20]),
-        mf.Manifold.cube([3.4, 1.55, 2.5], center=True).translate([1.4, 0.0, 0.75]),
-        mf.Manifold.cube([4.2, 0.85, 0.85], center=True).rotate([0, 24, 0]).rotate([0, 0, 10]).translate([2.6, 0.62, 2.30]),
-        mf.Manifold.cube([4.2, 0.85, 0.85], center=True).rotate([0, 24, 0]).rotate([0, 0, -10]).translate([2.6, -0.62, 2.30]),
-    ]
-    return mf.Manifold.batch_boolean(parts, mf.OpType.Add).rotate([0.0, 0.0, yaw_deg]).translate([x, y, z - 0.45])
+    """Arado manual campesino de alta resolución (~8k Δ): timón curvo ascendente, reja metálica anclada y estevas torneadas (chi=2)."""
+    parts: List = []
+    th = np.linspace(0.0, 2.0 * math.pi, 24, endpoint=False)
+
+    # 1. Timón principal ascendente hacia adelante (extremo delantero libre a +1.45 mm sobre el suelo para evitar túneles)
+    rings_b = np.zeros((20, 24, 3), dtype=np.float64)
+    for i, s in enumerate(np.linspace(0.0, 1.0, 20)):
+        bx = -2.3 + s * 3.4
+        bz = 1.48 - 0.58 * s + 0.14 * math.sin(math.pi * s)
+        hw = 0.24 * (1.0 - 0.12 * s)
+        hh = 0.28 * (1.0 - 0.12 * s)
+        chamf = 1.0 + 0.06 * np.cos(4.0 * th) + 0.035 * np.cos(12.0 * th + 2.0 * s)
+        rings_b[i, :, 0] = bx
+        rings_b[i, :, 1] = hw * chamf * np.cos(th)
+        rings_b[i, :, 2] = bz + hh * chamf * np.sin(th)
+    parts.append(_loft_closed_tube(rings_b))
+
+    # 2. Cama / reja metálica curva y biselada en cuña hincada limpiamente en tierra
+    rings_s = np.zeros((16, 24, 3), dtype=np.float64)
+    for i, s in enumerate(np.linspace(0.0, 1.0, 16)):
+        sx = -1.35 + s * 2.35
+        sz = -0.10 + 0.35 * s
+        sw = 0.44 * (1.0 - 0.68 * (1.0 - s)) + 0.14
+        sh = 0.32 * (0.45 + 0.55 * s)
+        rings_s[i, :, 0] = sx
+        rings_s[i, :, 1] = sw * np.cos(th)
+        rings_s[i, :, 2] = sz + sh * np.sin(th)
+    parts.append(_loft_closed_tube(rings_s))
+
+    # 3. Cuerpo central continuo y suela sólida bajo la reja (chi=2 estricto sin huecos con el terreno)
+    parts.append(mf.Manifold.cube([2.05, 0.42, 1.35], center=True).translate([-0.15, 0.0, 0.52]))
+    share_bed = mf.Manifold.cube([2.30, 0.68, 1.50], center=True).translate([-0.15, 0.0, -0.52])
+    heel = mf.Manifold.cylinder(1.65, 0.62, 0.44, circular_segments=24).translate([0.55, 0.0, -0.55])
+    parts.extend([share_bed, heel])
+
+    # 4. Dos estevas/brazos curvos ascendentes con empuñaduras torneadas + travesaño central
+    for side in (-1.0, 1.0):
+        rings_h = np.zeros((18, 20, 3), dtype=np.float64)
+        th_h = np.linspace(0.0, 2.0 * math.pi, 20, endpoint=False)
+        for i, s in enumerate(np.linspace(0.0, 1.0, 18)):
+            hx = 0.40 + s * 2.35
+            hy = side * (0.14 + 0.56 * (s ** 1.15))
+            hz = 0.50 + 1.60 * (s ** 0.90)
+            grip = 1.0 + 0.24 * math.exp(-((s - 0.90) / 0.09) ** 2)
+            rr = 0.18 * grip
+            rings_h[i, :, 0] = hx
+            rings_h[i, :, 1] = hy + rr * np.cos(th_h)
+            rings_h[i, :, 2] = hz + rr * np.sin(th_h)
+        parts.append(_loft_closed_tube(rings_h))
+
+    handle_brace = mf.Manifold.cube([1.35, 0.92, 0.40], center=True).rotate([0.0, -28.0, 0.0]).translate([1.45, 0.0, 1.15])
+    parts.append(handle_brace)
+
+    return mf.Manifold.batch_boolean(parts, mf.OpType.Add).rotate([0.0, 0.0, yaw_deg]).translate([x, y, z - 0.08])
 
 
 def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int = 707):
@@ -851,11 +1103,11 @@ def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int =
         sz = Z_BASE - 0.55 + _bilinear(dem, sx, sy)
         props.append(_make_wheat_sheaf(sx, sy, sz, syaw, ss))
 
-    wx, wy = 2.2, -14.8
+    wx, wy = 5.4, -15.2
     props.append(_make_solid_cartwheel(wx, wy, Z_BASE - 0.55 + _bilinear(dem, wx, wy), yaw_deg=-25.0, radius=2.35))
 
-    px, py = 6.4, -15.6
-    props.append(_make_hand_plow(px, py, Z_BASE - 0.55 + _bilinear(dem, px, py), yaw_deg=35.0))
+    px, py = 11.4, -17.0
+    props.append(_make_hand_plow(px, py, Z_BASE - 0.55 + _bilinear(dem, px, py), yaw_deg=28.0))
 
     print(
         f"[CampoClay v2.1] Props: {len(oak_spots)} frondosos + {len(cypress_spots)} cipreses en lindes, "
@@ -1094,6 +1346,14 @@ def run_blender_render_views(out_dir: Path, res_px: int = 1024, samples: int = 2
     cam_obj.rotation_euler = (mathutils.Vector((3.5, 16.5, 34.0)) - cam_obj.location).to_track_quat("-Z", "Y").to_euler()
     bpy.context.view_layer.update()
     sc.render.filepath = str(out_dir / "clay_trees_closeup.png")
+    bpy.ops.render.render(write_still=True)
+
+    # Render macro dedicado a rueda, balas de heno, arado, gavillas y valla de madera (regla props independientes)
+    cam_data.lens = 48.0
+    cam_obj.location = (0.0, -37.0, 44.0)
+    cam_obj.rotation_euler = (mathutils.Vector((5.5, -15.5, 27.2)) - cam_obj.location).to_track_quat("-Z", "Y").to_euler()
+    bpy.context.view_layer.update()
+    sc.render.filepath = str(out_dir / "clay_props_closeup.png")
     bpy.ops.render.render(write_still=True)
 
     (out_dir / "cameras.json").write_text(json.dumps(cams_json, indent=2), encoding="utf-8")
