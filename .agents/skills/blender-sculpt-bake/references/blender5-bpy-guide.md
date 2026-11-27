@@ -34,3 +34,8 @@ Notas comprobadas directamente sobre el ejecutable instalado en `C:\Users\migue\
       scene.cycles.use_denoising = True
   ```
 - Para renders `Clay` rápidos y nítidos en auditoría topológica, asignar material override neutro mate (`Roughness = 0.65`, `Base Color = (0.72, 0.70, 0.66, 1.0)`) usando `view_layer.material_override = clay_mat` temporalmente sobre `CYCLES` CPU.
+
+## 5. Trampas Verificadas de Materiales y Python Embebido (Blender 5.3)
+
+- **Preservar `material_index` al limpiar slots:** llamar a `obj.data.materials.clear()` o `me.materials.clear()` reinicia a `0` todos los índices de material por polígono. Guardar siempre antes con `poly_mat = np.empty(len(me.polygons), dtype=np.int32); me.polygons.foreach_get("material_index", poly_mat)` y restaurar con `foreach_set("material_index", poly_mat.tolist())` tras añadir los nuevos materiales.
+- **Sin `Pillow` (`PIL`) en el Python de Blender:** el intérprete embebido de Blender `5.3` no trae `PIL`. Cualquier ensamblado de mosaicos PNG de auditoría debe ejecutarse en Python del sistema (o protegerse con `try/except ImportError` dentro del script de Blender).

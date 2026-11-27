@@ -1543,3 +1543,16 @@ Resultados verificados (`tools/blender/build_campo_clay.py` + `tools/blender/cam
   - `Visores-HTML/catan-bioma-campo-v06a-trigo-fino.html` (`45.84 MiB` / `48,066,297 B`, `81.86%` ahorro `meshopt+webp 4K`) y `Visores-HTML/catan-bioma-campo-v06b-surco-arado.html` (`36.42 MiB` / `38,185,805 B`, `83.0%` ahorro) enlazados como `Bioma 5G` y `Bioma 5H` en `Visores-HTML/index.html`.
   - Verificación headless Chromium (`index.html` + `v06a` + `v06b` con `Sol Alpino` y zoom macro): `0` errores consola/página/WebGL, `0` peticiones fallidas (`final_step_18.png`).
 ================================================================================
+
+SESIÓN: 27/11/2026 - PERSISTENCIA /learn (REGLAS Y SKILLS MAKER3D 2.0 DESDE SESIÓN CAMPO)
+- Prompts literales del usuario:
+  * [27/11/2026 22:10]: "Te tiro un barra learn? Creo que hay muchas cosas que puedes haber aprendido de esta sesion, como el tema de detalles, las cosas que te he dicho que corrijas y que podrian haberse evitado..."
+  * [27/11/2026 22:10]: "/learn "
+  * [27/11/2026 22:29]: "" (Aprobación directa del artefacto learning_proposal.md vía botón Proceder)
+
+Resultados verificados (aplicación aprobada de `learning_proposal.md` en `.agents/`):
+- **`.agents/rules/maker3d-architecture.md`:** Añadida regla de techo vertical (*la altura es un máximo, no un mínimo*, `Z_suelo ~ 26–31 mm` en biomas bajos y relación `9–12×` con árboles), regla anti-"cartón de huevos" para relieves `2.5D` repetitivos calibrados a boquilla `0.20 mm` (crestas romas `>= 0.22–0.28 mm`, pendientes `~36°–50°`, *jitter* orgánico) y verificación macro del contacto prop–suelo.
+- **`.agents/skills/blender-sculpt-bake/SKILL.md`:** Añadida inspección macro obligatoria del patrón repetitivo vs props, horneado por lotes en una sola sesión GPU Colab (`--work-dirs`) y normalización dinámica por percentiles (`p4..p97`) en shaders semánticos `2.5D`.
+- **`.agents/skills/blender-sculpt-bake/references/blender5-bpy-guide.md`:** Documentada la restauración obligatoria de `material_index` tras `materials.clear()` y la ausencia de `PIL` en el Python embebido de Blender `5.3`.
+- **`.agents/skills/print-audit-and-webgl/SKILL.md`:** Fijada la publicación de visores HTML versionados (`-vNN-<etiqueta>.html`, `< 50 MB`) en `Visores-HTML/index.html` y `versiones/` para pasos `Clay` y comparativas `A/B`.
+================================================================================
