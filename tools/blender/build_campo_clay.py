@@ -1,11 +1,10 @@
 """
-Constructor 3D Watertight v2.1 para Bioma Campo (Full Trigo · Campos por Arar · Sin Estructuras).
-- Relieve continuo de colinas suaves + 3 brazos de camino rural que coinciden exactamente con
-  los bordes de las 4 parcelas (cero choques de dirección de surcos en mitad de un campo).
-- Hileras paralelas y espigas onduladas de trigo en alta densidad (n_seg=440, arista ~0.145 mm).
-- Props agrícolas orgánicos puros únicamente en lindes y claro de cosecha (árboles texturizados
-  de linde, setos asimétricos, piedras de linde, vallas macizas sin túneles, balas de paja,
-  gavillas, rueda maciza y arado manual).
+Constructor 3D Watertight v2.2 para Bioma Campo (Full Trigo · Campos por Arar · Sin Estructuras).
+- Campiña suave y baja (Z_suelo ~26-31 mm sobre Z_BASE=25 mm) con 4 parcelas alineadas exactamente
+  a 3 brazos de camino rural con roderas, sin hueco de número ni edificios.
+- Surcos e hileras finas de trigo de alta densidad (n_seg=760, arista ~0.083 mm, DEM 2560x2560).
+- Árboles de linde proporcionados al cultivo (~9-12x la altura del trigo: frondosos 11-13 mm,
+  cipreses 13-15 mm), setos bajos, piedras de linde, vallas, balas, gavillas, rueda y arado.
 - Garantía estricta: is_watertight=True, euler_number=2 (genus=0), 0 estructuras/edificios.
 """
 from __future__ import annotations
@@ -83,7 +82,7 @@ def _min_dist_to_polyline(x: np.ndarray, y: np.ndarray, pts: List[Tuple[float, f
     return dmin
 
 
-def build_campo_terrain_fields(res: int = 1536, seed: int = 209) -> Dict[str, np.ndarray]:
+def build_campo_terrain_fields(res: int = 2560, seed: int = 209) -> Dict[str, np.ndarray]:
     xs = np.linspace(-R, R, res)
     ys = np.linspace(-R, R, res)
     X, Y = np.meshgrid(xs, ys)
@@ -93,13 +92,14 @@ def build_campo_terrain_fields(res: int = 1536, seed: int = 209) -> Dict[str, np
         PAD_RADIUS + 0.9, PAD_RADIUS + 4.2, dv
     )
 
-    fbm_broad = _fbm((res, res), seed=seed, sigmas=(60.0, 24.0, 8.0), weights=(0.64, 0.25, 0.11))
-    fbm_fine = _fbm((res, res), seed=seed + 53, sigmas=(11.0, 4.5, 2.0), weights=(0.55, 0.30, 0.15))
+    fbm_broad = _fbm((res, res), seed=seed, sigmas=(95.0, 38.0, 12.0), weights=(0.64, 0.25, 0.11))
+    fbm_fine = _fbm((res, res), seed=seed + 53, sigmas=(18.0, 7.5, 3.2), weights=(0.55, 0.30, 0.15))
 
-    hill_nw = 15.0 * np.exp(-(((X + 12.0) / 28.0) ** 2 + ((Y - 14.0) / 26.0) ** 2))
-    hill_e = 11.2 * np.exp(-(((X - 20.0) / 24.0) ** 2 + ((Y - 3.0) / 27.0) ** 2))
-    hill_sw = 7.2 * np.exp(-(((X + 16.0) / 22.0) ** 2 + ((Y + 20.0) / 21.0) ** 2))
-    base_hills = (hill_nw + hill_e + hill_sw + 2.8 + 1.5 * fbm_broad) * rim_taper
+    # Campiña suave y baja (max ~5-6 mm de ondulación de suelo sobre Z_BASE=25 mm -> Z_suelo ~26-31 mm)
+    hill_nw = 4.2 * np.exp(-(((X + 12.0) / 30.0) ** 2 + ((Y - 14.0) / 28.0) ** 2))
+    hill_e = 3.1 * np.exp(-(((X - 20.0) / 26.0) ** 2 + ((Y - 3.0) / 28.0) ** 2))
+    hill_sw = 2.0 * np.exp(-(((X + 16.0) / 24.0) ** 2 + ((Y + 20.0) / 23.0) ** 2))
+    base_hills = (hill_nw + hill_e + hill_sw + 1.05 + 0.45 * fbm_broad) * rim_taper
 
     # Polilíneas del camino rural en 3 brazos curvos
     # Polilínea continua S -> NE para definir exactamente qué está al Oeste vs al Este
@@ -116,12 +116,12 @@ def build_campo_terrain_fields(res: int = 1536, seed: int = 209) -> Dict[str, np
         _min_dist_to_polyline(X, Y, west_spur),
     ])
 
-    # Claro agrícola junto al cruce (+11.2, -13.8) y claros de raíz bajo los 4 árboles de linde (evita micro-túneles)
+    # Claro agrícola junto al cruce (+11.2, -13.8) y claros de raíz bajo todos los árboles de linde
     d_staging = np.hypot(X - 11.2, Y + 13.8)
-    staging_mask = 1.0 - _smoothstep(4.0, 6.0, d_staging)
+    staging_mask = 1.0 - _smoothstep(3.8, 5.6, d_staging)
     oak_clear = np.ones_like(X)
-    for ox, oy in [(-0.5, 9.2), (24.0, 22.0), (-28.0, -4.5), (28.0, -10.5)]:
-        oak_clear = np.minimum(oak_clear, _smoothstep(2.4, 4.2, np.hypot(X - ox, Y - oy)))
+    for ox, oy in [(-0.5, 9.2), (24.0, 22.0), (-28.0, -4.5), (28.0, -10.5), (7.5, 25.5), (11.5, 27.5), (-16.5, -28.0)]:
+        oak_clear = np.minimum(oak_clear, _smoothstep(2.2, 3.8, np.hypot(X - ox, Y - oy)))
 
     # Fronteras EXACTAS alineadas con las polilíneas (interpolación por Y en main_lane y por X en ramales)
     lane_pts_y = np.array([p[1] for p in main_lane])
@@ -144,15 +144,15 @@ def build_campo_terrain_fields(res: int = 1536, seed: int = 209) -> Dict[str, np
     parcel_id[is_east & (Y < y_east_at_x)] = 4     # Parcela SE
 
     # Escalonado suave entre parcelas
-    parcel_offsets = {1: 1.5, 2: 0.3, 3: 1.1, 4: 0.0}
+    parcel_offsets = {1: 0.65, 2: 0.15, 3: 0.45, 4: 0.0}
     terrace_bump = np.zeros_like(base_hills)
     for pid, off in parcel_offsets.items():
         terrace_bump += off * (parcel_id == pid).astype(np.float64)
-    terrace_bump = ndi.gaussian_filter(terrace_bump, sigma=8.0) * rim_taper
+    terrace_bump = ndi.gaussian_filter(terrace_bump, sigma=12.0) * rim_taper
 
-    road_half_w = 1.25
+    road_half_w = 1.15
     road_trench = (1.0 - _smoothstep(road_half_w * 0.65, road_half_w * 1.55, d_road)) * rim_taper
-    ruts = np.exp(-((d_road - 0.45) / 0.22) ** 2) * 0.22 * road_trench
+    ruts = np.exp(-((d_road - 0.42) / 0.20) ** 2) * 0.15 * road_trench
 
     border_buf = _smoothstep(road_half_w * 1.15, road_half_w * 2.15, d_road)
     wheat_mask = (
@@ -164,8 +164,8 @@ def build_campo_terrain_fields(res: int = 1536, seed: int = 209) -> Dict[str, np
     )
 
     parcel_angles_deg = {1: 26.0, 2: -32.0, 3: -58.0, 4: 64.0}
-    row_pitch_mm = 1.32
-    grain_pitch_mm = 0.84
+    row_pitch_mm = 0.94
+    grain_pitch_mm = 0.62
     wheat_sculpt = np.zeros_like(base_hills)
 
     for pid, ang_deg in parcel_angles_deg.items():
@@ -174,21 +174,21 @@ def build_campo_terrain_fields(res: int = 1536, seed: int = 209) -> Dict[str, np
             continue
         th = math.radians(ang_deg)
         ct, st = math.cos(th), math.sin(th)
-        u = X * ct + Y * st + 2.4 * np.sin((X * (-st) + Y * ct) / 17.0)
+        u = X * ct + Y * st + 2.1 * np.sin((X * (-st) + Y * ct) / 16.0)
         v = -X * st + Y * ct
 
         phase_u = 2.0 * math.pi * u / row_pitch_mm
         row_ridge = 0.5 + 0.5 * np.cos(phase_u - 0.35 * np.sin(phase_u))
         row_ridge = np.power(np.clip(row_ridge, 0.0, 1.0), 0.85)
 
-        phase_v = 2.0 * math.pi * v / grain_pitch_mm + 1.9 * np.sin(u * 2.7)
+        phase_v = 2.0 * math.pi * v / grain_pitch_mm + 1.8 * np.sin(u * 2.9)
         grain_beads = 0.5 + 0.5 * np.cos(phase_v)
 
-        wind_swell = 0.82 + 0.18 * np.sin(u / 6.5 + v / 9.0)
-        wheat_sculpt += m * wind_swell * (1.05 + 1.20 * row_ridge + 0.72 * row_ridge * grain_beads)
+        wind_swell = 0.84 + 0.16 * np.sin(u / 6.5 + v / 9.0)
+        wheat_sculpt += m * wind_swell * (0.46 + 0.58 * row_ridge + 0.36 * row_ridge * grain_beads)
 
-    wheat_sculpt = ndi.gaussian_filter(wheat_sculpt, sigma=0.35)
-    soil_z = base_hills + terrace_bump + 0.35 * fbm_fine * rim_taper - 0.65 * road_trench - ruts - 0.35 * staging_mask * rim_taper
+    wheat_sculpt = ndi.gaussian_filter(wheat_sculpt, sigma=0.45)
+    soil_z = base_hills + terrace_bump + 0.22 * fbm_fine * rim_taper - 0.45 * road_trench - ruts - 0.25 * staging_mask * rim_taper
     dem = np.maximum(0.0, soil_z + wheat_mask * wheat_sculpt) * rim_taper
 
     return {
@@ -357,30 +357,34 @@ def _make_bush_cluster(x: float, y: float, z: float, radius: float, rng: np.rand
 
 
 def _make_oak_hedge_tree(x: float, y: float, z: float, height: float, rad: float, rng: np.random.Generator):
-    """Árbol de linde frondoso orgánico (tronco cónico amplio anclado -2.5mm + copa abollonada chi=2)."""
-    trunk = mf.Manifold.cylinder(height * 0.72, rad * 0.62, rad * 0.34, circular_segments=14).translate([x, y, z - 2.5])
-    parts = [trunk]
+    """Árbol de linde frondoso alto respecto al trigo (tronco visible + faldón 45° + copa multi-lóbulo chi=2)."""
+    trunk = mf.Manifold.cylinder(height * 0.62, rad * 0.42, rad * 0.24, circular_segments=14).translate([x, y, z - 2.5])
+    # Collar cónico >= 45 deg bajo la copa para transición imprimible sin soportes
+    collar = mf.Manifold.cylinder(height * 0.22, rad * 0.23, rad * 0.76, circular_segments=14).translate([x, y, z + height * 0.28])
+    parts = [trunk, collar]
     lobes = [
-        (0.0, 0.0, height * 0.48, rad * 0.96, (1.06, 1.02, 0.92)),
-        (rad * 0.24, rad * 0.14, height * 0.46, rad * 0.70, (1.0, 1.0, 0.88)),
-        (-rad * 0.22, -rad * 0.16, height * 0.48, rad * 0.68, (1.0, 1.0, 0.88)),
-        (-rad * 0.10, rad * 0.24, height * 0.62, rad * 0.66, (0.95, 0.95, 0.95)),
-        (0.0, 0.0, height * 0.74, rad * 0.58, (0.92, 0.92, 1.02)),
+        (0.0, 0.0, height * 0.54, rad * 0.94, (1.06, 1.02, 0.94)),
+        (rad * 0.26, rad * 0.16, height * 0.56, rad * 0.72, (1.0, 1.0, 0.90)),
+        (-rad * 0.24, -rad * 0.18, height * 0.58, rad * 0.70, (1.0, 1.0, 0.90)),
+        (-rad * 0.12, rad * 0.26, height * 0.70, rad * 0.66, (0.96, 0.96, 0.98)),
+        (rad * 0.14, -rad * 0.22, height * 0.72, rad * 0.60, (0.95, 0.95, 0.98)),
+        (0.0, 0.0, height * 0.84, rad * 0.56, (0.92, 0.92, 1.06)),
     ]
     for dx, dy, dz, rr, sc_xyz in lobes:
-        parts.append(_bumpy_sphere(rr, sc_xyz, rng, amp=0.14).translate([x + dx, y + dy, z + dz]))
+        parts.append(_bumpy_sphere(rr, sc_xyz, rng, amp=0.15).translate([x + dx, y + dy, z + dz]))
     return mf.Manifold.batch_boolean(parts, mf.OpType.Add)
 
 
 def _make_cypress_tree(x: float, y: float, z: float, height: float, rad: float, rng: np.random.Generator):
-    """Ciprés mediterráneo/campiña esbelto y texturizado para lindes (chi=2, imprimible sin soporte)."""
-    trunk = mf.Manifold.cylinder(height * 0.50, rad * 0.52, rad * 0.36, circular_segments=10).translate([x, y, z - 2.2])
-    parts = [trunk]
+    """Ciprés mediterráneo/campiña alto y esbelto para lindes (chi=2, imprimible sin soporte)."""
+    trunk = mf.Manifold.cylinder(height * 0.55, rad * 0.48, rad * 0.30, circular_segments=12).translate([x, y, z - 2.4])
+    collar = mf.Manifold.cylinder(height * 0.18, rad * 0.30, rad * 0.88, circular_segments=12).translate([x, y, z + height * 0.14])
+    parts = [trunk, collar]
     tiers = [
-        (height * 0.30, rad * 1.02, 1.45),
-        (height * 0.50, rad * 0.88, 1.55),
-        (height * 0.70, rad * 0.68, 1.65),
-        (height * 0.88, rad * 0.44, 1.70),
+        (height * 0.32, rad * 1.00, 1.45),
+        (height * 0.50, rad * 0.86, 1.55),
+        (height * 0.68, rad * 0.68, 1.65),
+        (height * 0.86, rad * 0.44, 1.75),
     ]
     for dz, rr, sz in tiers:
         parts.append(_bumpy_sphere(rr, (1.0, 1.0, sz), rng, amp=0.14).translate([x, y, z + dz]))
@@ -496,27 +500,27 @@ def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int =
 
     props: List = []
 
-    # 1. Árboles de linde ÚNICAMENTE junto a bordes de caminos o esquinas de parcela
+    # 1. Árboles de linde ÚNICAMENTE junto a bordes de caminos o esquinas de parcela (~9-12x altura del trigo)
     oak_spots = [
-        (-0.5, 9.2, 8.2, 3.2),      # Junto al camino norte
-        (24.0, 22.0, 7.6, 3.0),     # Salida NE junto al camino
-        (-28.0, -4.5, 7.4, 2.9),    # Borde W junto al ramal
-        (28.0, -10.5, 7.2, 2.8),    # Límite E junto al ramal
+        (-0.5, 9.2, 12.6, 3.15),     # Árbol protagonista junto al camino norte
+        (24.0, 22.0, 11.4, 2.95),    # Salida NE junto al camino
+        (-28.0, -4.5, 11.2, 2.90),   # Borde W junto al ramal
+        (28.0, -10.5, 10.6, 2.80),   # Límite E junto al ramal
     ]
     for tx, ty, th, tr in oak_spots:
         tz = Z_BASE - 0.55 + _bilinear(dem, tx, ty)
         props.append(_make_oak_hedge_tree(tx, ty, tz, th, tr, rng))
 
     cypress_spots = [
-        (7.5, 25.5, 12.2, 2.1),     # Grupo de 2 cipreses en esquina norte del camino
-        (11.5, 27.5, 10.4, 1.85),
-        (-16.5, -28.0, 11.0, 1.95), # Ciprés junto a la entrada sur del camino
+        (7.5, 25.5, 14.8, 1.95),     # Grupo de 2 cipreses esbeltos en linde norte del camino
+        (11.5, 27.5, 12.8, 1.75),
+        (-16.5, -28.0, 13.6, 1.85),  # Ciprés junto a la entrada sur del camino
     ]
     for tx, ty, th, tr in cypress_spots:
         tz = Z_BASE - 0.55 + _bilinear(dem, tx, ty)
         props.append(_make_cypress_tree(tx, ty, tz, th, tr, rng))
 
-    # 2. Setos orgánicos agrupados en los márgenes del camino y en 3 rincones de perímetro (sin collar regular)
+    # 2. Setos orgánicos bajos agrupados en los márgenes del camino y en 3 rincones de perímetro
     xs = np.linspace(-APOTHEM + 5.5, APOTHEM - 5.5, 56)
     ys = np.linspace(-R + 6.5, R - 6.5, 60)
     bush_centers: List[Tuple[float, float]] = []
@@ -540,14 +544,14 @@ def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int =
                 continue
             if math.hypot(x - 11.2, y + 13.8) < 5.2:
                 continue
-            if any(math.hypot(x - tx, y - ty) < 4.0 for tx, ty, _, _ in oak_spots + cypress_spots):
+            if any(math.hypot(x - tx, y - ty) < 4.2 for tx, ty, _, _ in oak_spots + cypress_spots):
                 continue
-            if any(math.hypot(x - bx, y - by) < 3.6 for bx, by in bush_centers):
+            if any(math.hypot(x - bx, y - by) < 3.4 for bx, by in bush_centers):
                 continue
             if rng.random() > (0.50 if near_lane else 0.62):
                 continue
             z = Z_BASE - 0.55 + _bilinear(dem, x, y)
-            rad = float(rng.uniform(0.95, 1.55))
+            rad = float(rng.uniform(0.75, 1.22))
             props.append(_make_bush_cluster(x, y, z - 0.15, rad, rng))
             bush_centers.append((x, y))
             if len(bush_centers) >= 48:
@@ -572,7 +576,7 @@ def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int =
         if any(math.hypot(x - bx, y - by) < 2.1 for bx, by in bush_centers):
             continue
         z = Z_BASE - 0.55 + _bilinear(dem, x, y)
-        sr = float(rng.uniform(0.60, 1.15))
+        sr = float(rng.uniform(0.50, 0.92))
         props.append(_make_stone_boulder(x, y, z - 0.30 * sr, sr, rng))
         stone_centers.append((x, y))
         if len(stone_centers) >= 34:
@@ -587,31 +591,31 @@ def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int =
     for p0, p1 in fence_segments:
         props.append(_make_solid_fence_segment(p0, p1, dem))
 
-    # 5. Balas, gavillas, rueda y arado manual
+    # 5. Balas, gavillas, rueda y arado manual (a escala agrícola real)
     bale_specs = [
-        (10.5, -14.8, 22.0, 1.60, 3.5),
-        (14.5, -13.6, -18.0, 1.52, 3.3),
-        (8.8, -10.8, 65.0, 1.50, 3.2),
-        (12.8, -10.8, 10.0, 1.46, 3.2),
+        (10.5, -14.8, 22.0, 1.15, 2.50),
+        (14.5, -13.6, -18.0, 1.10, 2.35),
+        (8.8, -10.8, 65.0, 1.08, 2.30),
+        (12.8, -10.8, 10.0, 1.05, 2.30),
     ]
     for bx, by, byaw, br, bl in bale_specs:
         bz = Z_BASE - 0.55 + _bilinear(dem, bx, by)
-        props.append(_make_straw_bale(bx, by, bz - 0.25, byaw, br, bl))
+        props.append(_make_straw_bale(bx, by, bz - 0.20, byaw, br, bl))
 
     sheaf_specs = [
-        (-5.5, -24.0, 15.0, 1.05),
-        (-7.8, -22.5, -30.0, 0.98),
-        (16.2, -16.8, 12.0, 1.00),
-        (18.2, -15.2, -40.0, 0.95),
-        (-13.5, 17.5, 20.0, 1.00),
-        (-15.8, 16.0, -25.0, 0.95),
+        (-5.5, -24.0, 15.0, 0.74),
+        (-7.8, -22.5, -30.0, 0.68),
+        (16.2, -16.8, 12.0, 0.72),
+        (18.2, -15.2, -40.0, 0.68),
+        (-13.5, 17.5, 20.0, 0.72),
+        (-15.8, 16.0, -25.0, 0.68),
     ]
     for sx, sy, syaw, ss in sheaf_specs:
         sz = Z_BASE - 0.55 + _bilinear(dem, sx, sy)
         props.append(_make_wheat_sheaf(sx, sy, sz, syaw, ss))
 
     wx, wy = 2.2, -14.8
-    props.append(_make_solid_cartwheel(wx, wy, Z_BASE - 0.55 + _bilinear(dem, wx, wy), yaw_deg=-25.0, radius=3.3))
+    props.append(_make_solid_cartwheel(wx, wy, Z_BASE - 0.55 + _bilinear(dem, wx, wy), yaw_deg=-25.0, radius=2.35))
 
     px, py = 6.4, -15.6
     props.append(_make_hand_plow(px, py, Z_BASE - 0.55 + _bilinear(dem, px, py), yaw_deg=35.0))
@@ -634,12 +638,12 @@ def _stl_to_manifold(stl_path: Path):
     return mf.Manifold(mesh)
 
 
-def run_build_geometry(base_stl: Path, out_dir: Path, n_seg: int = 440) -> Dict[str, object]:
+def run_build_geometry(base_stl: Path, out_dir: Path, n_seg: int = 760, res_dem: int = 2560) -> Dict[str, object]:
     t0 = time.time()
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    print("[CampoClay v2.1 1/4] Generando colinas + 4 parcelas alineadas exactamente a caminos...", flush=True)
-    fields = build_campo_terrain_fields(res=1536, seed=209)
+    print(f"[CampoClay v2.2 1/4] Generando campiña suave + 4 parcelas alineadas (DEM={res_dem})...", flush=True)
+    fields = build_campo_terrain_fields(res=res_dem, seed=209)
 
     print(f"[CampoClay v2.1 2/4] Construyendo TerrainCap estanco de alta densidad (n_seg={n_seg})...", flush=True)
     terrain_mf = build_terrain_cap_manifold(fields["dem"], n_seg=n_seg)
@@ -855,7 +859,8 @@ def main() -> None:
     p.add_argument("--mode", choices=["all", "geom", "render"], default="all")
     p.add_argument("--base-stl", default=str(DEFAULT_BASE_STL))
     p.add_argument("--out-dir", default=str(DEFAULT_OUT_DIR))
-    p.add_argument("--n-seg", type=int, default=440)
+    p.add_argument("--n-seg", type=int, default=760)
+    p.add_argument("--dem-res", type=int, default=2560)
     p.add_argument("--res", type=int, default=1024)
     p.add_argument("--samples", type=int, default=24)
     args = p.parse_args(argv)
@@ -864,11 +869,11 @@ def main() -> None:
     out_dir = Path(args.out_dir).resolve()
 
     if args.mode == "geom":
-        run_build_geometry(base_stl, out_dir, n_seg=args.n_seg)
+        run_build_geometry(base_stl, out_dir, n_seg=args.n_seg, res_dem=args.dem_res)
     elif args.mode == "render":
         run_blender_render_views(out_dir, res_px=args.res, samples=args.samples)
     else:
-        run_build_geometry(base_stl, out_dir, n_seg=args.n_seg)
+        run_build_geometry(base_stl, out_dir, n_seg=args.n_seg, res_dem=args.dem_res)
         sys.path.insert(0, str(REPO_ROOT / "tools"))
         import tool_paths as tp
         blender_exe = tp.find_blender()
