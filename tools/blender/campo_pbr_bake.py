@@ -138,6 +138,7 @@ def compute_semantic_corner_attributes(
     f_rough = np.full(n_f, 0.72, dtype=np.float32)
     f_metal = np.zeros(n_f, dtype=np.float32)
     f_bump = np.full(n_f, 0.65, dtype=np.float32)
+    f_nb_mix = np.zeros(n_f, dtype=np.float32)
 
     # ------------------------------------------------------------------
     # 1. Terreno (`SEM_TERRAIN`): evaluación SUAVE POR VÉRTICE (cero parches triangulares planos al hacer zoom)
@@ -237,6 +238,20 @@ def compute_semantic_corner_attributes(
         f_rough[m_ter] = 0.86 - 0.14 * _bilinear_arr(fields["wheat_mask"], V_fc[m_ter, 0], V_fc[m_ter, 1])
         f_bump[m_ter] = 0.55 + 0.35 * _bilinear_arr(fields["wheat_mask"], V_fc[m_ter, 0], V_fc[m_ter, 1])
 
+        # Peso de proyección cenital Nano Banana en terreno: 1.0 en campos/caminos/claro,
+        # cayendo a 0 justo bajo copas de árboles (para no pintar textura foliar en tierra) y faldón de pizarra
+        fx_fc, fy_fc, fz_fc = V_fc[m_ter, 0], V_fc[m_ter, 1], V_fc[m_ter, 2]
+        tree_hole = np.ones(len(fx_fc), dtype=np.float32)
+        for ox, oy in [(-0.5, 9.2), (24.0, 22.0), (-28.0, -4.5), (28.0, -10.5)]:
+            tree_hole = np.minimum(tree_hole, _smoothstep(1.15, 2.35, np.hypot(fx_fc - ox, fy_fc - oy)))
+        for cx, cy in [(7.5, 25.5), (11.5, 27.5), (-16.5, -28.0)]:
+            tree_hole = np.minimum(tree_hole, _smoothstep(0.65, 1.45, np.hypot(fx_fc - cx, fy_fc - cy)))
+        de_fc = _bilinear_arr(fields["de"], fx_fc, fy_fc)
+        dv_fc = _bilinear_arr(fields["dv"], fx_fc, fy_fc)
+        outer_fc = 1.0 - _smoothstep(3.8, 5.2, de_fc) * _smoothstep(10.3, 11.7, dv_fc)
+        rim_keep = np.where((fz_fc < Z_BASE + 0.18) & (outer_fc > 0.55), 0.0, 1.0).astype(np.float32)
+        f_nb_mix[m_ter] = np.clip(tree_hole * rim_keep, 0.0, 1.0)
+
     # ------------------------------------------------------------------
     # 2. Roble / Encina (`SEM_OAK_LEAF`): racimos Voronoi iluminados vs grietas musgo
     # ------------------------------------------------------------------
@@ -249,6 +264,7 @@ def compute_semantic_corner_attributes(
         f_srgb[m] = np.where((t < 0.5)[:, None], c_dark + (c_mid - c_dark) * (2.0 * t)[:, None], c_mid + (c_sun - c_mid) * (2.0 * t - 1.0)[:, None])
         f_rough[m] = 0.80
         f_bump[m] = 0.85
+        f_nb_mix[m] = 0.28
 
     # 3. Troncos y ramas (`SEM_BARK`)
     m = face_slot == SEM_BARK
@@ -265,6 +281,7 @@ def compute_semantic_corner_attributes(
         f_srgb[m] = np.array([0.08, 0.16, 0.06]) * (1.0 - t)[:, None] + np.array([0.25, 0.40, 0.16]) * t[:, None]
         f_rough[m] = 0.82
         f_bump[m] = 0.90
+        f_nb_mix[m] = 0.26
 
     # 5. Arbustos de linde (`SEM_BUSH`)
     m = face_slot == SEM_BUSH
@@ -273,6 +290,7 @@ def compute_semantic_corner_attributes(
         f_srgb[m] = np.array([0.16, 0.27, 0.08]) * (1.0 - t)[:, None] + np.array([0.42, 0.56, 0.19]) * t[:, None]
         f_rough[m] = 0.82
         f_bump[m] = 0.80
+        f_nb_mix[m] = 0.28
 
     # 6. Piedras calizas (`SEM_STONE`)
     m = face_slot == SEM_STONE
@@ -308,6 +326,7 @@ def compute_semantic_corner_attributes(
         f_srgb[m] = np.array([0.60, 0.43, 0.15]) * (1.0 - t)[:, None] + np.array([0.93, 0.77, 0.37]) * t[:, None]
         f_rough[m] = 0.80
         f_bump[m] = 0.90
+        f_nb_mix[m] = 0.22
 
     # 10. Cuerda trenzada de cáñamo (`SEM_ROPE`)
     m = face_slot == SEM_ROPE
@@ -360,6 +379,7 @@ def compute_semantic_corner_attributes(
     loop_spec[:, 0] = np.repeat(f_rough, 3)
     loop_spec[:, 1] = np.repeat(f_metal, 3)
     loop_spec[:, 2] = np.repeat(f_bump, 3)
+    loop_spec[:, 3] = np.repeat(f_nb_mix, 3)
     return loop_col, loop_spec
 
 
@@ -563,6 +583,52 @@ def run_prep_local(work_dir: Path) -> None:
     sep = nt.nodes.new("ShaderNodeSeparateColor")
     nt.links.new(a_spec.outputs["Color"], sep.inputs["Color"])
 
+    nb_ortho_path = work_dir / "nb_ortho_2k.png"
+    has_nb = nb_ortho_path.exists()
+    t_coord = nt.nodes.new("ShaderNodeTexCoord")
+
+    # Mezclar color base por vértice (Col) con súper textura cenital Nano Banana (nb_ortho_2k.png) según MatSpec.Alpha
+    if has_nb:
+        print(f"[PBR PrepLocal] Conectando súper textura Nano Banana ({nb_ortho_path.name}) por texel XY...", flush=True)
+        sep_xyz = nt.nodes.new("ShaderNodeSeparateXYZ")
+        nt.links.new(t_coord.outputs["Object"], sep_xyz.inputs["Vector"])
+
+        map_x = nt.nodes.new("ShaderNodeMapRange")
+        map_x.inputs["From Min"].default_value = -71.0
+        map_x.inputs["From Max"].default_value = 71.0
+        map_x.inputs["To Min"].default_value = 0.0
+        map_x.inputs["To Max"].default_value = 1.0
+        nt.links.new(sep_xyz.outputs["X"], map_x.inputs["Value"])
+
+        map_y = nt.nodes.new("ShaderNodeMapRange")
+        map_y.inputs["From Min"].default_value = -71.0
+        map_y.inputs["From Max"].default_value = 71.0
+        map_y.inputs["To Min"].default_value = 0.0
+        map_y.inputs["To Max"].default_value = 1.0
+        nt.links.new(sep_xyz.outputs["Y"], map_y.inputs["Value"])
+
+        comb_uv = nt.nodes.new("ShaderNodeCombineXYZ")
+        nt.links.new(map_x.outputs["Result"], comb_uv.inputs["X"])
+        nt.links.new(map_y.outputs["Result"], comb_uv.inputs["Y"])
+
+        t_nb = nt.nodes.new("ShaderNodeTexImage")
+        t_nb.extension = "EXTEND"
+        im_nb = bpy.data.images.load(str(nb_ortho_path), check_existing=False)
+        im_nb.colorspace_settings.name = "sRGB"
+        im_nb.pack()
+        t_nb.image = im_nb
+        nt.links.new(comb_uv.outputs["Vector"], t_nb.inputs["Vector"])
+
+        mix_nb = nt.nodes.new("ShaderNodeMix")
+        mix_nb.data_type = "RGBA"
+        mix_nb.blend_type = "MIX"
+        nt.links.new(a_spec.outputs["Alpha"], mix_nb.inputs["Factor"])
+        nt.links.new(a_col.outputs["Color"], mix_nb.inputs[6])
+        nt.links.new(t_nb.outputs["Color"], mix_nb.inputs[7])
+        base_color_socket = mix_nb.outputs[2]
+    else:
+        base_color_socket = a_col.outputs["Color"]
+
     # AO raytraced real en Cycles + micro-variación pictórica 3D
     ao = nt.nodes.new("ShaderNodeAmbientOcclusion")
     ao.samples = 12
@@ -572,11 +638,10 @@ def run_prep_local(work_dir: Path) -> None:
     ao_ramp = nt.nodes.new("ShaderNodeMapRange")
     ao_ramp.inputs["From Min"].default_value = 0.15
     ao_ramp.inputs["From Max"].default_value = 1.0
-    ao_ramp.inputs["To Min"].default_value = 0.44
+    ao_ramp.inputs["To Min"].default_value = 0.58 if has_nb else 0.44
     ao_ramp.inputs["To Max"].default_value = 1.05
     nt.links.new(ao.outputs["AO"], ao_ramp.inputs["Value"])
 
-    t_coord = nt.nodes.new("ShaderNodeTexCoord")
     noise = nt.nodes.new("ShaderNodeTexNoise")
     noise.inputs["Scale"].default_value = 4.2
     noise.inputs["Detail"].default_value = 8.0
@@ -586,15 +651,15 @@ def run_prep_local(work_dir: Path) -> None:
     n_map = nt.nodes.new("ShaderNodeMapRange")
     n_map.inputs["From Min"].default_value = 0.2
     n_map.inputs["From Max"].default_value = 0.8
-    n_map.inputs["To Min"].default_value = 0.88
-    n_map.inputs["To Max"].default_value = 1.12
+    n_map.inputs["To Min"].default_value = 0.93 if has_nb else 0.88
+    n_map.inputs["To Max"].default_value = 1.07 if has_nb else 1.12
     nt.links.new(noise.outputs["Fac"], n_map.inputs["Value"])
 
     mul_ao = nt.nodes.new("ShaderNodeMix")
     mul_ao.data_type = "RGBA"
     mul_ao.blend_type = "MULTIPLY"
     mul_ao.inputs["Factor"].default_value = 1.0
-    nt.links.new(a_col.outputs["Color"], mul_ao.inputs[6])
+    nt.links.new(base_color_socket, mul_ao.inputs[6])
     nt.links.new(ao_ramp.outputs["Result"], mul_ao.inputs[7])
 
     mul_n = nt.nodes.new("ShaderNodeMix")
@@ -615,9 +680,9 @@ def run_prep_local(work_dir: Path) -> None:
     if "Metallic" in bsdf.inputs:
         nt.links.new(sep.outputs["Green"], bsdf.inputs["Metallic"])
 
-    # Micro-bump fino procedural multiplicado por BumpWeight (MatSpec.Blue)
+    # Micro-bump fino procedural + relieve de tallos desde nb_ortho multiplicado por BumpWeight (MatSpec.Blue)
     noise_b = nt.nodes.new("ShaderNodeTexNoise")
-    noise_b.inputs["Scale"].default_value = 11.5
+    noise_b.inputs["Scale"].default_value = 14.0 if has_nb else 11.5
     noise_b.inputs["Detail"].default_value = 10.0
     noise_b.inputs["Roughness"].default_value = 0.65
     nt.links.new(t_coord.outputs["Object"], noise_b.inputs["Vector"])
@@ -625,12 +690,22 @@ def run_prep_local(work_dir: Path) -> None:
     bump_w = nt.nodes.new("ShaderNodeMath")
     bump_w.operation = "MULTIPLY"
     nt.links.new(sep.outputs["Blue"], bump_w.inputs[0])
-    bump_w.inputs[1].default_value = 0.24
+    bump_w.inputs[1].default_value = 0.28 if has_nb else 0.24
 
     bump = nt.nodes.new("ShaderNodeBump")
-    bump.inputs["Distance"].default_value = 0.14
+    bump.inputs["Distance"].default_value = 0.16 if has_nb else 0.14
     nt.links.new(bump_w.outputs["Value"], bump.inputs["Strength"])
-    nt.links.new(noise_b.outputs["Fac"], bump.inputs["Height"])
+    if has_nb:
+        rgb2bw = nt.nodes.new("ShaderNodeRGBToBW")
+        nt.links.new(t_nb.outputs["Color"], rgb2bw.inputs["Color"])
+        bump_mix = nt.nodes.new("ShaderNodeMix")
+        bump_mix.data_type = "FLOAT"
+        bump_mix.inputs["Factor"].default_value = 0.45
+        nt.links.new(noise_b.outputs["Fac"], bump_mix.inputs[2])
+        nt.links.new(rgb2bw.outputs["Val"], bump_mix.inputs[3])
+        nt.links.new(bump_mix.outputs[0], bump.inputs["Height"])
+    else:
+        nt.links.new(noise_b.outputs["Fac"], bump.inputs["Height"])
     nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
 
     # Nodo ORM (R=AO, G=Roughness, B=Metallic) preparado para horneado limpio
