@@ -29,13 +29,12 @@ import colab_api_runner as cr  # noqa: E402
 import drive_staging as ds  # noqa: E402
 import tool_paths as tp  # noqa: E402
 
-WORK_DIR = REPO_ROOT / "Tableros-Catan" / "pipeline-biomas" / "montana_hero360" / "work_v05"
-MACRO_DIR = WORK_DIR / "macro"
-TELEM_PATH = WORK_DIR / "live_telemetry.json"
-CONSOLE_PATH = WORK_DIR / "live_console.log"
-SCRATCH_DIR = Path(
-    r"C:\Users\migue\.gemini\antigravity\brain\34342c68-2385-41c9-a165-20883e62734d\scratch"
-)
+TILES_ROOT = REPO_ROOT / "Tableros-Catan" / "losetas"
+WORK_DIR: Path = Path()
+MACRO_DIR: Path = Path()
+TELEM_PATH: Path = Path()
+CONSOLE_PATH: Path = Path()
+SCRATCH_DIR: Path = Path()
 
 T0 = time.time()
 TELEM_LOCK = threading.Lock()
@@ -174,25 +173,25 @@ def phase1_local_prep(skip_f53: bool, projection_mode: str) -> Path:
     in_tar = SCRATCH_DIR / "gpu_job_in.tar"
     in_tar.parent.mkdir(parents=True, exist_ok=True)
     files_to_pack: List[tuple[Path, str]] = [
-        (WORK_DIR / "cameras.json", "work_v05/cameras.json"),
-        (WORK_DIR / "gpu_job_scene.blend", "work_v05/gpu_job_scene.blend"),
-        (WORK_DIR / "passA_albedo_8k.png", "work_v05/passA_albedo_8k.png"),
-        (WORK_DIR / "plinth_albedo_1k.png", "work_v05/plinth_albedo_1k.png"),
-        (MACRO_DIR / "macro_cameras.json", "work_v05/macro/macro_cameras.json"),
-        (MACRO_DIR / "macro_report.json", "work_v05/macro/macro_report.json"),
-        (MACRO_DIR / "macro_vis_cache.npz", "work_v05/macro/macro_vis_cache.npz"),
+        (WORK_DIR / "cameras.json", "work/cameras.json"),
+        (WORK_DIR / "gpu_job_scene.blend", "work/gpu_job_scene.blend"),
+        (WORK_DIR / "passA_albedo_8k.png", "work/passA_albedo_8k.png"),
+        (WORK_DIR / "plinth_albedo_1k.png", "work/plinth_albedo_1k.png"),
+        (MACRO_DIR / "macro_cameras.json", "work/macro/macro_cameras.json"),
+        (MACRO_DIR / "macro_report.json", "work/macro/macro_report.json"),
+        (MACRO_DIR / "macro_vis_cache.npz", "work/macro/macro_vis_cache.npz"),
         (REPO_ROOT / "tools" / "blender" / "catan_hero360_bake.py", "tools/blender/catan_hero360_bake.py"),
         (REPO_ROOT / "tools" / "blender" / "macro_bake_helpers.py", "tools/blender/macro_bake_helpers.py"),
         (REPO_ROOT / "tools" / "blender" / "geology_micro_detail.py", "tools/blender/geology_micro_detail.py"),
     ]
     for p in sorted((MACRO_DIR / "renders").glob("patch_*_mask.png")):
-        files_to_pack.append((p, f"work_v05/macro/renders/{p.name}"))
+        files_to_pack.append((p, f"work/macro/renders/{p.name}"))
     if projection_mode == "full":
         for p in sorted((MACRO_DIR / "aligned_rgb").glob("patch_*_aligned.png")):
-            files_to_pack.append((p, f"work_v05/macro/aligned_rgb/{p.name}"))
+            files_to_pack.append((p, f"work/macro/aligned_rgb/{p.name}"))
     else:
         for p in sorted((MACRO_DIR / "aligned_hp").glob("patch_*_hp16.png")):
-            files_to_pack.append((p, f"work_v05/macro/aligned_hp/{p.name}"))
+            files_to_pack.append((p, f"work/macro/aligned_hp/{p.name}"))
 
     with tarfile.open(in_tar, "w") as tf:
         for src, arc in files_to_pack:
@@ -282,9 +281,9 @@ try:
         str(bbin), "-b", "--python-exit-code", "1",
         "--python", str(run_dir / "tools/blender/catan_hero360_bake.py"),
         "--",
-        "--cameras", str(run_dir / "work_v05/cameras.json"),
-        "--out-dir", str(run_dir / "work_v05"),
-        "--macro-dir", str(run_dir / "work_v05/macro"),
+        "--cameras", str(run_dir / "work/cameras.json"),
+        "--out-dir", str(run_dir / "work"),
+        "--macro-dir", str(run_dir / "work/macro"),
         "--projection-mode", "{projection_mode}",
         "--bake-res", "8192",
         "--normal-res", "8192",
@@ -304,7 +303,7 @@ try:
 
     print("[STAGE] Empaquetando solo PNGs horneados hacia Drive...", flush=True)
     out_tar = Path("/content/gpu_job_out.tar.gz")
-    w = run_dir / "work_v05"
+    w = run_dir / "work"
     arcs = [a for a in ("baked_albedo.png", "baked_normal.png", "baked_roughness.png", "macro_hp_height_8k.png", "macro/ao_cavity_8k.png") if (w / a).exists()]
     subprocess.run(["tar", "--use-compress-program=gzip -1", "-cf", str(out_tar), "-C", str(w)] + arcs, check=True)
     meta = _drive_upload("{oauth_token}", str(out_tar), "{staging_folder_id}", f"gpu_job_out_{{int(time.time())}}.tar.gz")
@@ -317,14 +316,30 @@ finally:
 
 
 def main() -> None:
+    global WORK_DIR, MACRO_DIR, TELEM_PATH, CONSOLE_PATH, SCRATCH_DIR
     p = argparse.ArgumentParser(description="Orquestador Zero-Idle GPU (4 fases) para Maker3D Colab Pro")
+    p.add_argument("--tile", default=None, help="Bioma en Tableros-Catan/losetas/<tile>/work")
+    p.add_argument("--work-dir", default=None, help="Ruta explícita al directorio work/ de la loseta")
     p.add_argument("--skip-f53", action="store_true")
     p.add_argument("--projection-mode", choices=["full", "highpass"], default="full")
     p.add_argument("--no-audit-render", action="store_true")
     p.add_argument("--dry-prep-only", action="store_true", help="Ejecuta solo Fase 1 local (0 créditos Colab)")
     args = p.parse_args()
 
+    if args.work_dir:
+        WORK_DIR = Path(args.work_dir).resolve()
+    elif args.tile:
+        WORK_DIR = (TILES_ROOT / args.tile / "work").resolve()
+    else:
+        p.error("Debes especificar --tile <bioma> (p.ej. montana, bosque) o --work-dir <ruta>.")
+
+    MACRO_DIR = WORK_DIR / "macro"
+    TELEM_PATH = WORK_DIR / "live_telemetry.json"
+    CONSOLE_PATH = WORK_DIR / "live_console.log"
+    SCRATCH_DIR = WORK_DIR / "_colab_tmp"
+
     WORK_DIR.mkdir(parents=True, exist_ok=True)
+    SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
     CONSOLE_PATH.write_text("", encoding="utf-8")
 
     # Fase 1: Preparación CPU local (0 créditos)

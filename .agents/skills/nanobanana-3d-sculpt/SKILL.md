@@ -76,7 +76,7 @@ for hexagonal tiles, or mirror its geometric invariants in custom asset builders
 python .agents/skills/nanobanana-3d-sculpt/scripts/nanobanana_to_catan_hex.py `
   --heightmap <path_to_heightmap.png> `
   --albedo <path_to_albedo.png> `
-  --out-dir Tableros-Catan/<Tile_Dir> `
+  --out-dir Tableros-Catan/losetas/<Tile_Dir> `
   --prefix catan_<tile> `
   --relief-mm 58.0 `
   --nx 420 `

@@ -1415,3 +1415,36 @@ Resultados y artefactos generados (`0` créditos Colab):
   2. `work_v05/fullcolor_export/catan_v07_fullcolor.obj` (`711.71 MB`) + `.mtl` + `albedo_4k.png` (`21.64 MB`) + `plinth_1k.png` (`0.78 MB`).
   3. `work_v05/fullcolor_export/catan_v07_fullcolor_web_2M.glb` (`32.99 MB`, `1,045,454 Δ` protegiendo zócalo/pads `Z<=25.08`, sin Meshopt/Draco + WebP `4K`) verificado con `trimesh` y `gltf-transform inspect` para carga directa en apps web (`Color Mix Lab` / `iDither`).
 ================================================================================
+
+SESIÓN: 27/11/2026 - DIAGNÓSTICO COLORMIX 8T, TUTORIAL GENERAL 3D Y REORDENACIÓN INTEGRAL DE TABLEROS-CATAN
+- Prompts literales del usuario:
+  * [25/11/2026 12:17]: "donde esta el color mix lab"
+  * [25/11/2026 12:24]: "Se ha colgado en el baking. Esto no podriamos hacerlo con colab?"
+  * [25/11/2026 12:28]: "Pongo 8 default extrders?"
+  * [25/11/2026 12:29]: "Pero mira cómo sale"
+  * [25/11/2026 17:47]: "continue"
+  * [25/11/2026 21:02]: "Puedes darme en un texto de menos de 2000 caracteres la forma que tenemos de diseñar ahora estas cosas?"
+  * [25/11/2026 21:03]: "En ingles. Para discord. Para la longitud maxima de un mensaje sin nitro"
+  * [25/11/2026 21:04]: "Explicaselo ahora a otro usuario que es precisamente por lo que te pido esto. Damelo mejor en 10 veces esa longitud para que queden mas claros los procesos"
+  * [25/11/2026 21:06]: "No van a tener acceso a mis archivos, tenlo en cuenta. La idea es que sea un tutorial para él o una IA para que puedan con algo menos de trabajo llegar al mismo nivel"
+  * [25/11/2026 21:08]: "Esta pensado para modelaje de diseños 3d en general. El tema de manufacturar no lo hemos pasado nosotros dos asi que no lo menciones tio"
+  * [25/11/2026 21:11]: "No contiene informacion personal mia, no?"
+  * [25/11/2026 21:16]: "Lo de poner vista humana y que se vea bien desde el humano aun no se ha logrado, no?"
+  * [26/11/2026 15:57]: "Ves psoible hacer de forma 100% autonoma el resto de losetas?"
+  * [26/11/2026 15:58]: "Los dos ultimos dias se hizo utilizando a gemini 4 carbon como Orchestrator. Habra mucha diferencia ahora utilizando solo el agente ejecutor del momento (gemini 4 hydrogen high)?"
+  * [26/11/2026 16:00]: "Si, diria que ademas hay que reordenar todo porque que apunte cada cosa nueva a montana_hero360 es ilogico. Te parece si reordenas toda la carpeta de catan?"
+  * [27/11/2026 17:31]: "Adelante"
+
+Diagnóstico ColorMix y reorganización de `Tableros-Catan/`:
+- **ColorMix `.3mf` en PrusaSlicer `2.9.7` (`INDX 8T`):** Verificado que `catan_v07_fullcolor_web_2M_baked_vertexcolors_colormix.3mf` (`31.24 MB`, `2M` triángulos pintados, `53` virtuales `E6..E58`) estaba bien generado, pero al exportarse sin plantilla `.3mf` (`5` extrusores) e importarse como geometría sobre `*Sin título` (`8T INDX`) sin `Metadata/Prusa_Slicer_full_spectrum.json`, el `97.1%` de los triángulos (`id 9..58`) colapsaban al Extrusor 1; verificado por CLI (`CASE 8`) que con `8` extrusores físicos coherentes y virtuales `>= 9` lamina en `PrusaSlicer 2.9.7`.
+- **Nueva arquitectura de `Tableros-Catan/`:**
+  - `Tableros-Catan/losetas/` (`montana`, `bosque`, `campo`, `colina`, `desierto`, `oceano`, `oro`, `pasto`); la antigua `montana_hero360` pasa a `losetas/montana/` y `work_v05/` a `work/`.
+  - `Tableros-Catan/docs/` (`tablero_catan_avanzado_70_losetas.md`, `127_losetas.md`, `board_visualizer.html`).
+  - `Tableros-Catan/assets/` (librería compartida `polyhaven/` intacta).
+  - `Tableros-Catan/legacy/` (`montana_v4_numpy/` + `pipeline-biomas-scripts/`).
+  - `Tableros-Catan/archivo/` (`pipeline-montana/`, `Loseta_Montana_3D/`, `Loseta-Montana-3D/`, `catan_mountain_viewer.html`, `experimentos_montana/`).
+- **Desacoplamiento en `tools/` y memoria:**
+  - `tools/blender/build_v07_shrubs.py`, `tools/blender/export_fullcolor_bridge.py`, `tools/colab/live_monitor_server.py` y `tools/colab/run_v05_passb_autonomous.py` ahora aceptan `--tile <bioma>` / `--work-dir <ruta>` sin ruta fija a `montana_hero360/work_v05`.
+  - Actualizados `Tableros-Catan/legacy/pipeline-biomas-scripts/build_catan_biome.py`, `build_bosque_3d.py`, `.gitignore`, `.agents/skills/nanobanana-3d-sculpt/SKILL.md` y `docs/ia/ESTADO.md`.
+- **Verificación (`py_compile` + `--help` + `env_check.py`):** `py_compile` (`rc=0`) y `--help` (`rc=0`) verificados en los 4 scripts de `tools/` y los 2 legacy actualizados; `env_check.py` reportó `WinError 4551` (Control de aplicaciones de Windows) bloqueando `openscad.com` y `OCP` (`build123d`), resto operativo.
+================================================================================

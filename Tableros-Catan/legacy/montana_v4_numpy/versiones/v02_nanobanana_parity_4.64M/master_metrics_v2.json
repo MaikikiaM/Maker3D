@@ -1,0 +1,17 @@
+{
+  "master": {
+    "V": 2318815,
+    "E": 6956439,
+    "F": 4637626,
+    "chi": 2,
+    "watertight": true,
+    "volume_cm3": 346.51300658744975
+  },
+  "coverage": {
+    "max_snow_steep": 0.0
+  },
+  "viewer": {
+    "V": 875110,
+    "F": 1750216
+  }
+}

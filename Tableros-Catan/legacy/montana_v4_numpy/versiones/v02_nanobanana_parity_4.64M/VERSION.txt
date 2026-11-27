@@ -1,0 +1,7 @@
+Bioma 1 (Montaña / Cordillera Alpina V4 — Paridad Hero Nano Banana 360°)
+Build timestamp: 2026-11-17 00:49
+Sculpt pipeline: Tableros-Catan/pipeline-biomas/montana_sculpt_v4.py (--stage clay + --stage fuse) -> Tableros-Catan/pipeline-biomas/build_catan_biome.py
+Parameters: --relief-mm 45.2 --apron-mm 2.2 --slope-gamma 1.0 --blur-px 0.0 --micro-detail 0.0 --micro-norm 0.30 --tex-size 4096 --nx 390 --subdivide-passes 2 --edge-len-max 0.48 --curv-thresh 20.0 --relax-passes 1 --taubin-passes 5 --cliff-sculpt 0.0 --morton-sort --stl-nx 700 --stl-subdivide-passes 2 --stl-edge-len-max 0.27 --stl-curv-thresh 18.0 --contour-align --sculpt-from-albedo 0.85 --sculpt-crown-mm 0.165 --snow-smooth-sculpt --tangent-norm --photoreal --keep-dark-rock --preserve-bezel --triplanar-mode alpine --init-cam hero
+Master STL (local): V=2,318,815 | F=4,637,626 tri | 221.14 MB | watertight=True | chi=2 | degen=0 | vol=346.51 cm3 | Z=[0.000, 70.404] mm | max_road_err=0.0mm | max_pad_err=0.0mm | mag_pocket_verts=192
+WebGL LOD (deployed HTML): V=875,110 | F=1,750,216 tri | Visores-HTML/catan-bioma-montana.html = 29.03 MB (< 50 MB)
+Verification: Live Chromium headless verification passed (0 console errors, Hero 0-deg PBR match, 3D triplanar alpine granite shader on 180-deg north walls, Arcilla CAD mode, 60-deg oblique, 2D-to-3D geometry parity crops).

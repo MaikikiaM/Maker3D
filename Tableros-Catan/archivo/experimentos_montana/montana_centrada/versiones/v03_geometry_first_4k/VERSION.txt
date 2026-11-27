@@ -1,0 +1,5 @@
+﻿Montaña Centrada V3.8 (Geometry-First Nativo 4096x4096 = 32 px/mm)
+Fecha: 19/11/2026
+Script: Tableros-Catan/pipeline-biomas/montana_centrada_v3_sculpt.py
+Master STL: 7,768,918 tris (V=3,884,461, E=11,653,377, chi=2, watertight=True, degen=0, Vol=318.49 cm3, Z=59.204 mm, road_err=0.0mm, pad_err=0.0mm, mag_pocket_verts=192)
+WebGL Viewer: Visores-HTML/catan-bioma-montana-centrada.html (2,343,422 tris, 43.37 MB < 50 MB, 4096x4096 Q97/Q92, alpine_crisp, micro-norm 0.08, 0 console/WebGL errors in Chromium)

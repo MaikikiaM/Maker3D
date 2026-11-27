@@ -1,0 +1,6 @@
+Montaña Centrada v01 (v01_centrada_4k)
+Concepto dual 360°: refs/concept_dual_fullres.jpg (2752x1536)
+STL Master: 9,080,948 tris (chi=2, watertight=True, degen=0, Vol=313.78 cm3, Z=58.005mm, 433.01 MB)
+WebGL Viewer: Visores-HTML/catan-bioma-montana-centrada.html (42.99 MB, 2,599,448 tris terreno, 4096x4096 diff Q95 / norm Q90)
+Esculpido sincronizado: cliff_sculpt=0.14mm, cliff_albedo_weight=0.30mm, sculpt_from_albedo=0.72mm, sculpt_crown_mm=0.125
+Verificado Chromium 360°: 0 errores WebGL/consola, Hiperreal PBR + Arcilla CAD.

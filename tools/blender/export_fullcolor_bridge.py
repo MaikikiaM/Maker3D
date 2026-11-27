@@ -17,10 +17,7 @@ import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_WORK_DIR = REPO_ROOT / "Tableros-Catan" / "pipeline-biomas" / "montana_hero360" / "work_v05"
-DEFAULT_SCRATCH_VNEW = Path(
-    r"C:\Users\migue\.gemini\antigravity\brain\34342c68-2385-41c9-a165-20883e62734d\scratch\v07_gbuf\V_new.npy"
-)
+TILES_ROOT = REPO_ROOT / "Tableros-Catan" / "losetas"
 
 
 def _find_gltf_transform() -> str:
@@ -170,18 +167,28 @@ def _run_blender_export(work_dir: Path, out_dir: Path, vnew_path: Path, decimate
 
 def main() -> None:
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
-    p = argparse.ArgumentParser(description="Exportador Puente Full Color (GLB/OBJ/Web) para Maker3D v07")
-    p.add_argument("--work-dir", default=str(DEFAULT_WORK_DIR))
+    p = argparse.ArgumentParser(description="Exportador Puente Full Color (GLB/OBJ/Web) para Maker3D")
+    p.add_argument("--tile", default=None, help="Bioma en Tableros-Catan/losetas/<tile>/work")
+    p.add_argument("--work-dir", default=None, help="Ruta explícita al directorio work/ de la loseta")
     p.add_argument("--out-dir", default=None)
-    p.add_argument("--vnew-npy", default=str(DEFAULT_SCRATCH_VNEW))
+    p.add_argument("--prefix", default=None, help="Prefijo de archivos exportados (por defecto catan_<tile>_fullcolor)")
+    p.add_argument("--vnew-npy", default=None)
     p.add_argument("--decimate-ratio", type=float, default=0.17)
     p.add_argument("--blender-worker", action="store_true")
     p.add_argument("--skip-blender", action="store_true")
     args = p.parse_args(argv)
 
-    work_dir = Path(args.work_dir).resolve()
+    if args.work_dir:
+        work_dir = Path(args.work_dir).resolve()
+    elif args.tile:
+        work_dir = (TILES_ROOT / args.tile / "work").resolve()
+    else:
+        p.error("Debes especificar --tile <bioma> (p.ej. montana, bosque) o --work-dir <ruta>.")
+
+    tile_slug = args.tile or work_dir.parent.name
+    prefix = args.prefix or f"catan_{tile_slug}_fullcolor"
     out_dir = Path(args.out_dir).resolve() if args.out_dir else (work_dir / "fullcolor_export")
-    vnew_path = Path(args.vnew_npy).resolve()
+    vnew_path = Path(args.vnew_npy).resolve() if args.vnew_npy else (work_dir / "gbuf_cache" / "V_new.npy")
 
     if args.blender_worker:
         _run_blender_export(work_dir, out_dir, vnew_path, args.decimate_ratio)
@@ -206,17 +213,17 @@ def main() -> None:
 
     raw_full = out_dir / "_tmp_full_color.glb"
     raw_web = out_dir / "_tmp_web_color.glb"
-    final_full = out_dir / "catan_v07_fullcolor.glb"
-    final_web = out_dir / "catan_v07_fullcolor_web_2M.glb"
+    final_full = out_dir / f"{prefix}.glb"
+    final_web = out_dir / f"{prefix}_web_2M.glb"
 
-    print("[FullColorExport] Comprimiendo catan_v07_fullcolor.glb (Meshopt + WebP 4K)...", flush=True)
+    print(f"[FullColorExport] Comprimiendo {final_full.name} (Meshopt + WebP 4K)...", flush=True)
     _run_gltf_transform([
         "optimize", str(raw_full), str(final_full),
         "--compress", "meshopt", "--meshopt-level", "high",
         "--texture-compress", "webp", "--texture-size", "4096", "--simplify", "false",
     ])
 
-    print("[FullColorExport] Empaquetando catan_v07_fullcolor_web_2M.glb (sin Meshopt, WebP 4K)...", flush=True)
+    print(f"[FullColorExport] Empaquetando {final_web.name} (sin Meshopt, WebP 4K)...", flush=True)
     _run_gltf_transform([
         "webp", str(raw_web), str(final_web), "--quality", "92",
     ])

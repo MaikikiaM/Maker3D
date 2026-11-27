@@ -76,12 +76,12 @@ Visores-HTML/*-uncompressed.html
 Visores-HTML/catan-bioma-montana-hero360-v05-macro8k.html
 Visores-HTML/catan-bioma-montana-hero360-v06-full8k.html
 Visores-HTML/catan-bioma-montana-hero360-v07-shrubs8k.html
-Tableros-Catan/pipeline-biomas/*/versiones/
-!Tableros-Catan/pipeline-biomas/montana_hero360/work_v05/
-Tableros-Catan/pipeline-biomas/montana_hero360/work_v05/**
-!Tableros-Catan/pipeline-biomas/montana_hero360/work_v05/**/
-!Tableros-Catan/pipeline-biomas/montana_hero360/work_v05/**/*.json
-!Tableros-Catan/pipeline-biomas/montana_hero360/work_v05/**/*.md
+Tableros-Catan/losetas/*/versiones/
+Tableros-Catan/losetas/*/work/**
+!Tableros-Catan/losetas/*/work/
+!Tableros-Catan/losetas/*/work/**/
+!Tableros-Catan/losetas/*/work/**/*.json
+!Tableros-Catan/losetas/*/work/**/*.md
 Tableros-Catan/assets/polyhaven/rocks/
 *.zip
 tools/smoke_test_out/
@@ -95,6 +95,8 @@ tools/smoke_test_out/
 *.gcode
 *.preview.html
 *.pdf
-**/work_v05/live_telemetry.json
-**/work_v05/live_console.log
+**/work/live_telemetry.json
+**/work/live_console.log
+**/_colab_tmp/
+**/gbuf_cache/
 

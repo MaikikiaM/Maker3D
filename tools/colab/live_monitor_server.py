@@ -1,6 +1,6 @@
 """
 Servidor de telemetría en vivo (http://127.0.0.1:8799) estilo Colab Pro + Mission Control
-para supervisar F5.3 -> F10 de montana_hero360 v05-macro8k en tiempo real.
+para supervisar F5.3 -> F10 de cualquier loseta/bioma en tiempo real.
 """
 from __future__ import annotations
 
@@ -11,9 +11,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
 
-WORK_DIR = Path("Tableros-Catan/pipeline-biomas/montana_hero360/work_v05").resolve()
-TELEMETRY_FILE = WORK_DIR / "live_telemetry.json"
-CONSOLE_FILE = WORK_DIR / "live_console.log"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+TILES_ROOT = REPO_ROOT / "Tableros-Catan" / "losetas"
 
 GALLERY_ITEMS = [
     ("Macro Grid 16 (F5.3)", "macro/macro_grid_16.jpg"),
@@ -31,7 +30,7 @@ HTML_PAGE = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Maker3D — Monitor En Vivo Colab NVIDIA L4 (v05-macro8k)</title>
+<title>Maker3D — Monitor En Vivo Colab NVIDIA L4</title>
 <style>
   :root {
     --bg: #0b0f17; --card: #131a26; --border: #233044; --text: #e5edf7;
@@ -313,12 +312,23 @@ class MonitorHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    p = argparse.ArgumentParser()
+    global WORK_DIR, TELEMETRY_FILE, CONSOLE_FILE
+    p = argparse.ArgumentParser(description="Monitor en vivo Colab NVIDIA L4")
+    p.add_argument("--tile", default=None, help="Bioma en Tableros-Catan/losetas/<tile>/work")
+    p.add_argument("--work-dir", default=None, help="Ruta explícita al directorio work/ de la loseta")
     p.add_argument("--port", type=int, default=8799)
     args = p.parse_args()
+    if args.work_dir:
+        WORK_DIR = Path(args.work_dir).resolve()
+    elif args.tile:
+        WORK_DIR = (TILES_ROOT / args.tile / "work").resolve()
+    else:
+        p.error("Debes especificar --tile <bioma> o --work-dir <ruta>.")
+    TELEMETRY_FILE = WORK_DIR / "live_telemetry.json"
+    CONSOLE_FILE = WORK_DIR / "live_console.log"
     WORK_DIR.mkdir(parents=True, exist_ok=True)
     srv = ThreadingHTTPServer(("127.0.0.1", args.port), MonitorHandler)
-    print(f"[LiveMonitor] Sirviendo telemetría en http://localhost:{args.port}")
+    print(f"[LiveMonitor] Sirviendo telemetría de {WORK_DIR} en http://localhost:{args.port}")
     srv.serve_forever()
 
 

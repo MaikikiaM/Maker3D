@@ -1,0 +1,13 @@
+﻿VERSIÓN: v01_granito_oscuro_v4_3.51M
+FECHA: 18/11/2026
+PIEZA: Bioma 1B — Montaña DEF (Granito Oscuro V4 · Nano Banana 360°)
+ARCHIVOS DE PRODUCCIÓN:
+  - STL Master: Tableros-Catan/pipeline-biomas/montana_def/catan_montana_def.stl (3,508,106 Δ, 167.28 MB, V=1,754,055, E=5,262,159, chi=2, watertight=True, degen=0)
+  - Visor WebGL: Visores-HTML/catan-bioma-montana-def.html (26.19 MB < 50 MB, 1,428,174 Δ terreno + base = 1,740,782 Δ)
+  - Referencias V4:
+    * Concepto 360° (Sur + Norte): catan_mountain_hex_concept_sheet_1794591150816.jpg
+    * Albedo cenital V4: v4_nanobanana_diffuse_albedo_v2_1794591373002.jpg
+MÉTRICAS CAD Y ESCULPIDO 3D:
+  - R = 64.00 mm | APOTHEM = 55.4256 mm | Z_BASE = 25.00 mm | Z_PEAK = 71.615 mm (relieve +46.48 mm)
+  - Volumen sólido = 373.31 cm³ | road_err_mm = 0.000 mm | pad_err_mm = 0.000 mm | mag_pocket_verts = 192 (Ø10.20x5.20 mm)
+  - Neveros en collados altos y circo glaciar norte (< 44° de pendiente: 0.00000% en heightfield, 4.12% área, cero parches borrosos)

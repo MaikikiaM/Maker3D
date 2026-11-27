@@ -1,0 +1,8 @@
+# Catan Mountain Master V2 Material
+newmtl CatanMountainMat
+Ka 0.15 0.15 0.15
+Kd 1.00 1.00 1.00
+Ks 0.04 0.04 0.04
+Ns 18.0
+d 1.0
+map_Kd catan_mountain_diffuse_4k.png

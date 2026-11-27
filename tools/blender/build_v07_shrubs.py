@@ -28,10 +28,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_WORK_DIR = REPO_ROOT / "Tableros-Catan" / "pipeline-biomas" / "montana_hero360" / "work_v05"
-DEFAULT_SCRATCH_DIR = Path(
-    r"C:\Users\migue\.gemini\antigravity\brain\34342c68-2385-41c9-a165-20883e62734d\scratch\v07_gbuf"
-)
+TILES_ROOT = REPO_ROOT / "Tableros-Catan" / "losetas"
 
 R = 64.0
 APOTHEM = R * math.sqrt(3.0) * 0.5
@@ -889,21 +886,28 @@ def _run_subprocess(cmd: List[str]) -> None:
 
 def main() -> None:
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
-    p = argparse.ArgumentParser(description="Constructor Híbrido v07-shrubs8k (0 créditos Colab)")
+    p = argparse.ArgumentParser(description="Constructor Híbrido v07 (0 créditos Colab)")
     p.add_argument(
         "--mode",
         choices=["all", "blender-export-gbuf", "python-project-and-sculpt", "blender-finalize"],
         default="all",
     )
-    p.add_argument("--work-dir", default=str(DEFAULT_WORK_DIR))
-    p.add_argument("--gbuf-dir", default=str(DEFAULT_SCRATCH_DIR))
+    p.add_argument("--tile", default=None, help="Bioma en Tableros-Catan/losetas/<tile>/work")
+    p.add_argument("--work-dir", default=None, help="Ruta explícita al directorio work/ de la loseta")
+    p.add_argument("--gbuf-dir", default=None, help="Caché G-Buffer 8K (por defecto <work-dir>/gbuf_cache)")
     p.add_argument("--res", type=int, default=8192)
     p.add_argument("--render-samples", type=int, default=32)
     p.add_argument("--skip-gbuf", action="store_true")
     args = p.parse_args(argv)
 
-    work_dir = Path(args.work_dir).resolve()
-    gbuf_dir = Path(args.gbuf_dir).resolve()
+    if args.work_dir:
+        work_dir = Path(args.work_dir).resolve()
+    elif args.tile:
+        work_dir = (TILES_ROOT / args.tile / "work").resolve()
+    else:
+        p.error("Debes especificar --tile <bioma> (p.ej. montana, bosque) o --work-dir <ruta>.")
+
+    gbuf_dir = Path(args.gbuf_dir).resolve() if args.gbuf_dir else (work_dir / "gbuf_cache")
 
     if args.mode == "blender-export-gbuf":
         run_blender_export_gbuf(work_dir, gbuf_dir, res=args.res)
