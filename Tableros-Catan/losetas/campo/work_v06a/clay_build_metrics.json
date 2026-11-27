@@ -1,0 +1,12 @@
+{
+  "wheat_style": "fine",
+  "n_verts": 1592210,
+  "n_faces": 3184416,
+  "watertight": true,
+  "euler_number": 2,
+  "genus": 0,
+  "z_min_mm": -0.0,
+  "z_max_mm": 44.435,
+  "build_time_s": 116.0,
+  "master_stl": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\losetas\\campo\\work_v06a\\tile_clay_master.stl"
+}

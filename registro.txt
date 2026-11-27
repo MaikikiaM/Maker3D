@@ -1526,3 +1526,20 @@ Resultados verificados (`tools/blender/campo_pbr_bake.py` + `tools/colab/run_cam
 - **Horneado Zero-Idle Colab (`Tesla T4 OPTIX`, fallback automático tras indisponibilidad de L4/A100/G4):** Pre-subido paquete a Drive (`0` créditos), horneados `baked_albedo.png` (`8192×8192` con Cycles AO), `baked_orm.png` (`4096×4096` AO/Rough/Metal), `baked_normal.png` (`8192×8192` micro-bump tangente) + `9` vistas de auditoría (`pbr_000..300.png`, `audit_ortho_pbr.png`, `pbr_trees_closeup.png`, `pbr_props_closeup.png`) en `368.2s`, `DeleteRuntime` ejecutado antes de descargar (`Runtimes activos: []`).
 - **Auditoría `0.20 mm`, Visor WebGL y QA Headless (`http://127.0.0.1:8797`):** `repaired=false`, `3,190,768 Δ`, `is_watertight=true`, `euler_number=2`, `degen=0`, `overhangs=0.276%`, `thin_wall=0.0%`. Empaquetado `tile_pbr_v05.glb` (`180.41 MB`) → `Visores-HTML/catan-bioma-campo-v05-pbr.html` (`46,339,169 B` / `44.19 MiB` `< 50 MB`, `81.64%` ahorro `meshopt+webp`), enlazado como `Bioma 5F` en `Visores-HTML/index.html` y archivado en `Tableros-Catan/losetas/campo/versiones/v05_pbr/`. QA headless: `0` errores consola/página/WebGL (`9/9` OK), verificados `PBR` + `Arcilla CAD` + zoom cercano (`final_step_32.png`).
 ================================================================================
+
+SESIÓN: 27/11/2026 - BIOMA CAMPO v06a (ESPIGA FINA 0.20MM) Y v06b (SURCO ARADO 0.20MM) EN HTML PBR 8K
+- Prompts literales del usuario:
+  * [27/11/2026 21:38]: "Qué medidas tienen cada uno de los picos de la geometria de clay? Los que hacen de trigo qué dimensiones tienen"
+  * [27/11/2026 21:45]: "Y no se van a ver raros? Viendolos mejor se me antojan algo raros"
+  * [27/11/2026 21:47]: "Hay que mantenernos fieles a la boquilla 0.2mm en el sentido de que sea imprimible. Haciendo la opcion 1 perdemos esa opcion?"
+  * [27/11/2026 21:50]: "Prueba las dos y te digo. Aplicales en el HTML si puedes tb la textura con mismos patrones que has utilizado para que lo visualice yo mejor"
+
+Resultados verificados (`tools/blender/build_campo_clay.py` + `tools/blender/campo_pbr_bake.py` + `tools/colab/run_campo_pbr_colab.py` + `mesh_and_print_audit.py --nozzle-mm 0.2` + WebGL QA):
+- **Dos variantes de relieve agrícola calibradas a boquilla `0.20 mm` (`build_campo_clay.py --wheat-style fine|ploughed`):**
+  - `v06a` (*Opción 1: Espiga fina calibrada `0.20 mm`*): `row_pitch=0.68 mm`, `grain_pitch=0.52 mm`, crestas romas (`tanh`) con variación orgánica anti-rejilla (`p10..p90 = 0.227..0.597 mm`, `max = 0.922 mm`, pendiente mediana `48.9°`, `>60° = 24.5%` frente a `56.7%` en `v05`). `1,592,210` vértices / `3,184,416 Δ`, `is_watertight=true`, `euler_number=2`, `degen=0`, `overhang_gt_deg_pct=0.289%`, `thin_wall_lt_2nozzle_pct=0.0%`.
+  - `v06b` (*Opción 2: Surco arado ancho + micro-grano*): caballones redondeados `row_pitch=1.12 mm` con micro-grano orgánico encima (`p10..p90 = 0.230..0.630 mm`, `max = 0.794 mm`, pendiente mediana `42.9°`, `>60° = 3.6%`). `1,589,429` vértices / `3,178,854 Δ`, `is_watertight=true`, `euler_number=2`, `degen=0`, `overhang_gt_deg_pct=0.301%`, `thin_wall_lt_2nozzle_pct=0.0%`.
+- **Horneado PBR 8K en lote único Colab Zero-Idle GPU (`NVIDIA L4 OPTIX`, `614.2s`, `DeleteRuntime` antes de descargar):** Normalización dinámica de `stalk_t` en `campo_pbr_bake.py` preservando el mismo patrón cromático `paint_000` en ambas variantes; archivados `v06a_trigo_fino/` (`189.50 MB` GLB) y `v06b_surco_arado/` (`160.62 MB` GLB).
+- **Visores WebGL `< 50 MB` y QA Headless (`http://127.0.0.1:8798`):**
+  - `Visores-HTML/catan-bioma-campo-v06a-trigo-fino.html` (`45.84 MiB` / `48,066,297 B`, `81.86%` ahorro `meshopt+webp 4K`) y `Visores-HTML/catan-bioma-campo-v06b-surco-arado.html` (`36.42 MiB` / `38,185,805 B`, `83.0%` ahorro) enlazados como `Bioma 5G` y `Bioma 5H` en `Visores-HTML/index.html`.
+  - Verificación headless Chromium (`index.html` + `v06a` + `v06b` con `Sol Alpino` y zoom macro): `0` errores consola/página/WebGL, `0` peticiones fallidas (`final_step_18.png`).
+================================================================================

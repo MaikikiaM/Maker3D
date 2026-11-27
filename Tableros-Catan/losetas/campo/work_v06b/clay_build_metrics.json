@@ -1,0 +1,12 @@
+{
+  "wheat_style": "ploughed",
+  "n_verts": 1589429,
+  "n_faces": 3178854,
+  "watertight": true,
+  "euler_number": 2,
+  "genus": 0,
+  "z_min_mm": -0.0,
+  "z_max_mm": 44.435,
+  "build_time_s": 106.5,
+  "master_stl": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\losetas\\campo\\work_v06b\\tile_clay_master.stl"
+}

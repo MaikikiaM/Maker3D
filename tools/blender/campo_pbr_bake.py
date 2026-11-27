@@ -179,8 +179,16 @@ def compute_semantic_corner_attributes(
 
         furrow_earth = np.array([0.39, 0.25, 0.12], dtype=np.float32)
 
-        # Factor de altura de espiga en cada surco
-        stalk_t = np.clip((ws - 0.35) / 1.15 + 0.18 * prom_f[m_ter], 0.0, 1.0)
+        # Factor de altura de espiga normalizado al rango real del cultivo (compatible v05 / fine / ploughed)
+        ws_field = fields["wheat_sculpt"]
+        wm_field = fields["wheat_mask"]
+        pure_ws = ws_field[wm_field > 0.85]
+        if len(pure_ws) > 100:
+            ws_lo = float(np.percentile(pure_ws, 4.0))
+            ws_hi = float(np.percentile(pure_ws, 97.0))
+        else:
+            ws_lo, ws_hi = 0.35, 1.35
+        stalk_t = np.clip((ws - ws_lo) / max(ws_hi - ws_lo, 0.15) * 0.94 + 0.22 * prom_f[m_ter], 0.0, 1.0)
         wind_mod = 0.92 + 0.14 * np.clip(fbm, -1.0, 1.0) + 0.08 * (noise_f[m_ter] - 0.5)
 
         wheat_rgb = (
@@ -806,7 +814,7 @@ def run_gpu_bake_only(work_dir: Path, device_pref: str = "gpu", alb_res: int = 8
     print(f"[GpuBakeOnly Done] 8K Maps + 9 PBR Renders en {time.time() - t0:.1f}s.", flush=True)
 
 
-def run_finalize_local(work_dir: Path) -> None:
+def run_finalize_local(work_dir: Path, glb_name: str = "tile_pbr_v05.glb") -> None:
     import bpy
 
     t0 = time.time()
@@ -826,7 +834,7 @@ def run_finalize_local(work_dir: Path) -> None:
 
     _setup_final_materials(obj, work_dir, pack_images=True)
 
-    glb_out = work_dir / "tile_pbr_v05.glb"
+    glb_out = work_dir / glb_name
     bpy.ops.export_scene.gltf(
         filepath=str(glb_out),
         export_format="GLB",
@@ -839,12 +847,13 @@ def run_finalize_local(work_dir: Path) -> None:
 
 def main() -> None:
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
-    p = argparse.ArgumentParser(description="Horneado PBR 8K Campo v05 (Zero-Idle GPU)")
+    p = argparse.ArgumentParser(description="Horneado PBR 8K Campo (Zero-Idle GPU)")
     p.add_argument("--work-dir", default=str(DEFAULT_WORK_DIR))
     p.add_argument("--stage", choices=["prep-local", "gpu-bake-only", "finalize-local"], required=True)
     p.add_argument("--device", default="gpu")
     p.add_argument("--alb-res", type=int, default=8192)
     p.add_argument("--orm-res", type=int, default=4096)
+    p.add_argument("--glb-name", default="tile_pbr_v05.glb")
     args = p.parse_args(argv)
 
     work_dir = Path(args.work_dir).resolve()
@@ -853,7 +862,7 @@ def main() -> None:
     elif args.stage == "gpu-bake-only":
         run_gpu_bake_only(work_dir, device_pref=args.device, alb_res=args.alb_res, orm_res=args.orm_res)
     else:
-        run_finalize_local(work_dir)
+        run_finalize_local(work_dir, glb_name=args.glb_name)
 
 
 if __name__ == "__main__":

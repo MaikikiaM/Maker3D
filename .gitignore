@@ -78,10 +78,14 @@ Visores-HTML/catan-bioma-montana-hero360-v06-full8k.html
 Visores-HTML/catan-bioma-montana-hero360-v07-shrubs8k.html
 Tableros-Catan/losetas/*/versiones/
 Tableros-Catan/losetas/*/work/**
+Tableros-Catan/losetas/*/work_*/**
 !Tableros-Catan/losetas/*/work/
 !Tableros-Catan/losetas/*/work/**/
 !Tableros-Catan/losetas/*/work/**/*.json
 !Tableros-Catan/losetas/*/work/**/*.md
+!Tableros-Catan/losetas/*/work_*/
+!Tableros-Catan/losetas/*/work_*/**/
+!Tableros-Catan/losetas/*/work_*/**/*.json
 Tableros-Catan/assets/polyhaven/rocks/
 *.zip
 tools/smoke_test_out/

@@ -1,0 +1,50 @@
+{
+  "input": "Tableros-Catan\\losetas\\campo\\work_v06a\\tile_clay_master.stl",
+  "audited_stl": "Tableros-Catan\\losetas\\campo\\work_v06a\\audit_v06a\\tile_clay_master_work.stl",
+  "repaired": false,
+  "vertices": 1592210,
+  "faces": 3184416,
+  "is_watertight": true,
+  "euler_number": 2,
+  "degenerate_faces": 0,
+  "volume_cm3": 294.632,
+  "bounds_mm": [
+    [
+      -55.4256,
+      -64.0,
+      -0.0
+    ],
+    [
+      55.4256,
+      64.0,
+      44.435
+    ]
+  ],
+  "overhang_gt_deg_pct": 0.289,
+  "thin_wall_lt_2nozzle_pct": 0.0,
+  "topology_engines": {
+    "manifold_status": "Error.NoError",
+    "manifold_valid": true,
+    "manifold_num_tri": 3184416,
+    "pymeshlab_non_manifold_edges": 0,
+    "pymeshlab_boundary_edges": 0,
+    "pymeshlab_connected_components": 1
+  },
+  "catan_check": {
+    "catan_dims_ok": true,
+    "dx_mm": 110.8512,
+    "dy_mm": 128.0,
+    "height_mm": 44.435,
+    "magnet_cavity_ok": true,
+    "magnet_roof_z_mm": 5.2,
+    "pads_flat_25mm_ok": true,
+    "pad_mean_z_mm": [
+      25.0,
+      25.0,
+      25.0,
+      25.0,
+      25.0,
+      25.0
+    ]
+  }
+}

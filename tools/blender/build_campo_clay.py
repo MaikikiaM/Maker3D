@@ -106,7 +106,112 @@ def _min_dist_to_polyline(x: np.ndarray, y: np.ndarray, pts: List[Tuple[float, f
     return dmin
 
 
-def build_campo_terrain_fields(res: int = 2560, seed: int = 209) -> Dict[str, np.ndarray]:
+def _wheat_sculpt_field(
+    X: np.ndarray,
+    Y: np.ndarray,
+    parcel_id: np.ndarray,
+    fbm_fine: np.ndarray,
+    res: int,
+    seed: int,
+    wheat_style: str,
+) -> np.ndarray:
+    parcel_angles_deg = {1: 26.0, 2: -32.0, 3: -58.0, 4: 64.0}
+    wheat_sculpt = np.zeros_like(X, dtype=np.float64)
+
+    if wheat_style == "v05":
+        row_pitch_mm = 0.94
+        grain_pitch_mm = 0.62
+        for pid, ang_deg in parcel_angles_deg.items():
+            m = (parcel_id == pid).astype(np.float64)
+            if not np.any(m):
+                continue
+            th = math.radians(ang_deg)
+            ct, st = math.cos(th), math.sin(th)
+            u = X * ct + Y * st + 2.1 * np.sin((X * (-st) + Y * ct) / 16.0)
+            v = -X * st + Y * ct
+
+            phase_u = 2.0 * math.pi * u / row_pitch_mm
+            row_ridge = 0.5 + 0.5 * np.cos(phase_u - 0.35 * np.sin(phase_u))
+            row_ridge = np.power(np.clip(row_ridge, 0.0, 1.0), 0.85)
+
+            phase_v = 2.0 * math.pi * v / grain_pitch_mm + 1.8 * np.sin(u * 2.9)
+            grain_beads = 0.5 + 0.5 * np.cos(phase_v)
+
+            wind_swell = 0.84 + 0.16 * np.sin(u / 6.5 + v / 9.0)
+            wheat_sculpt += m * wind_swell * (0.46 + 0.58 * row_ridge + 0.36 * row_ridge * grain_beads)
+        return ndi.gaussian_filter(wheat_sculpt, sigma=0.45)
+
+    # Ruido orgánico adicional para romper el aspecto mecánico de cuadrícula en fine y ploughed
+    fbm_tuft = _fbm((res, res), seed=seed + 137, sigmas=(11.0, 4.5), weights=(0.65, 0.35))
+    fbm_micro = _fbm((res, res), seed=seed + 271, sigmas=(5.2, 2.4), weights=(0.60, 0.40))
+
+    if wheat_style == "fine":
+        # Opción 1 calibrada a boquilla 0.20 mm:
+        # Paso 0.68 x 0.52 mm, crestas romas imprimibles en trazo continuo (pendiente ~36-48°) e irregularidad orgánica.
+        row_pitch_mm = 0.68
+        grain_pitch_mm = 0.52
+        for pid, ang_deg in parcel_angles_deg.items():
+            m = (parcel_id == pid).astype(np.float64)
+            if not np.any(m):
+                continue
+            th = math.radians(ang_deg)
+            ct, st = math.cos(th), math.sin(th)
+            u_raw = X * ct + Y * st
+            v_raw = -X * st + Y * ct
+
+            # Ondulación suave de surco + ligero jitter lateral por mata para quitar filas rectas rígidas
+            u = u_raw + 2.0 * np.sin(v_raw / 15.0) + 0.085 * fbm_tuft + 0.035 * fbm_micro
+            v = v_raw + 0.16 * fbm_tuft + 0.09 * fbm_micro
+
+            # Cresta redondeada con meseta roma (tanh comprime arriba/abajo para dar lomo >=0.24 mm en cima)
+            phase_u = 2.0 * math.pi * u / row_pitch_mm
+            row_wave = np.cos(phase_u - 0.18 * np.sin(phase_u))
+            row_ridge = 0.5 + 0.5 * np.tanh(1.55 * row_wave) / math.tanh(1.55)
+
+            # Matas orgánicas irregulares a lo largo del surco (varían en fase, ancho y altura sin púas cónicas)
+            phase_v = 2.0 * math.pi * v / grain_pitch_mm + 1.45 * fbm_tuft + 0.75 * np.sin(u * 2.1 + 0.9 * pid)
+            grain_tuft = 0.5 + 0.5 * np.tanh(1.25 * np.cos(phase_v)) / math.tanh(1.25)
+
+            clump_amp = np.clip(0.84 + 0.22 * fbm_tuft + 0.12 * fbm_micro, 0.56, 1.24)
+            wind_swell = 0.86 + 0.14 * np.sin(u / 7.0 + v / 9.5 + 0.6 * pid)
+            # Cama mínima 0.26 mm + lomo continuo 0.34 mm + mata roma 0.20 mm (~0.52 mm relieve neto medio)
+            wheat_sculpt += m * wind_swell * (0.26 + clump_amp * (0.34 * row_ridge + 0.20 * row_ridge * grain_tuft))
+        return ndi.gaussian_filter(wheat_sculpt, sigma=0.65)
+
+    if wheat_style == "ploughed":
+        # Opción 2: Surcos de labranza anchos y redondeados (1.12 mm) + micro-grano orgánico de cereal naciente/rastrojo
+        row_pitch_mm = 1.12
+        for pid, ang_deg in parcel_angles_deg.items():
+            m = (parcel_id == pid).astype(np.float64)
+            if not np.any(m):
+                continue
+            th = math.radians(ang_deg)
+            ct, st = math.cos(th), math.sin(th)
+            u_raw = X * ct + Y * st
+            v_raw = -X * st + Y * ct
+
+            # Trazo ligeramente orgánico de reja de arado
+            u = u_raw + 2.2 * np.sin(v_raw / 17.0) + 0.10 * fbm_tuft
+            v = v_raw + 0.18 * fbm_tuft
+
+            phase_u = 2.0 * math.pi * u / row_pitch_mm
+            row_ridge = 0.5 + 0.5 * np.cos(phase_u - 0.15 * np.sin(phase_u))
+            row_ridge = np.power(np.clip(row_ridge, 0.0, 1.0), 0.72)  # Lomo ancho y valle bien marcado
+
+            # Micro-relieve granular/rastrojo orgánico encima del caballón (sin púas geométricas)
+            stubble_1 = 0.5 + 0.5 * np.cos(2.0 * math.pi * v / 0.58 + 2.1 * fbm_tuft + 1.3 * np.sin(u * 2.4))
+            stubble_2 = np.clip(0.5 + 0.55 * fbm_micro, 0.0, 1.0)
+            micro_grain = 0.55 * stubble_1 + 0.45 * stubble_2
+
+            wind_swell = 0.88 + 0.12 * np.sin(u / 8.0 + v / 10.5)
+            # Cama 0.18 mm + caballón redondeado 0.40 mm + micro-grano irregular 0.22 mm sobre el lomo
+            wheat_sculpt += m * wind_swell * (0.18 + 0.40 * row_ridge + 0.22 * (0.30 + 0.70 * row_ridge) * micro_grain)
+        return ndi.gaussian_filter(wheat_sculpt, sigma=0.75)
+
+    raise ValueError(f"wheat_style desconocido: {wheat_style}")
+
+
+def build_campo_terrain_fields(res: int = 2560, seed: int = 209, wheat_style: str = "v05") -> Dict[str, np.ndarray]:
     xs = np.linspace(-R, R, res)
     ys = np.linspace(-R, R, res)
     X, Y = np.meshgrid(xs, ys)
@@ -195,31 +300,7 @@ def build_campo_terrain_fields(res: int = 2560, seed: int = 209) -> Dict[str, np
         * fence_clear
     )
 
-    parcel_angles_deg = {1: 26.0, 2: -32.0, 3: -58.0, 4: 64.0}
-    row_pitch_mm = 0.94
-    grain_pitch_mm = 0.62
-    wheat_sculpt = np.zeros_like(base_hills)
-
-    for pid, ang_deg in parcel_angles_deg.items():
-        m = (parcel_id == pid).astype(np.float64)
-        if not np.any(m):
-            continue
-        th = math.radians(ang_deg)
-        ct, st = math.cos(th), math.sin(th)
-        u = X * ct + Y * st + 2.1 * np.sin((X * (-st) + Y * ct) / 16.0)
-        v = -X * st + Y * ct
-
-        phase_u = 2.0 * math.pi * u / row_pitch_mm
-        row_ridge = 0.5 + 0.5 * np.cos(phase_u - 0.35 * np.sin(phase_u))
-        row_ridge = np.power(np.clip(row_ridge, 0.0, 1.0), 0.85)
-
-        phase_v = 2.0 * math.pi * v / grain_pitch_mm + 1.8 * np.sin(u * 2.9)
-        grain_beads = 0.5 + 0.5 * np.cos(phase_v)
-
-        wind_swell = 0.84 + 0.16 * np.sin(u / 6.5 + v / 9.0)
-        wheat_sculpt += m * wind_swell * (0.46 + 0.58 * row_ridge + 0.36 * row_ridge * grain_beads)
-
-    wheat_sculpt = ndi.gaussian_filter(wheat_sculpt, sigma=0.45)
+    wheat_sculpt = _wheat_sculpt_field(X, Y, parcel_id, fbm_fine, res=res, seed=seed, wheat_style=wheat_style)
     soil_z = base_hills + terrace_bump + 0.22 * fbm_fine * rim_taper - 0.45 * road_trench - ruts - 0.25 * staging_mask * rim_taper
     dem = np.maximum(0.0, soil_z + wheat_mask * wheat_sculpt) * rim_taper
 
@@ -1155,12 +1236,12 @@ def _stl_to_manifold(stl_path: Path):
     return mf.Manifold(mesh)
 
 
-def run_build_geometry(base_stl: Path, out_dir: Path, n_seg: int = 760, res_dem: int = 2560) -> Dict[str, object]:
+def run_build_geometry(base_stl: Path, out_dir: Path, n_seg: int = 760, res_dem: int = 2560, wheat_style: str = "v05") -> Dict[str, object]:
     t0 = time.time()
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"[CampoClay v2.2 1/4] Generando campiña suave + 4 parcelas alineadas (DEM={res_dem})...", flush=True)
-    fields = build_campo_terrain_fields(res=res_dem, seed=209)
+    print(f"[CampoClay v2.2 1/4] Generando campiña suave + 4 parcelas alineadas (DEM={res_dem}, wheat_style={wheat_style})...", flush=True)
+    fields = build_campo_terrain_fields(res=res_dem, seed=209, wheat_style=wheat_style)
 
     sem_map: Dict[int, int] = {}
 
@@ -1248,6 +1329,7 @@ def run_build_geometry(base_stl: Path, out_dir: Path, n_seg: int = 760, res_dem:
     )
 
     metrics = {
+        "wheat_style": wheat_style,
         "n_verts": int(len(verts)),
         "n_faces": int(len(faces)),
         "watertight": bool(tm.is_watertight),
@@ -1431,17 +1513,18 @@ def main() -> None:
     p.add_argument("--dem-res", type=int, default=2560)
     p.add_argument("--res", type=int, default=1024)
     p.add_argument("--samples", type=int, default=24)
+    p.add_argument("--wheat-style", choices=["v05", "fine", "ploughed"], default="v05")
     args = p.parse_args(argv)
 
     base_stl = Path(args.base_stl).resolve()
     out_dir = Path(args.out_dir).resolve()
 
     if args.mode == "geom":
-        run_build_geometry(base_stl, out_dir, n_seg=args.n_seg, res_dem=args.dem_res)
+        run_build_geometry(base_stl, out_dir, n_seg=args.n_seg, res_dem=args.dem_res, wheat_style=args.wheat_style)
     elif args.mode == "render":
         run_blender_render_views(out_dir, res_px=args.res, samples=args.samples)
     else:
-        run_build_geometry(base_stl, out_dir, n_seg=args.n_seg, res_dem=args.dem_res)
+        run_build_geometry(base_stl, out_dir, n_seg=args.n_seg, res_dem=args.dem_res, wheat_style=args.wheat_style)
         sys.path.insert(0, str(REPO_ROOT / "tools"))
         import tool_paths as tp
         blender_exe = tp.find_blender()
