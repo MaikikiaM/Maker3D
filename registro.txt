@@ -1448,3 +1448,16 @@ Diagnóstico ColorMix y reorganización de `Tableros-Catan/`:
   - Actualizados `Tableros-Catan/legacy/pipeline-biomas-scripts/build_catan_biome.py`, `build_bosque_3d.py`, `.gitignore`, `.agents/skills/nanobanana-3d-sculpt/SKILL.md` y `docs/ia/ESTADO.md`.
 - **Verificación (`py_compile` + `--help` + `env_check.py`):** `py_compile` (`rc=0`) y `--help` (`rc=0`) verificados en los 4 scripts de `tools/` y los 2 legacy actualizados; `env_check.py` reportó `WinError 4551` (Control de aplicaciones de Windows) bloqueando `openscad.com` y `OCP` (`build123d`), resto operativo.
 ================================================================================
+
+SESIÓN: 27/11/2026 - BIOMA CAMPO (FULL TRIGO): GEOMETRÍA 3D WATERTIGHT Y VISTAS PINTADAS PARA REVISIÓN
+- Prompts literales del usuario:
+  * [27/11/2026 17:35]: "Te parece si intentamos ir con el proximo bioma? Empecemos por el trigo. El tema que me gustaria que tuviera sería estilo las fotos que ya te di que se veian como campos trigo a harar. Ahora dime si es mejor artir de esa imagen o generar una geometria y entonces pedir imagenes. Esa imagen no sría de la que partamos de todos modos. Te dejo una imagen para que veas la idea pero bueno, que no es el objetivo ni mucho menos"
+  * [27/11/2026 17:59]: "no, no quiero dejar nada para el numero. Quiero campos por harar (full trigo). No quiero estructuras, solo elementos agricolas. Genera la geometría y pintas las vistas en funcion de ella. Recuerda que queremos la misma calidad de imagen inicial que teniamos con la montaña, asik currate el prompt. Revisare las imagenes generadas antes de que las apliques al modelo /goal"
+
+Resultados verificados (geometría + vistas pre-proyección):
+- **`tools/blender/build_campo_clay.py` (`n_seg=440`, `Manifold3D` + Blender `5.3.0` Cycles):** Generada la escena agrícola completa en `Tableros-Catan/losetas/campo/work/` (`4` parcelas de trigo continuo ondulante por segar sin hueco de número ni edificios + caminos rurales con roderas + árboles frondosos y cipreses de linde, setos, piedras y balas de paja).
+- **Auditoría `mesh_and_print_audit.py --nozzle-mm 0.2 --catan-check` (`PASS`):** `939,614` triángulos, `is_watertight=true`, `euler_number=2`, `genus=0`, `degenerate_faces=0`, `pymeshlab_connected_components=1`, `thin_wall_lt_2nozzle_pct=0.0`, `overhang_gt_deg_pct=0.168`, `110.8512 × 128.0 × 56.6858 mm`, `6/6` pads planos (`25.0 mm`), imán `5.2 mm`.
+- **Vistas Nano Banana generadas sobre `clay_000..300.png` + `audit_ortho.png` (sin aplicar al modelo aún):**
+  - Aprobadas `1:1` (`0°`, `60°`, `180°`, `300°` y `Ortho`) en `Tableros-Catan/losetas/campo/work/painted_views/` y [campo_v1_review.md](C:/Users/migue/.gemini/antigravity/brain/34342c68-2385-41c9-a165-20883e62734d/campo_v1_review.md).
+  - `240°` quedó en borrador `v2` y `120°` quedó bloqueada en el intento 3 por límite de cuota de generación de imágenes (`HTTP 429 RESOURCE_EXHAUSTED`, reset en `~4h 57m`).
+================================================================================

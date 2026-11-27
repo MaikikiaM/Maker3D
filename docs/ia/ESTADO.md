@@ -19,5 +19,5 @@ Suite modular CAD/Mesh/Escultura 3D con IA (**Maker3D 2.0**) para piezas paramé
 - **Trazabilidad:** `tools/blender/build_v07_shrubs.py --tile montana`, `Tableros-Catan/losetas/montana/versiones/v07_shrubs8k/`, [montana_hero360_v07_showcase.md](file:///C:/Users/migue/.gemini/antigravity/brain/34342c68-2385-41c9-a165-20883e62734d/montana_hero360_v07_showcase.md) y `TELEMETRIA_CUOTAS.md`.
 
 ## Próximas Tareas Prioritarias
-1. Revisión visual por el usuario del visor `catan-bioma-montana-hero360-v07-shrubs8k.html` (o laminado `--bambu-slice` si solicita tiempos/G-code `0.20 mm`).
-2. Siguiente bioma o loseta modular Catán (enrutando por `.agents/skills/maker3d-router/SKILL.md`).
+1. Revisión visual del usuario de [campo_v1_review.md](file:///C:/Users/migue/.gemini/antigravity/brain/34342c68-2385-41c9-a165-20883e62734d/campo_v1_review.md) (`campo` arcilla `chi=2` auditada `0.20 mm` + vistas `0°/60°/180°/300°/ortho` listas; completar `120°` y `240° v3` tras reset de cuota `HTTP 429`) antes de proyectar/hornear `tile_master`.
+2. Revisión del visor `catan-bioma-montana-hero360-v07-shrubs8k.html` y resto de biomas (`bosque`, `colina`, `pasto`, `desierto`, `oro`, `oceano`).
