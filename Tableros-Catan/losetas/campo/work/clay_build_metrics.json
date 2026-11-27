@@ -1,11 +1,11 @@
 {
-  "n_verts": 1595387,
-  "n_faces": 3190770,
+  "n_verts": 1595386,
+  "n_faces": 3190768,
   "watertight": true,
   "euler_number": 2,
   "genus": 0,
   "z_min_mm": -0.0,
   "z_max_mm": 44.435,
-  "build_time_s": 68.2,
+  "build_time_s": 77.6,
   "master_stl": "C:\\Users\\migue\\Antigravity\\Maker3D\\Tableros-Catan\\losetas\\campo\\work\\tile_clay_master.stl"
 }

@@ -16,9 +16,33 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+
+SEM_PLINTH = 0
+SEM_TERRAIN = 1
+SEM_OAK_LEAF = 2
+SEM_BARK = 3
+SEM_CYPRESS_LEAF = 4
+SEM_BUSH = 5
+SEM_STONE = 6
+SEM_FENCE_WOOD = 7
+SEM_FENCE_BERM = 8
+SEM_STRAW = 9
+SEM_ROPE = 10
+SEM_WHEAT_CROWN = 11
+SEM_CART_WOOD = 12
+SEM_IRON = 13
+SEM_WHEEL_BACK = 14
+
+
+def _tag_sem(m, sem_id: int, sem_map: Optional[Dict[int, int]]):
+    if sem_map is None:
+        return m
+    mo = m.as_original()
+    sem_map[int(mo.original_id())] = sem_id
+    return mo
 
 try:
     import bpy  # type: ignore
@@ -205,8 +229,12 @@ def build_campo_terrain_fields(res: int = 2560, seed: int = 209) -> Dict[str, np
         "dem": dem,
         "soil_z": np.maximum(0.0, soil_z) * rim_taper,
         "wheat_mask": wheat_mask,
+        "wheat_sculpt": wheat_sculpt,
+        "fbm_fine": fbm_fine,
         "road_mask": road_trench,
+        "ruts": ruts,
         "staging_mask": staging_mask,
+        "fence_clear": fence_clear,
         "parcel_id": parcel_id,
         "d_road": d_road,
         "de": de,
@@ -524,18 +552,18 @@ def _make_fluted_trunk(
     return mf.Manifold(mesh)
 
 
-def _make_bush_cluster(x: float, y: float, z: float, radius: float, rng: np.random.Generator):
+def _make_bush_cluster(x: float, y: float, z: float, radius: float, rng: np.random.Generator, sem_map: Optional[Dict[int, int]] = None):
     """Arbusto en cojín alta resolución (icosphere subdiv=3 con racimos foliares Voronoi, chi=2)."""
-    core = _botanical_foliage_lobe(
+    core = _tag_sem(_botanical_foliage_lobe(
         radius, (1.12, 1.06, 0.90), rng, subdiv=3, n_tufts=44, tuft_amp=0.20, micro_amp=0.07
-    ).translate([x, y, z + radius * 0.16])
-    anchor = mf.Manifold.cylinder(radius * 2.0, radius * 1.10, radius * 0.78, circular_segments=16).translate([x, y, z - radius * 1.20])
+    ).translate([x, y, z + radius * 0.16]), SEM_BUSH, sem_map)
+    anchor = _tag_sem(mf.Manifold.cylinder(radius * 2.0, radius * 1.10, radius * 0.78, circular_segments=16).translate([x, y, z - radius * 1.20]), SEM_BUSH, sem_map)
     return core + anchor
 
 
-def _make_oak_hedge_tree(x: float, y: float, z: float, height: float, rad: float, rng: np.random.Generator):
+def _make_oak_hedge_tree(x: float, y: float, z: float, height: float, rad: float, rng: np.random.Generator, sem_map: Optional[Dict[int, int]] = None):
     """Roble/encina de linde de alta resolución (~110k Δ): tronco acanalado, 5 ramas y 13 sub-copas Voronoi."""
-    trunk = _make_fluted_trunk(
+    trunk = _tag_sem(_make_fluted_trunk(
         height=height * 0.58 + 2.6,
         r_bot=rad * 0.36,
         r_mid=rad * 0.22,
@@ -545,7 +573,7 @@ def _make_oak_hedge_tree(x: float, y: float, z: float, height: float, rad: float
         rad_segs=44,
         z_segs=26,
         root_flares=5,
-    ).translate([x, y, 0.0])
+    ).translate([x, y, 0.0]), SEM_BARK, sem_map)
 
     # 5 ramas cortas visibles entrando limpiamente en el faldón inferior sin formar bucles (genus=0)
     parts = [trunk]
@@ -557,7 +585,7 @@ def _make_oak_hedge_tree(x: float, y: float, z: float, height: float, rad: float
         b_len = height * 0.24
         limb = mf.Manifold.cylinder(b_len, rad * 0.16, rad * 0.11, circular_segments=18)
         limb = limb.rotate([0.0, tilt_deg, 0.0]).rotate([0.0, 0.0, math.degrees(az)])
-        parts.append(limb.translate([x, y, z + height * 0.28]))
+        parts.append(_tag_sem(limb.translate([x, y, z + height * 0.28]), SEM_BARK, sem_map))
         horiz = (height * 0.22) * math.sin(math.radians(tilt_deg))
         limb_tips.append((
             x + (horiz + 0.18 * rad) * math.cos(az),
@@ -566,7 +594,7 @@ def _make_oak_hedge_tree(x: float, y: float, z: float, height: float, rad: float
         ))
 
     # Collar inferior >= 45 deg bajo el centro de la copa para impresión limpia sin soportes
-    collar = mf.Manifold.cylinder(height * 0.20, rad * 0.21, rad * 0.64, circular_segments=28).translate([x, y, z + height * 0.30])
+    collar = _tag_sem(mf.Manifold.cylinder(height * 0.20, rad * 0.21, rad * 0.64, circular_segments=28).translate([x, y, z + height * 0.30]), SEM_BARK, sem_map)
     parts.append(collar)
 
     # Copa sólida conectada en estrella desde núcleo central (solape >= 35%, 0 huecos ni bucles)
@@ -592,16 +620,16 @@ def _make_oak_hedge_tree(x: float, y: float, z: float, height: float, rad: float
     boughs_specs.append((x - 0.06 * rad, y + 0.08 * rad, z + height * 0.90, rad * 0.35, (0.92, 0.92, 1.06), 4, 80))
 
     for bx, by, bz, rr, sc_xyz, sdv, n_tf in boughs_specs:
-        lobe = _botanical_foliage_lobe(
+        lobe = _tag_sem(_botanical_foliage_lobe(
             rr, sc_xyz, rng, subdiv=sdv, n_tufts=n_tf, tuft_amp=0.26, micro_amp=0.115
-        ).translate([bx, by, bz])
+        ).translate([bx, by, bz]), SEM_OAK_LEAF, sem_map)
         parts.append(lobe)
     return mf.Manifold.batch_boolean(parts, mf.OpType.Add)
 
 
-def _make_cypress_tree(x: float, y: float, z: float, height: float, rad: float, rng: np.random.Generator):
+def _make_cypress_tree(x: float, y: float, z: float, height: float, rad: float, rng: np.random.Generator, sem_map: Optional[Dict[int, int]] = None):
     """Ciprés mediterráneo de alta resolución (~90k Δ): tronco estriado y 10 penachos foliares en flama."""
-    trunk = _make_fluted_trunk(
+    trunk = _tag_sem(_make_fluted_trunk(
         height=height * 0.55 + 2.5,
         r_bot=rad * 0.42,
         r_mid=rad * 0.28,
@@ -611,8 +639,8 @@ def _make_cypress_tree(x: float, y: float, z: float, height: float, rad: float, 
         rad_segs=36,
         z_segs=20,
         root_flares=4,
-    ).translate([x, y, 0.0])
-    collar = mf.Manifold.cylinder(height * 0.16, rad * 0.28, rad * 0.78, circular_segments=20).translate([x, y, z + height * 0.15])
+    ).translate([x, y, 0.0]), SEM_BARK, sem_map)
+    collar = _tag_sem(mf.Manifold.cylinder(height * 0.16, rad * 0.28, rad * 0.78, circular_segments=20).translate([x, y, z + height * 0.15]), SEM_CYPRESS_LEAF, sem_map)
     parts = [trunk, collar]
     tiers = [
         (0.06, -0.04, height * 0.26, rad * 0.96, 1.38, 5, 110),
@@ -627,14 +655,14 @@ def _make_cypress_tree(x: float, y: float, z: float, height: float, rad: float, 
         (0.0, 0.0, height * 0.96, rad * 0.15, 1.95, 4, 34),
     ]
     for dx, dy, dz, rr, sz, sdv, n_tf in tiers:
-        lobe = _botanical_foliage_lobe(
+        lobe = _tag_sem(_botanical_foliage_lobe(
             rr, (1.0, 1.0, sz), rng, subdiv=sdv, n_tufts=n_tf, tuft_amp=0.25, micro_amp=0.105, fluting_z=0.14
-        ).translate([x + dx * rad, y + dy * rad, z + dz])
+        ).translate([x + dx * rad, y + dy * rad, z + dz]), SEM_CYPRESS_LEAF, sem_map)
         parts.append(lobe)
     return mf.Manifold.batch_boolean(parts, mf.OpType.Add)
 
 
-def _make_stone_boulder(x: float, y: float, z: float, r: float, rng: np.random.Generator):
+def _make_stone_boulder(x: float, y: float, z: float, r: float, rng: np.random.Generator, sem_map: Optional[Dict[int, int]] = None):
     u, f_arr = _get_icosphere(2)
     c_planes = _fibonacci_sphere_jittered(12, rng, jitter=1.4)
     # Aplanado poligonal tipo piedra partida natural
@@ -653,7 +681,7 @@ def _make_stone_boulder(x: float, y: float, z: float, r: float, rng: np.random.G
         vert_properties=np.ascontiguousarray(np.column_stack([xr, yr, zr]), dtype=np.float32),
         tri_verts=np.ascontiguousarray(f_arr, dtype=np.uint32),
     )
-    return mf.Manifold(mesh2)
+    return _tag_sem(mf.Manifold(mesh2), SEM_STONE, sem_map)
 
 
 def _loft_closed_tube(rings: np.ndarray):
@@ -716,7 +744,7 @@ def _make_braided_cord_ring(radius: float, cord_r: float = 0.065, n_major: int =
     return mf.Manifold(mf.Mesh(vert_properties=np.asarray(pts, dtype=np.float32), tri_verts=np.asarray(faces, dtype=np.uint32)))
 
 
-def _make_solid_fence_segment(p0: Tuple[float, float], p1: Tuple[float, float], dem: np.ndarray, rng: np.random.Generator | None = None):
+def _make_solid_fence_segment(p0: Tuple[float, float], p1: Tuple[float, float], dem: np.ndarray, rng: np.random.Generator | None = None, sem_map: Optional[Dict[int, int]] = None):
     """Valla rústica de madera partida de alta resolución: postes con vetas/punta biselada, travesaños con relieve y zócalo bajo de piedra/sombra (chi=2)."""
     if rng is None:
         rng = np.random.default_rng(int(round(abs(p0[0] * 31 + p1[1] * 17))) + 91)
@@ -753,7 +781,7 @@ def _make_solid_fence_segment(p0: Tuple[float, float], p1: Tuple[float, float], 
             rings_p[iz, :, 0] = px + lean_x * s + rr * np.cos(th_p)
             rings_p[iz, :, 1] = py + lean_y * s + rr * np.sin(th_p)
             rings_p[iz, :, 2] = pz + z_loc
-        parts.append(_loft_closed_tube(rings_p))
+        parts.append(_tag_sem(_loft_closed_tube(rings_p), SEM_FENCE_WOOD, sem_map))
 
     n_rad_r = 28
     n_len_r = 24
@@ -782,19 +810,19 @@ def _make_solid_fence_segment(p0: Tuple[float, float], p1: Tuple[float, float], 
                 rings_r[ix, :, 1] = ry * np.cos(th_r)
                 rings_r[ix, :, 2] = rz * np.sin(th_r) + bow_z
             # Rotación para alinear el eje X local (+seg_len) -> +Z antes o rotar tubo directamente en +X
-            rail_mf = _loft_closed_tube(rings_r).rotate([0.0, pitch_deg, 0.0]).rotate([0.0, 0.0, ang_deg]).translate([mx, my, mz + h_rail])
+            rail_mf = _tag_sem(_loft_closed_tube(rings_r).rotate([0.0, pitch_deg, 0.0]).rotate([0.0, 0.0, ang_deg]).translate([mx, my, mz + h_rail]), SEM_FENCE_WOOD, sem_map)
             parts.append(rail_mf)
 
         # Zócalo continuo bajo travesaño inferior + membrana de sombra rehundida (0.40 mm) entre travesaños
         # Evita micro-túneles con el suelo (genus=0 estricto) y deja silueta libre sobre el travesaño superior
-        berm = mf.Manifold.cube([seg_len - 0.10, 1.10, 2.95], center=True).rotate([0.0, pitch_deg, 0.0]).rotate([0.0, 0.0, ang_deg]).translate([mx, my, mz - 0.30])
-        web = mf.Manifold.cube([seg_len - 0.15, 0.40, 3.60], center=True).rotate([0.0, pitch_deg, 0.0]).rotate([0.0, 0.0, ang_deg]).translate([mx, my, mz + 0.30])
+        berm = _tag_sem(mf.Manifold.cube([seg_len - 0.10, 1.10, 2.95], center=True).rotate([0.0, pitch_deg, 0.0]).rotate([0.0, 0.0, ang_deg]).translate([mx, my, mz - 0.30]), SEM_FENCE_BERM, sem_map)
+        web = _tag_sem(mf.Manifold.cube([seg_len - 0.15, 0.40, 3.60], center=True).rotate([0.0, pitch_deg, 0.0]).rotate([0.0, 0.0, ang_deg]).translate([mx, my, mz + 0.30]), SEM_FENCE_BERM, sem_map)
         parts.extend([berm, web])
 
     return mf.Manifold.batch_boolean(parts, mf.OpType.Add)
 
 
-def _make_straw_bale(x: float, y: float, z: float, yaw_deg: float, radius: float = 1.15, length: float = 2.45):
+def _make_straw_bale(x: float, y: float, z: float, yaw_deg: float, radius: float = 1.15, length: float = 2.45, sem_map: Optional[Dict[int, int]] = None):
     """Bala de heno enrollada de alta resolución (~18k Δ): fibras de paja longitudinales/espirales, caras estriadas y doble cuerda trenzada."""
     n_rad = 84
     n_len = 52
@@ -838,15 +866,15 @@ def _make_straw_bale(x: float, y: float, z: float, yaw_deg: float, radius: float
     for k in range(n_cap_rings - 1, 0, -1):
         rings.append(_cap_ring(k / n_cap_rings, 0.5 * length, 1.0))
 
-    bale_body = _loft_closed_tube(np.asarray(rings, dtype=np.float64))
+    bale_body = _tag_sem(_loft_closed_tube(np.asarray(rings, dtype=np.float64)), SEM_STRAW, sem_map)
     r_cinch = radius * 0.905
-    rope1 = _make_braided_cord_ring(r_cinch, cord_r=0.082, n_major=72, n_minor=12, twists=20).translate([0, 0, -0.24 * length])
-    rope2 = _make_braided_cord_ring(r_cinch, cord_r=0.082, n_major=72, n_minor=12, twists=20).translate([0, 0, 0.24 * length])
+    rope1 = _tag_sem(_make_braided_cord_ring(r_cinch, cord_r=0.082, n_major=72, n_minor=12, twists=20).translate([0, 0, -0.24 * length]), SEM_ROPE, sem_map)
+    rope2 = _tag_sem(_make_braided_cord_ring(r_cinch, cord_r=0.082, n_major=72, n_minor=12, twists=20).translate([0, 0, 0.24 * length]), SEM_ROPE, sem_map)
     bale = mf.Manifold.batch_boolean([bale_body, rope1, rope2], mf.OpType.Add)
     return bale.rotate([0.0, 90.0, 0.0]).rotate([0.0, 0.0, yaw_deg]).translate([x, y, z + radius * 0.56])
 
 
-def _make_wheat_sheaf(x: float, y: float, z: float, yaw_deg: float, scale: float = 0.72):
+def _make_wheat_sheaf(x: float, y: float, z: float, yaw_deg: float, scale: float = 0.72, sem_map: Optional[Dict[int, int]] = None):
     """Gavilla de trigo atada de alta resolución (~14k Δ): 28 tallos acanalados, atadura de cuerda trenzada y corona de espigas Voronoi."""
     n_rad = 64
     n_len = 32
@@ -866,29 +894,29 @@ def _make_wheat_sheaf(x: float, y: float, z: float, yaw_deg: float, scale: float
         rings[iz, :, 1] = rr * np.sin(th)
         rings[iz, :, 2] = -0.65 * scale + s * h_tot
 
-    body = _loft_closed_tube(rings)
-    tie = _make_braided_cord_ring(0.415 * scale, cord_r=0.088 * scale, n_major=60, n_minor=12, twists=18).translate([0, 0, -0.65 * scale + 0.58 * h_tot])
-    cap = _botanical_foliage_lobe(
+    body = _tag_sem(_loft_closed_tube(rings), SEM_STRAW, sem_map)
+    tie = _tag_sem(_make_braided_cord_ring(0.415 * scale, cord_r=0.088 * scale, n_major=60, n_minor=12, twists=18).translate([0, 0, -0.65 * scale + 0.58 * h_tot]), SEM_ROPE, sem_map)
+    cap = _tag_sem(_botanical_foliage_lobe(
         0.92 * scale, (1.0, 1.0, 0.52), rng, subdiv=3, n_tufts=54, tuft_amp=0.22, micro_amp=0.08
-    ).translate([0, 0, -0.65 * scale + h_tot * 0.96])
+    ).translate([0, 0, -0.65 * scale + h_tot * 0.96]), SEM_WHEAT_CROWN, sem_map)
     sheaf = mf.Manifold.batch_boolean([body, tie, cap], mf.OpType.Add)
     return sheaf.rotate([3.0, -3.0, 0.0]).rotate([0.0, 0.0, yaw_deg]).translate([x, y, z])
 
 
-def _make_solid_cartwheel(x: float, y: float, z: float, yaw_deg: float, radius: float = 2.45):
+def _make_solid_cartwheel(x: float, y: float, z: float, yaw_deg: float, radius: float = 2.45, sem_map: Optional[Dict[int, int]] = None):
     """Rueda de carro de madera y hierro forjado de alta resolución (~28k Δ): llanta 96-seg con 16 remaches, pina segmentada, 10 radios ahusados, buje torneado y disco de sombra rehundido (chi=2)."""
     # Disco de respaldo rehundido (0.42 mm >= 2x boquilla 0.20 mm) para garantizar chi=2 dejando radios y pina en alto relieve (+0.32 mm cada lado)
-    plate = mf.Manifold.cylinder(0.42, radius - 0.42, radius - 0.42, circular_segments=96, center=True)
+    plate = _tag_sem(mf.Manifold.cylinder(0.42, radius - 0.42, radius - 0.42, circular_segments=96, center=True), SEM_WHEEL_BACK, sem_map)
 
     # Bandaje exterior de hierro forjado + pina interior de madera con juntas
-    iron_tire = mf.Manifold.cylinder(0.92, radius, radius, circular_segments=96, center=True) - mf.Manifold.cylinder(1.10, radius - 0.16, radius - 0.16, circular_segments=96, center=True)
-    wood_felloe = mf.Manifold.cylinder(0.84, radius - 0.14, radius - 0.14, circular_segments=96, center=True) - mf.Manifold.cylinder(1.10, radius - 0.54, radius - 0.54, circular_segments=96, center=True)
+    iron_tire = _tag_sem(mf.Manifold.cylinder(0.92, radius, radius, circular_segments=96, center=True) - mf.Manifold.cylinder(1.10, radius - 0.16, radius - 0.16, circular_segments=96, center=True), SEM_IRON, sem_map)
+    wood_felloe = _tag_sem(mf.Manifold.cylinder(0.84, radius - 0.14, radius - 0.14, circular_segments=96, center=True) - mf.Manifold.cylinder(1.10, radius - 0.54, radius - 0.54, circular_segments=96, center=True), SEM_CART_WOOD, sem_map)
 
     # Buje central torneado en madera + aros metálicos + eje sobresaliente
-    hub = mf.Manifold.cylinder(1.42, 0.56, 0.52, circular_segments=64, center=True)
-    hub_band_f = mf.Manifold.cylinder(0.18, 0.59, 0.59, circular_segments=64, center=True).translate([0, 0, 0.46])
-    hub_band_b = mf.Manifold.cylinder(0.18, 0.59, 0.59, circular_segments=64, center=True).translate([0, 0, -0.46])
-    axle_pin = mf.Manifold.cylinder(1.75, 0.24, 0.20, circular_segments=24, center=True)
+    hub = _tag_sem(mf.Manifold.cylinder(1.42, 0.56, 0.52, circular_segments=64, center=True), SEM_CART_WOOD, sem_map)
+    hub_band_f = _tag_sem(mf.Manifold.cylinder(0.18, 0.59, 0.59, circular_segments=64, center=True).translate([0, 0, 0.46]), SEM_IRON, sem_map)
+    hub_band_b = _tag_sem(mf.Manifold.cylinder(0.18, 0.59, 0.59, circular_segments=64, center=True).translate([0, 0, -0.46]), SEM_IRON, sem_map)
+    axle_pin = _tag_sem(mf.Manifold.cylinder(1.75, 0.24, 0.20, circular_segments=24, center=True), SEM_IRON, sem_map)
 
     parts = [plate, iron_tire, wood_felloe, hub, hub_band_f, hub_band_b, axle_pin]
 
@@ -905,17 +933,17 @@ def _make_solid_cartwheel(x: float, y: float, z: float, yaw_deg: float, radius: 
             rings_sp[i, :, 0] = r_rad
             rings_sp[i, :, 1] = ry * np.cos(th_s)
             rings_sp[i, :, 2] = rz * np.sin(th_s)
-        spoke = _loft_closed_tube(rings_sp).rotate([0.0, 0.0, math.degrees(ang)])
+        spoke = _tag_sem(_loft_closed_tube(rings_sp).rotate([0.0, 0.0, math.degrees(ang)]), SEM_CART_WOOD, sem_map)
         parts.append(spoke)
 
     # 16 remaches metálicos alrededor del bandaje exterior
     for k in range(16):
         ang = k * (2.0 * math.pi / 16.0)
-        rivet = mf.Manifold.sphere(0.095, 12).scale([1.0, 1.0, 0.65]).translate([(radius - 0.01) * math.cos(ang), (radius - 0.01) * math.sin(ang), 0.0])
+        rivet = _tag_sem(mf.Manifold.sphere(0.095, 12).scale([1.0, 1.0, 0.65]).translate([(radius - 0.01) * math.cos(ang), (radius - 0.01) * math.sin(ang), 0.0]), SEM_IRON, sem_map)
         parts.append(rivet)
 
     # Respaldo discreto estrictamente en la mitad inferior enterrada (nunca sobresale tras la mitad superior visible)
-    back_seat = mf.Manifold.cylinder(0.85, radius * 0.56, radius * 0.44, circular_segments=28).translate([0.0, -0.52 * radius, -0.87])
+    back_seat = _tag_sem(mf.Manifold.cylinder(0.85, radius * 0.56, radius * 0.44, circular_segments=28).translate([0.0, -0.52 * radius, -0.87]), SEM_WHEEL_BACK, sem_map)
     parts.append(back_seat)
 
     wheel = mf.Manifold.batch_boolean(parts, mf.OpType.Add)
@@ -923,7 +951,7 @@ def _make_solid_cartwheel(x: float, y: float, z: float, yaw_deg: float, radius: 
     return wheel.rotate([36.0, 0.0, 0.0]).rotate([0.0, 0.0, yaw_deg]).translate([x, y, z + radius * 0.34])
 
 
-def _make_hand_plow(x: float, y: float, z: float, yaw_deg: float):
+def _make_hand_plow(x: float, y: float, z: float, yaw_deg: float, sem_map: Optional[Dict[int, int]] = None):
     """Arado manual campesino de alta resolución (~8k Δ): timón curvo ascendente, reja metálica anclada y estevas torneadas (chi=2)."""
     parts: List = []
     th = np.linspace(0.0, 2.0 * math.pi, 24, endpoint=False)
@@ -939,7 +967,7 @@ def _make_hand_plow(x: float, y: float, z: float, yaw_deg: float):
         rings_b[i, :, 0] = bx
         rings_b[i, :, 1] = hw * chamf * np.cos(th)
         rings_b[i, :, 2] = bz + hh * chamf * np.sin(th)
-    parts.append(_loft_closed_tube(rings_b))
+    parts.append(_tag_sem(_loft_closed_tube(rings_b), SEM_CART_WOOD, sem_map))
 
     # 2. Cama / reja metálica curva y biselada en cuña hincada limpiamente en tierra
     rings_s = np.zeros((16, 24, 3), dtype=np.float64)
@@ -951,12 +979,12 @@ def _make_hand_plow(x: float, y: float, z: float, yaw_deg: float):
         rings_s[i, :, 0] = sx
         rings_s[i, :, 1] = sw * np.cos(th)
         rings_s[i, :, 2] = sz + sh * np.sin(th)
-    parts.append(_loft_closed_tube(rings_s))
+    parts.append(_tag_sem(_loft_closed_tube(rings_s), SEM_IRON, sem_map))
 
     # 3. Cuerpo central continuo y suela sólida bajo la reja (chi=2 estricto sin huecos con el terreno)
-    parts.append(mf.Manifold.cube([2.05, 0.42, 1.35], center=True).translate([-0.15, 0.0, 0.52]))
-    share_bed = mf.Manifold.cube([2.30, 0.68, 1.50], center=True).translate([-0.15, 0.0, -0.52])
-    heel = mf.Manifold.cylinder(1.65, 0.62, 0.44, circular_segments=24).translate([0.55, 0.0, -0.55])
+    parts.append(_tag_sem(mf.Manifold.cube([2.05, 0.42, 1.35], center=True).translate([-0.15, 0.0, 0.52]), SEM_CART_WOOD, sem_map))
+    share_bed = _tag_sem(mf.Manifold.cube([2.30, 0.68, 1.50], center=True).translate([-0.15, 0.0, -0.52]), SEM_TERRAIN, sem_map)
+    heel = _tag_sem(mf.Manifold.cylinder(1.65, 0.62, 0.44, circular_segments=24).translate([0.55, 0.0, -0.55]), SEM_CART_WOOD, sem_map)
     parts.extend([share_bed, heel])
 
     # 4. Dos estevas/brazos curvos ascendentes con empuñaduras torneadas + travesaño central
@@ -972,15 +1000,15 @@ def _make_hand_plow(x: float, y: float, z: float, yaw_deg: float):
             rings_h[i, :, 0] = hx
             rings_h[i, :, 1] = hy + rr * np.cos(th_h)
             rings_h[i, :, 2] = hz + rr * np.sin(th_h)
-        parts.append(_loft_closed_tube(rings_h))
+        parts.append(_tag_sem(_loft_closed_tube(rings_h), SEM_CART_WOOD, sem_map))
 
-    handle_brace = mf.Manifold.cube([1.35, 0.92, 0.40], center=True).rotate([0.0, -28.0, 0.0]).translate([1.45, 0.0, 1.15])
+    handle_brace = _tag_sem(mf.Manifold.cube([1.35, 0.92, 0.40], center=True).rotate([0.0, -28.0, 0.0]).translate([1.45, 0.0, 1.15]), SEM_CART_WOOD, sem_map)
     parts.append(handle_brace)
 
     return mf.Manifold.batch_boolean(parts, mf.OpType.Add).rotate([0.0, 0.0, yaw_deg]).translate([x, y, z - 0.08])
 
 
-def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int = 707):
+def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int = 707, sem_map: Optional[Dict[int, int]] = None):
     rng = np.random.default_rng(seed)
     dem = fields["dem"]
     d_road = fields["d_road"]
@@ -998,7 +1026,7 @@ def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int =
     ]
     for tx, ty, th, tr in oak_spots:
         tz = Z_BASE - 0.55 + _bilinear(dem, tx, ty)
-        props.append(_make_oak_hedge_tree(tx, ty, tz, th, tr, rng))
+        props.append(_make_oak_hedge_tree(tx, ty, tz, th, tr, rng, sem_map=sem_map))
 
     cypress_spots = [
         (7.5, 25.5, 14.8, 1.95),     # Grupo de 2 cipreses esbeltos en linde norte del camino
@@ -1007,7 +1035,7 @@ def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int =
     ]
     for tx, ty, th, tr in cypress_spots:
         tz = Z_BASE - 0.55 + _bilinear(dem, tx, ty)
-        props.append(_make_cypress_tree(tx, ty, tz, th, tr, rng))
+        props.append(_make_cypress_tree(tx, ty, tz, th, tr, rng, sem_map=sem_map))
 
     # 2. Setos orgánicos bajos agrupados en los márgenes del camino y en 3 rincones de perímetro
     xs = np.linspace(-APOTHEM + 5.5, APOTHEM - 5.5, 56)
@@ -1041,7 +1069,7 @@ def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int =
                 continue
             z = Z_BASE - 0.55 + _bilinear(dem, x, y)
             rad = float(rng.uniform(0.75, 1.22))
-            props.append(_make_bush_cluster(x, y, z - 0.15, rad, rng))
+            props.append(_make_bush_cluster(x, y, z - 0.15, rad, rng, sem_map=sem_map))
             bush_centers.append((x, y))
             if len(bush_centers) >= 48:
                 break
@@ -1066,7 +1094,7 @@ def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int =
             continue
         z = Z_BASE - 0.55 + _bilinear(dem, x, y)
         sr = float(rng.uniform(0.50, 0.92))
-        props.append(_make_stone_boulder(x, y, z - 0.30 * sr, sr, rng))
+        props.append(_make_stone_boulder(x, y, z - 0.30 * sr, sr, rng, sem_map=sem_map))
         stone_centers.append((x, y))
         if len(stone_centers) >= 34:
             break
@@ -1078,7 +1106,7 @@ def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int =
         ((-15.0, -10.5), (-25.0, -6.5)),
     ]
     for p0, p1 in fence_segments:
-        props.append(_make_solid_fence_segment(p0, p1, dem))
+        props.append(_make_solid_fence_segment(p0, p1, dem, sem_map=sem_map))
 
     # 5. Balas, gavillas, rueda y arado manual (a escala agrícola real)
     bale_specs = [
@@ -1089,7 +1117,7 @@ def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int =
     ]
     for bx, by, byaw, br, bl in bale_specs:
         bz = Z_BASE - 0.55 + _bilinear(dem, bx, by)
-        props.append(_make_straw_bale(bx, by, bz - 0.20, byaw, br, bl))
+        props.append(_make_straw_bale(bx, by, bz - 0.20, byaw, br, bl, sem_map=sem_map))
 
     sheaf_specs = [
         (-5.5, -24.0, 15.0, 0.74),
@@ -1101,13 +1129,13 @@ def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int =
     ]
     for sx, sy, syaw, ss in sheaf_specs:
         sz = Z_BASE - 0.55 + _bilinear(dem, sx, sy)
-        props.append(_make_wheat_sheaf(sx, sy, sz, syaw, ss))
+        props.append(_make_wheat_sheaf(sx, sy, sz, syaw, ss, sem_map=sem_map))
 
     wx, wy = 5.4, -15.2
-    props.append(_make_solid_cartwheel(wx, wy, Z_BASE - 0.55 + _bilinear(dem, wx, wy), yaw_deg=-25.0, radius=2.35))
+    props.append(_make_solid_cartwheel(wx, wy, Z_BASE - 0.55 + _bilinear(dem, wx, wy), yaw_deg=-25.0, radius=2.35, sem_map=sem_map))
 
     px, py = 11.4, -17.0
-    props.append(_make_hand_plow(px, py, Z_BASE - 0.55 + _bilinear(dem, px, py), yaw_deg=28.0))
+    props.append(_make_hand_plow(px, py, Z_BASE - 0.55 + _bilinear(dem, px, py), yaw_deg=28.0, sem_map=sem_map))
 
     print(
         f"[CampoClay v2.1] Props: {len(oak_spots)} frondosos + {len(cypress_spots)} cipreses en lindes, "
@@ -1134,16 +1162,17 @@ def run_build_geometry(base_stl: Path, out_dir: Path, n_seg: int = 760, res_dem:
     print(f"[CampoClay v2.2 1/4] Generando campiña suave + 4 parcelas alineadas (DEM={res_dem})...", flush=True)
     fields = build_campo_terrain_fields(res=res_dem, seed=209)
 
-    print(f"[CampoClay v2.1 2/4] Construyendo TerrainCap estanco de alta densidad (n_seg={n_seg})...", flush=True)
-    terrain_mf = build_terrain_cap_manifold(fields["dem"], n_seg=n_seg)
+    sem_map: Dict[int, int] = {}
 
-    print("[CampoClay v2.1 3/4] Construyendo props agrícolas puros y verificando genus==0...", flush=True)
-    props_list = build_agricultural_props_manifold(fields, seed=707)
+    print(f"[CampoClay v2.2 2/4] Construyendo TerrainCap estanco de alta densidad (n_seg={n_seg})...", flush=True)
+    terrain_mf = _tag_sem(build_terrain_cap_manifold(fields["dem"], n_seg=n_seg), SEM_TERRAIN, sem_map)
 
-    base_mf = _stl_to_manifold(base_stl).as_original()
-    id_plinth = base_mf.original_id()
+    print("[CampoClay v2.2 3/4] Construyendo props agrícolas semánticos y verificando genus==0...", flush=True)
+    props_list = build_agricultural_props_manifold(fields, seed=707, sem_map=sem_map)
 
-    # Unión rápida por bloques de 16 con verificación estricta de 1 único sólido sin túneles (genus==0, comps==1)
+    base_mf = _tag_sem(_stl_to_manifold(base_stl), SEM_PLINTH, sem_map)
+
+    # Unión rápida por bloques de 16 manteniendo original_ids semánticos intactos
     organic_mf = terrain_mf
     dropped_genus = 0
     for i in range(0, len(props_list), 16):
@@ -1160,10 +1189,9 @@ def run_build_geometry(base_stl: Path, out_dir: Path, n_seg: int = 760, res_dem:
                 else:
                     dropped_genus += 1
     if dropped_genus:
-        print(f"[CampoClay v2.1] Filtrados {dropped_genus} props con micro-túnel para garantizar genus=0.", flush=True)
-    organic_mf = organic_mf.as_original()
+        print(f"[CampoClay v2.2] Filtrados {dropped_genus} props con micro-túnel para garantizar genus=0.", flush=True)
     master_mf = base_mf + organic_mf
-    print(f"[CampoClay v2.1] Topología Manifold: terrain_genus={terrain_mf.genus()}, "
+    print(f"[CampoClay v2.2] Topología Manifold: terrain_genus={terrain_mf.genus()}, "
           f"organic_genus={organic_mf.genus()}, master_genus={master_mf.genus()}", flush=True)
 
     m_out = master_mf.to_mesh()
@@ -1192,8 +1220,8 @@ def run_build_geometry(base_stl: Path, out_dir: Path, n_seg: int = 760, res_dem:
     ri = np.asarray(m_out.run_index, dtype=np.int64)
     roids = np.asarray(m_out.run_original_id, dtype=np.int64)
     for k in range(len(roids)):
-        if roids[k] == id_plinth:
-            face_slot[int(ri[k] // 3) : int(ri[k + 1] // 3)] = 0
+        sid = sem_map.get(int(roids[k]), SEM_TERRAIN)
+        face_slot[int(ri[k] // 3) : int(ri[k + 1] // 3)] = sid
 
     tm = trimesh.Trimesh(vertices=verts, faces=faces, process=False)
     master_stl = out_dir / "tile_clay_master.stl"
@@ -1202,6 +1230,22 @@ def run_build_geometry(base_stl: Path, out_dir: Path, n_seg: int = 760, res_dem:
     mesh_npz = out_dir / "clay_master_mesh.npz"
     np.savez_compressed(mesh_npz, vertices=verts.astype(np.float32), faces=faces, face_slot=face_slot)
     np.save(out_dir / "dem_campo.npy", fields["dem"].astype(np.float32))
+    np.savez_compressed(
+        out_dir / "campo_semantic_fields.npz",
+        dem=fields["dem"].astype(np.float32),
+        soil_z=fields["soil_z"].astype(np.float32),
+        wheat_mask=fields["wheat_mask"].astype(np.float32),
+        wheat_sculpt=fields["wheat_sculpt"].astype(np.float32),
+        fbm_fine=fields["fbm_fine"].astype(np.float32),
+        road_mask=fields["road_mask"].astype(np.float32),
+        ruts=fields["ruts"].astype(np.float32),
+        staging_mask=fields["staging_mask"].astype(np.float32),
+        fence_clear=fields["fence_clear"].astype(np.float32),
+        parcel_id=fields["parcel_id"].astype(np.uint8),
+        d_road=fields["d_road"].astype(np.float32),
+        de=fields["de"].astype(np.float32),
+        dv=fields["dv"].astype(np.float32),
+    )
 
     metrics = {
         "n_verts": int(len(verts)),
@@ -1248,7 +1292,8 @@ def run_blender_render_views(out_dir: Path, res_px: int = 1024, samples: int = 2
 
     me = bpy.data.meshes.new("Catan_Campo_Mesh")
     me.from_pydata(V.tolist(), [], F.tolist())
-    me.polygons.foreach_set("material_index", slots.tolist())
+    clay_slots = (slots >= 1).astype(np.int32)
+    me.polygons.foreach_set("material_index", clay_slots.tolist())
     me.polygons.foreach_set("use_smooth", (slots >= 1).tolist())
     me.update()
 
