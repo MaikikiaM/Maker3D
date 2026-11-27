@@ -324,81 +324,318 @@ def _batch_compose_manifolds(parts: List, chunk: int = 24):
     return cur[0]
 
 
-def _bumpy_sphere(radius: float, scale_xyz: Tuple[float, float, float], rng: np.random.Generator, amp: float = 0.16):
-    """Esfera orgánica abollonada tipo follaje real (sin aspecto de bola lisa de plástico)."""
-    m = mf.Manifold.sphere(radius, 18)
-    mesh = m.to_mesh()
-    vp = np.array(mesh.vert_properties, dtype=np.float32)
+_ICO_CACHE: Dict[int, Tuple[np.ndarray, np.ndarray]] = {}
+
+
+def _get_icosphere(subdiv: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Genera y cachea una icosaedro subdividido unitario isotrópico (CCW hacia afuera)."""
+    if subdiv in _ICO_CACHE:
+        return _ICO_CACHE[subdiv]
+
+    t = (1.0 + math.sqrt(5.0)) * 0.5
+    verts: List[List[float]] = [
+        [-1, t, 0], [1, t, 0], [-1, -t, 0], [1, -t, 0],
+        [0, -1, t], [0, 1, t], [0, -1, -t], [0, 1, -t],
+        [t, 0, -1], [t, 0, 1], [-t, 0, -1], [-t, 0, 1],
+    ]
+    verts_np = np.asarray(verts, dtype=np.float64)
+    verts_np /= np.linalg.norm(verts_np, axis=1, keepdims=True)
+    verts_list = verts_np.tolist()
+
+    faces = [
+        (0, 11, 5), (0, 5, 1), (0, 1, 7), (0, 7, 10), (0, 10, 11),
+        (1, 5, 9), (5, 11, 4), (11, 10, 2), (10, 7, 6), (7, 1, 8),
+        (3, 9, 4), (3, 4, 2), (3, 2, 6), (3, 6, 8), (3, 8, 9),
+        (4, 9, 5), (2, 4, 11), (6, 2, 10), (8, 6, 7), (9, 8, 1),
+    ]
+
+    for _ in range(subdiv):
+        mid_cache: Dict[Tuple[int, int], int] = {}
+
+        def get_mid(a: int, b: int) -> int:
+            key = (a, b) if a < b else (b, a)
+            idx = mid_cache.get(key)
+            if idx is not None:
+                return idx
+            va, vb = verts_list[a], verts_list[b]
+            vm = [0.5 * (va[0] + vb[0]), 0.5 * (va[1] + vb[1]), 0.5 * (va[2] + vb[2])]
+            nrm = math.sqrt(vm[0] * vm[0] + vm[1] * vm[1] + vm[2] * vm[2]) + 1e-12
+            idx = len(verts_list)
+            verts_list.append([vm[0] / nrm, vm[1] / nrm, vm[2] / nrm])
+            mid_cache[key] = idx
+            return idx
+
+        new_faces: List[Tuple[int, int, int]] = []
+        for a, b, c in faces:
+            ab = get_mid(a, b)
+            bc = get_mid(b, c)
+            ca = get_mid(c, a)
+            new_faces.append((a, ab, ca))
+            new_faces.append((b, bc, ab))
+            new_faces.append((c, ca, bc))
+            new_faces.append((ab, bc, ca))
+        faces = new_faces
+
+    v_arr = np.asarray(verts_list, dtype=np.float64)
+    f_arr = np.asarray(faces, dtype=np.uint32)
+    _ICO_CACHE[subdiv] = (v_arr, f_arr)
+    return v_arr, f_arr
+
+
+def _fibonacci_sphere_jittered(n_pts: int, rng: np.random.Generator, jitter: float = 0.25) -> np.ndarray:
+    idx = np.arange(n_pts, dtype=np.float64) + 0.5
+    phi = np.arccos(1.0 - 2.0 * idx / n_pts)
+    theta = math.pi * (1.0 + math.sqrt(5.0)) * idx
+    pts = np.column_stack([
+        np.sin(phi) * np.cos(theta),
+        np.sin(phi) * np.sin(theta),
+        np.cos(phi),
+    ])
+    pts += rng.normal(0.0, jitter / math.sqrt(max(n_pts, 1)), size=pts.shape)
+    pts /= np.linalg.norm(pts, axis=1, keepdims=True) + 1e-12
+    return pts
+
+
+def _botanical_foliage_lobe(
+    radius: float,
+    scale_xyz: Tuple[float, float, float],
+    rng: np.random.Generator,
+    subdiv: int = 4,
+    n_tufts: int = 120,
+    tuft_amp: float = 0.25,
+    micro_amp: float = 0.11,
+    fluting_z: float = 0.0,
+):
+    """Lóbulo de follaje esculpido de alta resolución con racimos Voronoi en grieta V nítida."""
+    u, f_arr = _get_icosphere(subdiv)
+
+    # Celdas Voronoi reales (domos de racimo con hendidura marcada en cada frontera de celda)
+    c1 = _fibonacci_sphere_jittered(n_tufts, rng, jitter=1.15)
+    d1 = np.sqrt(np.maximum(0.0, 2.0 * (1.0 - (u @ c1.T)))).min(axis=1)
+    r_cell1 = 1.15 * math.sqrt(4.0 / max(n_tufts, 1))
+    cushion1 = np.power(np.clip(1.0 - (d1 / r_cell1) ** 1.35, 0.0, 1.0), 0.85)
+
+    # Segundo orden de micro-hojas con grietas nítidas
+    n_micro = max(60, int(round(n_tufts * 3.2)))
+    c2 = _fibonacci_sphere_jittered(n_micro, rng, jitter=1.25)
+    d2 = np.sqrt(np.maximum(0.0, 2.0 * (1.0 - (u @ c2.T)))).min(axis=1)
+    r_cell2 = 1.15 * math.sqrt(4.0 / max(n_micro, 1))
+    cushion2 = np.power(np.clip(1.0 - (d2 / r_cell2) ** 1.35, 0.0, 1.0), 0.90)
+
+    c1_n = cushion1 - float(np.mean(cushion1))
+    c2_n = cushion2 - float(np.mean(cushion2))
+    bot_atten = 0.35 + 0.65 * np.clip((u[:, 2] + 0.55) / 0.88, 0.0, 1.0)
+
+    radial_disp = bot_atten * (tuft_amp * c1_n + micro_amp * c2_n)
+    if fluting_z > 0.0:
+        ang = np.arctan2(u[:, 1], u[:, 0])
+        p_fl = float(rng.uniform(0, 6.28))
+        plumes = np.power(0.5 + 0.5 * np.cos(14.0 * ang + 2.6 * u[:, 2] + p_fl), 0.70) - 0.5
+        radial_disp += bot_atten * fluting_z * plumes * (1.0 - 0.45 * u[:, 2] ** 2)
+
+    r_scale = np.clip(1.0 + radial_disp, 0.70, 1.36)
+    vp = u * (radius * r_scale[:, None])
     vp[:, 0] *= scale_xyz[0]
     vp[:, 1] *= scale_xyz[1]
     vp[:, 2] *= scale_xyz[2]
-    # Perturbación multi-frecuencia por vértice
-    p1 = float(rng.uniform(0, 6.28))
-    p2 = float(rng.uniform(0, 6.28))
-    p3 = float(rng.uniform(0, 6.28))
-    r_len = np.sqrt(np.sum(vp ** 2, axis=1, keepdims=True)) + 1e-6
-    disp = (
-        np.sin(vp[:, 0:1] * 2.8 + p1) * np.cos(vp[:, 1:2] * 2.6 + p2)
-        + 0.55 * np.sin(vp[:, 2:3] * 3.5 + p3)
-    )
-    vp = vp + (vp / r_len) * (amp * radius * disp)
-    mesh2 = mf.Mesh(
+
+    mesh = mf.Mesh(
         vert_properties=np.ascontiguousarray(vp, dtype=np.float32),
-        tri_verts=np.ascontiguousarray(mesh.tri_verts, dtype=np.uint32),
+        tri_verts=np.ascontiguousarray(f_arr, dtype=np.uint32),
     )
-    return mf.Manifold(mesh2)
+    return mf.Manifold(mesh)
+
+
+def _make_fluted_trunk(
+    height: float,
+    r_bot: float,
+    r_mid: float,
+    r_top: float,
+    z_start: float,
+    rng: np.random.Generator,
+    rad_segs: int = 44,
+    z_segs: int = 24,
+    root_flares: int = 5,
+    twist: float = 0.75,
+):
+    """Tronco orgánico estanco de alta resolución con raíces acanaladas, curvatura y corteza vertical."""
+    thetas = np.linspace(0.0, 2.0 * math.pi, rad_segs, endpoint=False)
+    ts = np.linspace(0.0, 1.0, z_segs + 1)
+
+    p1 = float(rng.uniform(0.0, 6.28))
+    p2 = float(rng.uniform(0.0, 6.28))
+    lean_ang = float(rng.uniform(0.0, 6.28))
+    lean_amp = r_bot * float(rng.uniform(0.18, 0.42))
+
+    verts: List[List[float]] = []
+    for t in ts:
+        # Perfil suave r_bot -> r_mid -> r_top con ensanche radicular en t < 0.35
+        r_base = ((1.0 - t) ** 2) * r_bot + 2.0 * (1.0 - t) * t * r_mid + (t ** 2) * r_top
+        flare = 1.0 + 0.48 * np.exp(-((t / 0.18) ** 2))
+        cx = lean_amp * math.sin(math.pi * t) * math.cos(lean_ang)
+        cy = lean_amp * math.sin(math.pi * t) * math.sin(lean_ang)
+        z = z_start + t * height
+
+        for th in thetas:
+            root_mod = 1.0 + 0.24 * math.exp(-((t / 0.22) ** 2)) * (0.5 + 0.5 * math.cos(root_flares * th + p1))
+            bark = (
+                0.055 * math.cos(14.0 * th + twist * 6.0 * t + p2)
+                + 0.032 * math.sin(23.0 * th - twist * 9.0 * t + p1)
+            )
+            rr = r_base * flare * root_mod * (1.0 + bark)
+            verts.append([cx + rr * math.cos(th), cy + rr * math.sin(th), z])
+
+    bot_c = len(verts)
+    verts.append([0.0, 0.0, z_start])
+    top_cx = lean_amp * math.sin(math.pi) * math.cos(lean_ang)
+    top_cy = lean_amp * math.sin(math.pi) * math.sin(lean_ang)
+    top_c = len(verts)
+    verts.append([top_cx, top_cy, z_start + height])
+
+    faces: List[Tuple[int, int, int]] = []
+    for iz in range(z_segs):
+        row0 = iz * rad_segs
+        row1 = (iz + 1) * rad_segs
+        for j in range(rad_segs):
+            jn = (j + 1) % rad_segs
+            a, b = row0 + j, row0 + jn
+            c, d = row1 + j, row1 + jn
+            faces.append((a, b, d))
+            faces.append((a, d, c))
+
+    top_row = z_segs * rad_segs
+    for j in range(rad_segs):
+        jn = (j + 1) % rad_segs
+        faces.append((bot_c, jn, j))
+        faces.append((top_c, top_row + j, top_row + jn))
+
+    mesh = mf.Mesh(
+        vert_properties=np.asarray(verts, dtype=np.float32),
+        tri_verts=np.asarray(faces, dtype=np.uint32),
+    )
+    return mf.Manifold(mesh)
 
 
 def _make_bush_cluster(x: float, y: float, z: float, radius: float, rng: np.random.Generator):
-    """Arbusto en cojín bien enraizado (1 único sólido sin lóbulos flotantes, chi=2 estricto)."""
-    core = _bumpy_sphere(radius, (1.10, 1.05, 0.92), rng, amp=0.14).translate([x, y, z + radius * 0.18])
-    anchor = mf.Manifold.cylinder(radius * 2.0, radius * 1.15, radius * 0.80, circular_segments=12).translate([x, y, z - radius * 1.20])
+    """Arbusto en cojín alta resolución (icosphere subdiv=3 con racimos foliares Voronoi, chi=2)."""
+    core = _botanical_foliage_lobe(
+        radius, (1.12, 1.06, 0.90), rng, subdiv=3, n_tufts=44, tuft_amp=0.20, micro_amp=0.07
+    ).translate([x, y, z + radius * 0.16])
+    anchor = mf.Manifold.cylinder(radius * 2.0, radius * 1.10, radius * 0.78, circular_segments=16).translate([x, y, z - radius * 1.20])
     return core + anchor
 
 
 def _make_oak_hedge_tree(x: float, y: float, z: float, height: float, rad: float, rng: np.random.Generator):
-    """Árbol de linde frondoso alto respecto al trigo (tronco visible + faldón 45° + copa multi-lóbulo chi=2)."""
-    trunk = mf.Manifold.cylinder(height * 0.62, rad * 0.42, rad * 0.24, circular_segments=14).translate([x, y, z - 2.5])
-    # Collar cónico >= 45 deg bajo la copa para transición imprimible sin soportes
-    collar = mf.Manifold.cylinder(height * 0.22, rad * 0.23, rad * 0.76, circular_segments=14).translate([x, y, z + height * 0.28])
-    parts = [trunk, collar]
-    lobes = [
-        (0.0, 0.0, height * 0.54, rad * 0.94, (1.06, 1.02, 0.94)),
-        (rad * 0.26, rad * 0.16, height * 0.56, rad * 0.72, (1.0, 1.0, 0.90)),
-        (-rad * 0.24, -rad * 0.18, height * 0.58, rad * 0.70, (1.0, 1.0, 0.90)),
-        (-rad * 0.12, rad * 0.26, height * 0.70, rad * 0.66, (0.96, 0.96, 0.98)),
-        (rad * 0.14, -rad * 0.22, height * 0.72, rad * 0.60, (0.95, 0.95, 0.98)),
-        (0.0, 0.0, height * 0.84, rad * 0.56, (0.92, 0.92, 1.06)),
+    """Roble/encina de linde de alta resolución (~110k Δ): tronco acanalado, 5 ramas y 13 sub-copas Voronoi."""
+    trunk = _make_fluted_trunk(
+        height=height * 0.58 + 2.6,
+        r_bot=rad * 0.36,
+        r_mid=rad * 0.22,
+        r_top=rad * 0.15,
+        z_start=z - 2.6,
+        rng=rng,
+        rad_segs=44,
+        z_segs=26,
+        root_flares=5,
+    ).translate([x, y, 0.0])
+
+    # 5 ramas cortas visibles entrando limpiamente en el faldón inferior sin formar bucles (genus=0)
+    parts = [trunk]
+    base_ang = float(rng.uniform(0.0, 6.28))
+    limb_tips: List[Tuple[float, float, float]] = []
+    for k in range(5):
+        az = base_ang + k * (2.0 * math.pi / 5.0) + float(rng.uniform(-0.16, 0.16))
+        tilt_deg = float(rng.uniform(22.0, 29.0))
+        b_len = height * 0.24
+        limb = mf.Manifold.cylinder(b_len, rad * 0.16, rad * 0.11, circular_segments=18)
+        limb = limb.rotate([0.0, tilt_deg, 0.0]).rotate([0.0, 0.0, math.degrees(az)])
+        parts.append(limb.translate([x, y, z + height * 0.28]))
+        horiz = (height * 0.22) * math.sin(math.radians(tilt_deg))
+        limb_tips.append((
+            x + (horiz + 0.18 * rad) * math.cos(az),
+            y + (horiz + 0.18 * rad) * math.sin(az),
+            z + height * 0.52,
+        ))
+
+    # Collar inferior >= 45 deg bajo el centro de la copa para impresión limpia sin soportes
+    collar = mf.Manifold.cylinder(height * 0.20, rad * 0.21, rad * 0.64, circular_segments=28).translate([x, y, z + height * 0.30])
+    parts.append(collar)
+
+    # Copa sólida conectada en estrella desde núcleo central (solape >= 35%, 0 huecos ni bucles)
+    boughs_specs: List[Tuple[float, float, float, float, Tuple[float, float, float], int, int]] = [
+        (x, y, z + height * 0.56, rad * 0.72, (1.03, 1.00, 0.90), 5, 110),
+        (x, y, z + height * 0.72, rad * 0.60, (0.98, 0.98, 0.96), 5, 100),
     ]
-    for dx, dy, dz, rr, sc_xyz in lobes:
-        parts.append(_bumpy_sphere(rr, sc_xyz, rng, amp=0.15).translate([x + dx, y + dy, z + dz]))
+    for k in range(5):
+        tx, ty, tz = limb_tips[k]
+        rr = rad * float(rng.uniform(0.46, 0.54))
+        boughs_specs.append((tx, ty, tz, rr, (1.04, 0.96, 0.90), 5, 115))
+        az_s = base_ang + k * (2.0 * math.pi / 5.0) + 0.34
+        boughs_specs.append((
+            x + rad * 0.34 * math.cos(az_s),
+            y + rad * 0.34 * math.sin(az_s),
+            z + height * float(rng.uniform(0.68, 0.76)),
+            rad * float(rng.uniform(0.42, 0.48)),
+            (0.96, 0.98, 0.95),
+            4,
+            90,
+        ))
+    boughs_specs.append((x + 0.10 * rad, y - 0.08 * rad, z + height * 0.83, rad * 0.46, (0.94, 0.94, 1.02), 5, 100))
+    boughs_specs.append((x - 0.06 * rad, y + 0.08 * rad, z + height * 0.90, rad * 0.35, (0.92, 0.92, 1.06), 4, 80))
+
+    for bx, by, bz, rr, sc_xyz, sdv, n_tf in boughs_specs:
+        lobe = _botanical_foliage_lobe(
+            rr, sc_xyz, rng, subdiv=sdv, n_tufts=n_tf, tuft_amp=0.26, micro_amp=0.115
+        ).translate([bx, by, bz])
+        parts.append(lobe)
     return mf.Manifold.batch_boolean(parts, mf.OpType.Add)
 
 
 def _make_cypress_tree(x: float, y: float, z: float, height: float, rad: float, rng: np.random.Generator):
-    """Ciprés mediterráneo/campiña alto y esbelto para lindes (chi=2, imprimible sin soporte)."""
-    trunk = mf.Manifold.cylinder(height * 0.55, rad * 0.48, rad * 0.30, circular_segments=12).translate([x, y, z - 2.4])
-    collar = mf.Manifold.cylinder(height * 0.18, rad * 0.30, rad * 0.88, circular_segments=12).translate([x, y, z + height * 0.14])
+    """Ciprés mediterráneo de alta resolución (~90k Δ): tronco estriado y 10 penachos foliares en flama."""
+    trunk = _make_fluted_trunk(
+        height=height * 0.55 + 2.5,
+        r_bot=rad * 0.42,
+        r_mid=rad * 0.28,
+        r_top=rad * 0.18,
+        z_start=z - 2.5,
+        rng=rng,
+        rad_segs=36,
+        z_segs=20,
+        root_flares=4,
+    ).translate([x, y, 0.0])
+    collar = mf.Manifold.cylinder(height * 0.16, rad * 0.28, rad * 0.78, circular_segments=20).translate([x, y, z + height * 0.15])
     parts = [trunk, collar]
     tiers = [
-        (height * 0.32, rad * 1.00, 1.45),
-        (height * 0.50, rad * 0.86, 1.55),
-        (height * 0.68, rad * 0.68, 1.65),
-        (height * 0.86, rad * 0.44, 1.75),
+        (0.06, -0.04, height * 0.26, rad * 0.96, 1.38, 5, 110),
+        (-0.07, 0.05, height * 0.34, rad * 0.92, 1.44, 5, 105),
+        (0.05, 0.06, height * 0.43, rad * 0.86, 1.50, 5, 100),
+        (-0.05, -0.04, height * 0.52, rad * 0.78, 1.56, 5, 95),
+        (0.04, -0.05, height * 0.61, rad * 0.68, 1.60, 4, 85),
+        (-0.04, 0.04, height * 0.70, rad * 0.58, 1.66, 4, 78),
+        (0.02, 0.03, height * 0.78, rad * 0.48, 1.72, 4, 70),
+        (-0.02, -0.02, height * 0.85, rad * 0.36, 1.80, 4, 60),
+        (0.0, 0.0, height * 0.91, rad * 0.25, 1.88, 4, 48),
+        (0.0, 0.0, height * 0.96, rad * 0.15, 1.95, 4, 34),
     ]
-    for dz, rr, sz in tiers:
-        parts.append(_bumpy_sphere(rr, (1.0, 1.0, sz), rng, amp=0.14).translate([x, y, z + dz]))
+    for dx, dy, dz, rr, sz, sdv, n_tf in tiers:
+        lobe = _botanical_foliage_lobe(
+            rr, (1.0, 1.0, sz), rng, subdiv=sdv, n_tufts=n_tf, tuft_amp=0.25, micro_amp=0.105, fluting_z=0.14
+        ).translate([x + dx * rad, y + dy * rad, z + dz])
+        parts.append(lobe)
     return mf.Manifold.batch_boolean(parts, mf.OpType.Add)
 
 
 def _make_stone_boulder(x: float, y: float, z: float, r: float, rng: np.random.Generator):
-    m = mf.Manifold.sphere(r, 10)
-    mesh = m.to_mesh()
-    vp = np.array(mesh.vert_properties, dtype=np.float32)
-    vp[:, 0] *= float(rng.uniform(0.85, 1.35))
-    vp[:, 1] *= float(rng.uniform(0.75, 1.25))
+    u, f_arr = _get_icosphere(2)
+    c_planes = _fibonacci_sphere_jittered(12, rng, jitter=1.4)
+    # Aplanado poligonal tipo piedra partida natural
+    proj = np.max(u @ c_planes.T, axis=1)
+    r_fac = np.clip(1.0 / np.maximum(proj, 0.65), 0.72, 1.15)
+    vp = u * (r * 0.88 * r_fac[:, None])
+    vp[:, 0] *= float(rng.uniform(0.88, 1.32))
+    vp[:, 1] *= float(rng.uniform(0.78, 1.22))
     vp[:, 2] *= float(rng.uniform(0.55, 0.82))
-    vp += rng.normal(0.0, 0.08 * r, size=vp.shape).astype(np.float32)
     yaw = float(rng.uniform(0.0, 2.0 * math.pi))
     cy, sy = math.cos(yaw), math.sin(yaw)
     xr = vp[:, 0] * cy - vp[:, 1] * sy + x
@@ -406,7 +643,7 @@ def _make_stone_boulder(x: float, y: float, z: float, r: float, rng: np.random.G
     zr = vp[:, 2] + z
     mesh2 = mf.Mesh(
         vert_properties=np.ascontiguousarray(np.column_stack([xr, yr, zr]), dtype=np.float32),
-        tri_verts=np.ascontiguousarray(mesh.tri_verts, dtype=np.uint32),
+        tri_verts=np.ascontiguousarray(f_arr, dtype=np.uint32),
     )
     return mf.Manifold(mesh2)
 
@@ -678,8 +915,25 @@ def run_build_geometry(base_stl: Path, out_dir: Path, n_seg: int = 760, res_dem:
           f"organic_genus={organic_mf.genus()}, master_genus={master_mf.genus()}", flush=True)
 
     m_out = master_mf.to_mesh()
-    verts = np.asarray(m_out.vert_properties, dtype=np.float64)[:, :3]
+    verts = np.asarray(m_out.vert_properties, dtype=np.float32)[:, :3].astype(np.float64)
     faces = np.asarray(m_out.tri_verts, dtype=np.uint32)
+
+    # Relajar vértices de micro-astillas booleanas (<1e-9 mm² en float32) garantizando degen=0 en STL
+    for _it in range(8):
+        p0, p1, p2 = verts[faces[:, 0]], verts[faces[:, 1]], verts[faces[:, 2]]
+        areas = 0.5 * np.linalg.norm(np.cross(p1 - p0, p2 - p0), axis=1)
+        bad = areas < 1e-8
+        if not np.any(bad):
+            break
+        bad_v = np.unique(faces[bad])
+        mask_f = np.isin(faces[:, 0], bad_v) | np.isin(faces[:, 1], bad_v) | np.isin(faces[:, 2], bad_v)
+        sub_f = faces[mask_f]
+        for v in bad_v:
+            inc = sub_f[np.any(sub_f == v, axis=1)]
+            nbrs = np.setdiff1d(np.unique(inc), [v])
+            if len(nbrs):
+                verts[v] = 0.60 * verts[v] + 0.40 * verts[nbrs].mean(axis=0)
+        verts = verts.astype(np.float32).astype(np.float64)
 
     n_f = len(faces)
     face_slot = np.ones(n_f, dtype=np.uint8)
@@ -831,6 +1085,15 @@ def run_blender_render_views(out_dir: Path, res_px: int = 1024, samples: int = 2
     cam_obj.location = (0.0, 0.0, 220.0)
     cam_obj.rotation_euler = (0.0, 0.0, 0.0)
     sc.render.filepath = str(out_dir / "audit_ortho.png")
+    bpy.ops.render.render(write_still=True)
+
+    # Render macro dedicado a los árboles de linde para inspección visual directa
+    cam_data.type = "PERSP"
+    cam_data.lens = 65.0
+    cam_obj.location = (22.0, -20.0, 56.0)
+    cam_obj.rotation_euler = (mathutils.Vector((3.5, 16.5, 34.0)) - cam_obj.location).to_track_quat("-Z", "Y").to_euler()
+    bpy.context.view_layer.update()
+    sc.render.filepath = str(out_dir / "clay_trees_closeup.png")
     bpy.ops.render.render(write_still=True)
 
     (out_dir / "cameras.json").write_text(json.dumps(cams_json, indent=2), encoding="utf-8")

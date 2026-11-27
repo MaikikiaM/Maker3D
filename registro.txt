@@ -1485,3 +1485,17 @@ Resultados verificados (`tools/blender/build_campo_clay.py v2.2` + `mesh_and_pri
 - **Visor WebGL y snapshot (`v02_clay_pre_paint`):** Exportado `tile_clay_v02.glb` (`65.07 MB`) y compilado con `optimize_and_build_viewer.py --compress meshopt --texture-format webp --max-texture-size 4096 --no-simplify` en `Visores-HTML/catan-bioma-campo-v02-clay.html` (`13,994,582 B` / `13.35 MiB`, `83.89%` ahorro), enlazado en `Visores-HTML/index.html` conservando `v01`, y archivado en `Tableros-Catan/losetas/campo/versiones/v02_clay_pre_paint/`.
 - **Verificación headless (`http://127.0.0.1:8792`):** Comprobados `index.html` y `catan-bioma-campo-v02-clay.html` en `PBR` + `Sol Alpino`, preset `Perfil` e `Isométrica` + órbita (`0` errores de consola, `0` errores de página, `0` errores WebGL, `0` peticiones fallidas).
 ================================================================================
+
+SESIÓN: 27/11/2026 - BIOMA CAMPO v03-CLAY (ÁRBOLES BOTÁNICOS DE ALTA RESOLUCIÓN Y ZERO-DEGEN)
+- Prompts literales del usuario:
+  * [27/11/2026 18:57]: "Los arboles necesitan mucha mas resolucion"
+
+Resultados verificados (`tools/blender/build_campo_clay.py` + `mesh_and_print_audit.py --nozzle-mm 0.2` + WebGL QA):
+- **Esculpido botánico de alta densidad (`icosphere subdiv=3/4/5` + grietas Voronoi V-crease):**
+  - Robles de linde (`~87,484 Δ/árbol`, `genus=0`, `1` componente): tronco acanalado (`rad_segs=44`, `5` contrafuertes radiculares, corteza vertical), `5` ramas ascendentes bajo faldón `45°` y `13` sub-copas asimétricas en estrella (`subdiv=4/5`, `n_tufts=80..115`, `tuft_amp=0.25..0.26`, `micro_amp=0.11..0.115`).
+  - Cipreses de linde (`~61,792 Δ/árbol`, `genus=0`, `1` componente): tronco estriado + `10` penachos foliares en flama con estriado vertical (`fluting_z=0.14`) y grietas Voronoi nítidas.
+  - Arbustos (`47` uds a `subdiv=3` con racimos Voronoi) y piedras facetadas (`30` uds con planos Voronoi).
+- **Auditoría FDM (`0.20 mm` · `--catan-check` · `PASS` nativo `repaired=false`):** `1,544,355` vértices / `3,088,706 Δ`, `is_watertight=true`, `euler_number=2` (`genus=0`, `0` caras degeneradas tras relajación pre-STL en `float32`), `volume_cm3=297.285`, `overhang_gt_deg_pct=0.19%`, `thin_wall_lt_2nozzle_pct=0.0%`, `110.8512×128.0×44.435 mm`, `6/6` pads `25.0 mm`, imán `5.2 mm`.
+- **Inspección visual + Visor WebGL `v03-clay`:** Verificados `clay_trees_closeup.png`, `audit_6views_clay.png` y `audit_ortho.png`; exportado `tile_clay_v03.glb` (`74.39 MB`) y generado `Visores-HTML/catan-bioma-campo-v03-clay.html` (`16,051,460 B` / `15.31 MiB`, `83.84%` ahorro `meshopt+webp`, `--no-simplify`), añadido en `Visores-HTML/index.html` y archivado en `Tableros-Catan/losetas/campo/versiones/v03_clay_pre_paint/`.
+- **Verificación headless (`http://127.0.0.1:8793`):** Comprobados `index.html` y `catan-bioma-campo-v03-clay.html` con zoom cercano sobre robles/cipreses (`0` errores de consola, `0` errores de página, `0` errores WebGL, `0` peticiones fallidas).
+================================================================================
