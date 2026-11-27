@@ -1556,3 +1556,15 @@ Resultados verificados (aplicación aprobada de `learning_proposal.md` en `.agen
 - **`.agents/skills/blender-sculpt-bake/references/blender5-bpy-guide.md`:** Documentada la restauración obligatoria de `material_index` tras `materials.clear()` y la ausencia de `PIL` en el Python embebido de Blender `5.3`.
 - **`.agents/skills/print-audit-and-webgl/SKILL.md`:** Fijada la publicación de visores HTML versionados (`-vNN-<etiqueta>.html`, `< 50 MB`) en `Visores-HTML/index.html` y `versiones/` para pasos `Clay` y comparativas `A/B`.
 ================================================================================
+
+SESIÓN: 27/11/2026 - BIOMA CAMPO v07-CLAY (CORRECCIÓN INTEGRAL DE GEOMETRÍA SURCO ARADO, 0 PROPS DESCARTADOS Y RENDER POR VÉRTICE)
+- Prompts literales del usuario:
+  * [27/11/2026 22:57]: "Primeras 2 fotos: La prueba. Tercera foto: el anterior Ha salido terrible tio"
+  * [27/11/2026 23:04]: "el surco de arado es el que, de lejos, mas se parece a un campo de trigo. Corrige la geometria y despues de que acabes aplucamos las super tecturas que se habra reiniciado la cuota de nano banana"
+
+Resultados verificados (`tools/blender/build_campo_clay.py` + `tools/blender/campo_pbr_bake.py` + `mesh_and_print_audit.py --nozzle-mm 0.2` + WebGL QA):
+- **Corrección de bugs visuales en geometría y shader base:**
+  - `tools/blender/build_campo_clay.py`: refinado `--wheat-style ploughed` a surco limpio `row_pitch=0.88 mm` sin bultos ni facetas (`p10..p90 = 0.151..0.461 mm`, `med=0.306 mm`, pendiente mediana `41.6°`, `>60°` solo `0.5%`); ajustado `oak_clear` (`1.8..3.1 mm` en robles vs `1.05..1.95 mm` en cipreses); oculto collar de copa en `_make_oak_hedge_tree` (`rad*0.50` a `z+0.36h` + `core_plug`) eliminando el embudo liso y logrando `oak0..oak3` 100% con `genus=0` (cero calvos verdes vacíos); movidas 2 gavillas fuera del área de la valla/rueda/arado y alargado `back_seat` (`1.25 mm`) en bolsillo `wheel_pocket` para anclar la rueda con **`0` props descartados** (`[CampoClay v2.2] Filtrados 0`).
+  - `tools/blender/campo_pbr_bake.py`: sustituido el coloreado plano por centroide (`V_fc` repetido `3×`) en `SEM_TERRAIN` por evaluación suave por vértice único (`u_vi`, `ter_loop_lin`) eliminando los parches triangulares planos en horneados PBR.
+- **Auditoría `0.20 mm` (`PASS`, `repaired=false`), HTML `v07-clay` y QA Headless (`http://127.0.0.1:8799`):** `1,659,818` vértices / `3,319,632 Δ`, `is_watertight=true`, `euler_number=2`, `degen=0`, `overhang_gt_deg_pct=0.417%`, `thin_wall_lt_2nozzle_pct=0.0%`, `110.8512×128.0×44.435 mm`, `6/6` pads `25.0 mm`, imán `5.2 mm`. Empaquetado `Visores-HTML/catan-bioma-campo-v07-clay.html` (`16.19 MB`, `84.1%` ahorro `meshopt+webp`), enlazado como `Bioma 5I` en `Visores-HTML/index.html` y archivado en `Tableros-Catan/losetas/campo/versiones/v07_clay_pre_paint/`. QA headless Chromium: `0` errores consola/página/WebGL (`final_step_14.png`), comprobados visualmente los `4` robles, `3` cipreses, rueda limpia, `4` balas, `6` gavillas, arado y `3` vallas.
+================================================================================

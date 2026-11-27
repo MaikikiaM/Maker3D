@@ -140,13 +140,16 @@ def compute_semantic_corner_attributes(
     f_bump = np.full(n_f, 0.65, dtype=np.float32)
 
     # ------------------------------------------------------------------
-    # 1. Terreno (`SEM_TERRAIN`): parcelas de trigo, tierra entre surcos, caminos y lindes
+    # 1. Terreno (`SEM_TERRAIN`): evaluación SUAVE POR VÉRTICE (cero parches triangulares planos al hacer zoom)
     # ------------------------------------------------------------------
     m_ter = face_slot == SEM_TERRAIN
+    ter_loop_lin: Optional[np.ndarray] = None
     if np.any(m_ter):
-        tx = V_fc[m_ter, 0]
-        ty = V_fc[m_ter, 1]
-        tz = V_fc[m_ter, 2]
+        ter_faces = F[m_ter]
+        u_vi = np.unique(ter_faces)
+        tx = V[u_vi, 0]
+        ty = V[u_vi, 1]
+        tz = V[u_vi, 2]
 
         wm = _bilinear_arr(fields["wheat_mask"], tx, ty)
         ws = _bilinear_arr(fields["wheat_sculpt"], tx, ty)
@@ -188,8 +191,8 @@ def compute_semantic_corner_attributes(
             ws_hi = float(np.percentile(pure_ws, 97.0))
         else:
             ws_lo, ws_hi = 0.35, 1.35
-        stalk_t = np.clip((ws - ws_lo) / max(ws_hi - ws_lo, 0.15) * 0.94 + 0.22 * prom_f[m_ter], 0.0, 1.0)
-        wind_mod = 0.92 + 0.14 * np.clip(fbm, -1.0, 1.0) + 0.08 * (noise_f[m_ter] - 0.5)
+        stalk_t = np.clip((ws - ws_lo) / max(ws_hi - ws_lo, 0.15) * 0.94 + 0.22 * prom_v[u_vi], 0.0, 1.0)
+        wind_mod = 0.92 + 0.14 * np.clip(fbm, -1.0, 1.0) + 0.08 * (noise_v[u_vi] - 0.5)
 
         wheat_rgb = (
             furrow_earth[None, :] * (1.0 - _smoothstep(0.0, 0.32, stalk_t))[:, None]
@@ -205,19 +208,18 @@ def compute_semantic_corner_attributes(
         slate_rim = np.array([0.28, 0.27, 0.24], dtype=np.float32)
 
         rut_w = np.clip(ruts * 5.2 + 0.35 * np.exp(-((d_road - 0.42) / 0.26) ** 2) * rm, 0.0, 1.0)
-        road_rgb = (loam_light[None, :] * (1.0 - rut_w[:, None]) + loam_rut[None, :] * rut_w[:, None]) * (0.94 + 0.12 * noise_f[m_ter][:, None])
+        road_rgb = (loam_light[None, :] * (1.0 - rut_w[:, None]) + loam_rut[None, :] * rut_w[:, None]) * (0.94 + 0.12 * noise_v[u_vi][:, None])
 
         # Claro agrícola: tierra apisonada con briznas doradas sueltas
-        clearing_rgb = loam_light * 0.90 + np.array([0.12, 0.09, 0.03], dtype=np.float32) * (noise_f[m_ter] > 0.62)[:, None]
+        clearing_rgb = loam_light * 0.90 + np.array([0.12, 0.09, 0.03], dtype=np.float32) * (0.5 + 0.5 * noise_v[u_vi])[:, None]
 
         # Hierba en bordes de caminos, junto a vallas y faldón perimetral
         verge_mask = np.clip((1.0 - wm) * (1.0 - np.clip(rm * 1.4, 0.0, 1.0)) * (1.0 - np.clip(stm * 1.5, 0.0, 1.0)), 0.0, 1.0)
-        grass_t = np.clip(0.5 + 0.35 * fbm + 0.25 * (noise_f[m_ter] - 0.5), 0.0, 1.0)
+        grass_t = np.clip(0.5 + 0.35 * fbm + 0.25 * (noise_v[u_vi] - 0.5), 0.0, 1.0)
         verge_rgb = grass_olive[None, :] * (1.0 - grass_t[:, None]) + grass_sun[None, :] * grass_t[:, None]
 
         # Transición limpia al borde de carril/pad hacia pizarra terrosa en Z ~ 25.0 mm
         outer_mask = 1.0 - _smoothstep(3.8, 5.2, de) * _smoothstep(10.3, 11.7, dv)
-        # Franja herbácea bajo vallas
         fence_verge = (1.0 - fcl) * (1.0 - np.clip(rm * 1.5, 0.0, 1.0))
 
         ter_rgb = verge_rgb.copy()
@@ -226,12 +228,14 @@ def compute_semantic_corner_attributes(
         ter_rgb = ter_rgb * (1.0 - wm)[:, None] + wheat_rgb * wm[:, None]
         ter_rgb = ter_rgb * (1.0 - 0.55 * fence_verge)[:, None] + verge_rgb * (0.55 * fence_verge)[:, None]
         ter_rgb = ter_rgb * (1.0 - 0.72 * outer_mask)[:, None] + slate_rim[None, :] * (0.72 * outer_mask)[:, None]
-
-        # Micro-claros de tierra bajo árboles
         ter_rgb = np.where((tz[:, None] < Z_BASE + 0.15) & (outer_mask[:, None] > 0.6), slate_rim[None, :], ter_rgb)
-        f_srgb[m_ter] = np.clip(ter_rgb, 0.02, 0.96)
-        f_rough[m_ter] = 0.86 - 0.14 * wm
-        f_bump[m_ter] = 0.55 + 0.35 * wm
+
+        v_lin_ter = np.zeros((len(V), 3), dtype=np.float32)
+        v_lin_ter[u_vi] = _srgb_to_linear(np.clip(ter_rgb, 0.02, 0.96))
+        ter_loop_lin = v_lin_ter[ter_faces.ravel()]
+
+        f_rough[m_ter] = 0.86 - 0.14 * _bilinear_arr(fields["wheat_mask"], V_fc[m_ter, 0], V_fc[m_ter, 1])
+        f_bump[m_ter] = 0.55 + 0.35 * _bilinear_arr(fields["wheat_mask"], V_fc[m_ter, 0], V_fc[m_ter, 1])
 
     # ------------------------------------------------------------------
     # 2. Roble / Encina (`SEM_OAK_LEAF`): racimos Voronoi iluminados vs grietas musgo
@@ -349,6 +353,8 @@ def compute_semantic_corner_attributes(
     f_lin = _srgb_to_linear(f_srgb)
     loop_col = np.ones((n_f * 3, 4), dtype=np.float32)
     loop_col[:, :3] = np.repeat(f_lin, 3, axis=0)
+    if ter_loop_lin is not None:
+        loop_col.reshape(n_f, 3, 4)[m_ter, :, :3] = ter_loop_lin.reshape(-1, 3, 3)
 
     loop_spec = np.ones((n_f * 3, 4), dtype=np.float32)
     loop_spec[:, 0] = np.repeat(f_rough, 3)

@@ -16,13 +16,11 @@ Suite modular CAD/Mesh/Escultura 3D con IA (**Maker3D 2.0**) para piezas paramé
 ## Estado `Tableros-Catan` (Reordenado) + `montana v07-shrubs8k`
 - **Estructura limpia:** `Tableros-Catan/losetas/<bioma>/work/` (`montana`, `bosque`, `colina`, `pasto`, `campo`, `desierto`, `oro`, `oceano`), `Tableros-Catan/docs/`, `Tableros-Catan/assets/`, `Tableros-Catan/legacy/` y `Tableros-Catan/archivo/` (scripts `tools/` desacoplados con `--tile <bioma>` / `--work-dir`).
 - **`losetas/montana` (`v07-shrubs8k`):** `6,149,730 Δ`, `watertight=true`, `χ=2`, `degen=0`, `thin_wall=0.0%`, `overhangs=0.162%`, `6/6` pads `25.011 mm`, `catan_montana_hero360_v07.3mf` (`99.50 MB`). Visores `v07-shrubs8k.html` (`75.81 MB` en `.gitignore`) y `...-raw.html` (`575.11 MB`) en `Sol Alpino` con `0` errores WebGL.
-- **`losetas/campo` (`v05-pbr` + pruebas A/B `v06a`/`v06b`):**
-  - `v05-pbr`: `3,190,768 Δ`, `watertight=true`, `χ=2`, `degen=0`, `thin_wall=0.0%`, `Visores-HTML/catan-bioma-campo-v05-pbr.html` (`44.19 MiB`).
-  - `v06a` (*Opción 1: Espiga Fina `0.20 mm`*, `--wheat-style fine`): hileras `0.68×0.52 mm` con crestas romas e irregularidad orgánica (`med 48.9°`), `3,184,416 Δ`, `χ=2`, `degen=0`, `thin_wall=0.0%` (`0.20 mm`), `Visores-HTML/catan-bioma-campo-v06a-trigo-fino.html` (`45.84 MiB`).
-  - `v06b` (*Opción 2: Surco Arado `0.20 mm`*, `--wheat-style ploughed`): caballones anchos `1.12 mm` con micro-grano irregular (`med 42.9°`, `>60°` solo `3.6%`), `3,178,854 Δ`, `χ=2`, `degen=0`, `thin_wall=0.0%` (`0.20 mm`), `Visores-HTML/catan-bioma-campo-v06b-surco-arado.html` (`36.42 MiB`).
-  - Ambos horneados PBR 8K en 1 sesión Colab NVIDIA L4 (`614.2s`, `DeleteRuntime` previo a descarga) e indexados en `Visores-HTML/index.html` (`0` errores WebGL).
+- **`losetas/campo` (`v07-clay` Geometría Corregida · Listo para Súper-Texturas):**
+  - `v07-clay` (`--wheat-style ploughed`, surco `0.88 mm` refinado): **`0` props descartados** (`4` robles + `3` cipreses `genus=0` sin embudo de copa, rueda anclada limpia en bolsillo rebajado, arado, `4` balas, `6` gavillas, `3` vallas, `47` arbustos, `30` piedras), `3,319,632 Δ`, `watertight=true`, `χ=2`, `degen=0`, `repaired=false`, `overhangs=0.417%`, `thin_wall=0.0%` (`0.20 mm`), `Visores-HTML/catan-bioma-campo-v07-clay.html` (`16.19 MB` / `84.1%` ahorro `meshopt+webp`, `0` errores WebGL), archivado en `versiones/v07_clay_pre_paint/`.
+  - Versiones previas conservadas en `index.html`: `v05-pbr` (`44.19 MiB`), `v06a` (`45.84 MiB`), `v06b` (`36.42 MiB`).
 - **Trazabilidad:** `tools/blender/build_v07_shrubs.py --tile montana`, `tools/blender/build_campo_clay.py`, `tools/blender/campo_pbr_bake.py`, `tools/colab/run_campo_pbr_colab.py`, `Tableros-Catan/losetas/montana/versiones/v07_shrubs8k/`, [montana_hero360_v07_showcase.md](file:///C:/Users/migue/.gemini/antigravity/brain/34342c68-2385-41c9-a165-20883e62734d/montana_hero360_v07_showcase.md) y `TELEMETRIA_CUOTAS.md`.
 
 ## Próximas Tareas Prioritarias
-1. Elección del usuario en HTML comparativo entre `v06a` (espiga fina `0.20 mm`), `v06b` (surco arado `0.20 mm`) o `v05-pbr`.
+1. Revisión de `v07-clay` y generación/proyección de súper texturas Nano Banana sobre `v07` (`catan-bioma-campo-v08-pbr.html`).
 2. Resto de biomas (`bosque`, `colina`, `pasto`, `desierto`, `oro`, `oceano`) con el estándar `Maker3D 2.0`.

@@ -179,8 +179,9 @@ def _wheat_sculpt_field(
         return ndi.gaussian_filter(wheat_sculpt, sigma=0.65)
 
     if wheat_style == "ploughed":
-        # Opción 2: Surcos de labranza anchos y redondeados (1.12 mm) + micro-grano orgánico de cereal naciente/rastrojo
-        row_pitch_mm = 1.12
+        # Opción 2 refinada (v07): surcos de arado limpios y proporcionados (0.88 mm),
+        # lomo suavemente coronado sin bultos de "gusano" y pendiente imprimible 0.20 mm (0% >55°).
+        row_pitch_mm = 0.88
         for pid, ang_deg in parcel_angles_deg.items():
             m = (parcel_id == pid).astype(np.float64)
             if not np.any(m):
@@ -190,23 +191,22 @@ def _wheat_sculpt_field(
             u_raw = X * ct + Y * st
             v_raw = -X * st + Y * ct
 
-            # Trazo ligeramente orgánico de reja de arado
-            u = u_raw + 2.2 * np.sin(v_raw / 17.0) + 0.10 * fbm_tuft
-            v = v_raw + 0.18 * fbm_tuft
+            # Ondulación amplia y orgánica de pasada de arado (sin jitter local que fracture triángulos)
+            u = u_raw + 2.0 * np.sin(v_raw / 18.0) + 0.045 * fbm_tuft
+            v = v_raw
 
             phase_u = 2.0 * math.pi * u / row_pitch_mm
-            row_ridge = 0.5 + 0.5 * np.cos(phase_u - 0.15 * np.sin(phase_u))
-            row_ridge = np.power(np.clip(row_ridge, 0.0, 1.0), 0.72)  # Lomo ancho y valle bien marcado
+            # Perfil clásico de surco labrado: valle nítido y cresta suavemente redondeada
+            base_wave = 0.5 + 0.5 * np.cos(phase_u)
+            row_ridge = np.power(np.clip(base_wave, 0.0, 1.0), 0.82)
 
-            # Micro-relieve granular/rastrojo orgánico encima del caballón (sin púas geométricas)
-            stubble_1 = 0.5 + 0.5 * np.cos(2.0 * math.pi * v / 0.58 + 2.1 * fbm_tuft + 1.3 * np.sin(u * 2.4))
-            stubble_2 = np.clip(0.5 + 0.55 * fbm_micro, 0.0, 1.0)
-            micro_grain = 0.55 * stubble_1 + 0.45 * stubble_2
+            # Sutil modulación longitudinal continua (brisa/cereal sin bultos nodosos)
+            gentle_ripple = 0.5 + 0.5 * np.cos(2.0 * math.pi * v / 1.15 + 1.1 * np.sin(u * 1.4 + 0.5 * pid))
+            wind_swell = 0.87 + 0.13 * np.sin(u / 7.5 + v / 10.0 + 0.4 * pid)
 
-            wind_swell = 0.88 + 0.12 * np.sin(u / 8.0 + v / 10.5)
-            # Cama 0.18 mm + caballón redondeado 0.40 mm + micro-grano irregular 0.22 mm sobre el lomo
-            wheat_sculpt += m * wind_swell * (0.18 + 0.40 * row_ridge + 0.22 * (0.30 + 0.70 * row_ridge) * micro_grain)
-        return ndi.gaussian_filter(wheat_sculpt, sigma=0.75)
+            # Cama mínima 0.14 mm + surco principal limpio 0.36 mm + brisa 0.05 mm (~0.39 mm neto pico-valle)
+            wheat_sculpt += m * wind_swell * (0.14 + 0.36 * row_ridge + 0.05 * row_ridge * gentle_ripple)
+        return ndi.gaussian_filter(wheat_sculpt, sigma=0.90)
 
     raise ValueError(f"wheat_style desconocido: {wheat_style}")
 
@@ -245,19 +245,22 @@ def build_campo_terrain_fields(res: int = 2560, seed: int = 209, wheat_style: st
         _min_dist_to_polyline(X, Y, west_spur),
     ])
 
-    # Claro agrícola junto al cruce (+11.2, -13.8), claros de árboles y franja herbácea bajo las 3 vallas
+    # Claro agrícola junto al cruce (+11.2, -13.8), claros ajustados por tipo de árbol y franja herbácea bajo las 3 vallas
     d_staging = np.hypot(X - 11.2, Y + 14.4)
     d_clear_wheel = np.hypot(X - 5.4, Y + 15.2)
-    staging_mask = np.maximum(1.0 - _smoothstep(4.6, 6.4, d_staging), 1.0 - _smoothstep(4.2, 6.2, d_clear_wheel))
+    wheel_pocket = 1.0 - _smoothstep(2.0, 3.6, d_clear_wheel)
+    staging_mask = np.maximum(1.0 - _smoothstep(4.6, 6.4, d_staging), 1.0 - _smoothstep(4.0, 5.8, d_clear_wheel))
     d_fence = np.minimum.reduce([
         _min_dist_to_polyline(X, Y, [(-10.8, -28.0), (-4.0, -18.5)]),
         _min_dist_to_polyline(X, Y, [(7.2, 8.5), (14.5, 19.5)]),
         _min_dist_to_polyline(X, Y, [(-15.0, -10.5), (-25.0, -6.5)]),
     ])
-    fence_clear = _smoothstep(1.1, 2.2, d_fence)
+    fence_clear = _smoothstep(1.0, 2.6, d_fence)
     oak_clear = np.ones_like(X)
-    for ox, oy in [(-0.5, 9.2), (24.0, 22.0), (-28.0, -4.5), (28.0, -10.5), (7.5, 25.5), (11.5, 27.5), (-16.5, -28.0)]:
-        oak_clear = np.minimum(oak_clear, _smoothstep(2.2, 3.8, np.hypot(X - ox, Y - oy)))
+    for ox, oy in [(-0.5, 9.2), (24.0, 22.0), (-28.0, -4.5), (28.0, -10.5)]:
+        oak_clear = np.minimum(oak_clear, _smoothstep(1.8, 3.1, np.hypot(X - ox, Y - oy)))
+    for cx, cy in [(7.5, 25.5), (11.5, 27.5), (-16.5, -28.0)]:
+        oak_clear = np.minimum(oak_clear, _smoothstep(1.05, 1.95, np.hypot(X - cx, Y - cy)))
 
     # Fronteras EXACTAS alineadas con las polilíneas (interpolación por Y en main_lane y por X en ramales)
     lane_pts_y = np.array([p[1] for p in main_lane])
@@ -301,7 +304,7 @@ def build_campo_terrain_fields(res: int = 2560, seed: int = 209, wheat_style: st
     )
 
     wheat_sculpt = _wheat_sculpt_field(X, Y, parcel_id, fbm_fine, res=res, seed=seed, wheat_style=wheat_style)
-    soil_z = base_hills + terrace_bump + 0.22 * fbm_fine * rim_taper - 0.45 * road_trench - ruts - 0.25 * staging_mask * rim_taper
+    soil_z = base_hills + terrace_bump + 0.22 * fbm_fine * rim_taper * (1.0 - 0.65 * wheel_pocket) - 0.45 * road_trench - ruts - (0.25 * staging_mask + 0.35 * wheel_pocket) * rim_taper
     dem = np.maximum(0.0, soil_z + wheat_mask * wheat_sculpt) * rim_taper
 
     return {
@@ -656,32 +659,32 @@ def _make_oak_hedge_tree(x: float, y: float, z: float, height: float, rad: float
         root_flares=5,
     ).translate([x, y, 0.0]), SEM_BARK, sem_map)
 
-    # 5 ramas cortas visibles entrando limpiamente en el faldón inferior sin formar bucles (genus=0)
+    # 5 ramas cortas visibles entrando limpiamente en el faldón de hojas sin formar túneles (genus=0 estricto)
     parts = [trunk]
     base_ang = float(rng.uniform(0.0, 6.28))
     limb_tips: List[Tuple[float, float, float]] = []
     for k in range(5):
         az = base_ang + k * (2.0 * math.pi / 5.0) + float(rng.uniform(-0.16, 0.16))
-        tilt_deg = float(rng.uniform(22.0, 29.0))
-        b_len = height * 0.24
+        tilt_deg = float(rng.uniform(19.0, 24.0))
+        b_len = height * 0.23
         limb = mf.Manifold.cylinder(b_len, rad * 0.16, rad * 0.11, circular_segments=18)
         limb = limb.rotate([0.0, tilt_deg, 0.0]).rotate([0.0, 0.0, math.degrees(az)])
-        parts.append(_tag_sem(limb.translate([x, y, z + height * 0.28]), SEM_BARK, sem_map))
-        horiz = (height * 0.22) * math.sin(math.radians(tilt_deg))
+        parts.append(_tag_sem(limb.translate([x, y, z + height * 0.29]), SEM_BARK, sem_map))
+        horiz = (height * 0.20) * math.sin(math.radians(tilt_deg))
         limb_tips.append((
-            x + (horiz + 0.18 * rad) * math.cos(az),
-            y + (horiz + 0.18 * rad) * math.sin(az),
-            z + height * 0.52,
+            x + (horiz + 0.14 * rad) * math.cos(az),
+            y + (horiz + 0.14 * rad) * math.sin(az),
+            z + height * 0.51,
         ))
 
-    # Collar inferior >= 45 deg bajo el centro de la copa para impresión limpia sin soportes
-    collar = _tag_sem(mf.Manifold.cylinder(height * 0.20, rad * 0.21, rad * 0.64, circular_segments=28).translate([x, y, z + height * 0.30]), SEM_BARK, sem_map)
+    # Collar compacto oculto justo dentro de la base de copa (>= 45 deg, sin embudo liso expuesto)
+    collar = _tag_sem(mf.Manifold.cylinder(height * 0.16, rad * 0.22, rad * 0.50, circular_segments=28).translate([x, y, z + height * 0.36]), SEM_BARK, sem_map)
     parts.append(collar)
 
-    # Copa sólida conectada en estrella desde núcleo central (solape >= 35%, 0 huecos ni bucles)
+    # Copa sólida conectada en estrella desde núcleo central ancho (solape >= 40%, 0 huecos ni bucles)
     boughs_specs: List[Tuple[float, float, float, float, Tuple[float, float, float], int, int]] = [
-        (x, y, z + height * 0.56, rad * 0.72, (1.03, 1.00, 0.90), 5, 110),
-        (x, y, z + height * 0.72, rad * 0.60, (0.98, 0.98, 0.96), 5, 100),
+        (x, y, z + height * 0.53, rad * 0.78, (1.03, 1.00, 0.90), 5, 110),
+        (x, y, z + height * 0.71, rad * 0.62, (0.98, 0.98, 0.96), 5, 100),
     ]
     for k in range(5):
         tx, ty, tz = limb_tips[k]
@@ -705,7 +708,12 @@ def _make_oak_hedge_tree(x: float, y: float, z: float, height: float, rad: float
             rr, sc_xyz, rng, subdiv=sdv, n_tufts=n_tf, tuft_amp=0.26, micro_amp=0.115
         ).translate([bx, by, bz]), SEM_OAK_LEAF, sem_map)
         parts.append(lobe)
-    return mf.Manifold.batch_boolean(parts, mf.OpType.Add)
+    tree = mf.Manifold.batch_boolean(parts, mf.OpType.Add)
+    if tree.genus() != 0:
+        # Reforzar núcleo central si una grieta Voronoi tocara el borde de inserción
+        core_plug = _tag_sem(mf.Manifold.sphere(rad * 0.68, 24).translate([x, y, z + height * 0.55]), SEM_OAK_LEAF, sem_map)
+        tree = tree + core_plug
+    return tree
 
 
 def _make_cypress_tree(x: float, y: float, z: float, height: float, rad: float, rng: np.random.Generator, sem_map: Optional[Dict[int, int]] = None):
@@ -1023,13 +1031,13 @@ def _make_solid_cartwheel(x: float, y: float, z: float, yaw_deg: float, radius: 
         rivet = _tag_sem(mf.Manifold.sphere(0.095, 12).scale([1.0, 1.0, 0.65]).translate([(radius - 0.01) * math.cos(ang), (radius - 0.01) * math.sin(ang), 0.0]), SEM_IRON, sem_map)
         parts.append(rivet)
 
-    # Respaldo discreto estrictamente en la mitad inferior enterrada (nunca sobresale tras la mitad superior visible)
-    back_seat = _tag_sem(mf.Manifold.cylinder(0.85, radius * 0.56, radius * 0.44, circular_segments=28).translate([0.0, -0.52 * radius, -0.87]), SEM_WHEEL_BACK, sem_map)
+    # Respaldo discreto estrictamente en la mitad inferior enterrada (alcanza el bolsillo rebajado sin flotar, chi=2)
+    back_seat = _tag_sem(mf.Manifold.cylinder(1.25, radius * 0.56, radius * 0.44, circular_segments=28).translate([0.0, -0.52 * radius, -1.07]), SEM_WHEEL_BACK, sem_map)
     parts.append(back_seat)
 
     wheel = mf.Manifold.batch_boolean(parts, mf.OpType.Add)
-    # Inclinada de lado a 36° sobre el claro agrícola: radios frontales y perfil trasero limpios
-    return wheel.rotate([36.0, 0.0, 0.0]).rotate([0.0, 0.0, yaw_deg]).translate([x, y, z + radius * 0.34])
+    # Inclinada de lado a 36° sobre el claro agrícola rebajado: genus=0 estricto y radios limpios
+    return wheel.rotate([36.0, 0.0, 0.0]).rotate([0.0, 0.0, yaw_deg]).translate([x, y, z + radius * 0.36])
 
 
 def _make_hand_plow(x: float, y: float, z: float, yaw_deg: float, sem_map: Optional[Dict[int, int]] = None):
@@ -1140,7 +1148,7 @@ def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int =
             )
             if not (near_lane or near_rim_pocket):
                 continue
-            if math.hypot(x - 11.2, y + 13.8) < 5.2:
+            if math.hypot(x - 11.2, y + 13.8) < 5.2 or math.hypot(x - 5.4, y + 15.2) < 3.6:
                 continue
             if any(math.hypot(x - tx, y - ty) < 4.2 for tx, ty, _, _ in oak_spots + cypress_spots):
                 continue
@@ -1201,8 +1209,8 @@ def build_agricultural_props_manifold(fields: Dict[str, np.ndarray], seed: int =
         props.append(_make_straw_bale(bx, by, bz - 0.20, byaw, br, bl, sem_map=sem_map))
 
     sheaf_specs = [
-        (-5.5, -24.0, 15.0, 0.74),
-        (-7.8, -22.5, -30.0, 0.68),
+        (-14.5, -22.5, 15.0, 0.74),
+        (-16.2, -21.0, -30.0, 0.68),
         (16.2, -16.8, 12.0, 0.72),
         (18.2, -15.2, -40.0, 0.68),
         (-13.5, 17.5, 20.0, 0.72),
