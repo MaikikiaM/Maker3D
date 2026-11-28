@@ -1581,3 +1581,14 @@ Resultados verificados (`tools/blender/campo_pbr_bake.py` + `tools/colab/run_cam
 - **Horneado Colab Zero-Idle GPU (`NVIDIA L4 OPTIX`, `340.8s` GPU / `395.0s` sesión):** Horneados `baked_albedo.png` (`8192×8192` con Cycles AO), `baked_normal.png` (`8192×8192`) y `baked_orm.png` (`4096×4096`) + `9` renders PBR (`audit_6views_pbr.png`, `audit_ortho_pbr.png`, `pbr_props_closeup.png`, `pbr_trees_closeup.png`) con `DeleteRuntime` ejecutado antes de descargar (`Runtimes activos: []`); exportado `tile_pbr_v08.glb` (`158.30 MB`).
 - **Visor WebGL `v08-pbr` (`33.91 MiB` `< 50 MB`) y snapshot:** Empaquetado `Visores-HTML/catan-bioma-campo-v08-pbr.html` (`26,650,420 B` GLB optimizado / `83.94%` ahorro `meshopt+webp 4K`), enlazado como `Bioma 5J` en `Visores-HTML/index.html` y archivado en `Tableros-Catan/losetas/campo/versiones/v08_pbr_nanobanana/`.
 ================================================================================
+
+SESIÓN: 28/11/2026 - BIOMA CAMPO v09-PBR 8K (TEXTURA 4K BLOQUEADA AL CLAY)
+- Prompts literales del usuario:
+  * [28/11/2026 11:17]: "la textura que has elegido es una mierda porque no se adecua al clay"
+- Decisiones técnicas:
+  * Se descartó la proyección cenital 2D `nb_ortho_2k.png` (`v08-pbr`) por su desfase visual respecto a los surcos reales esculpidos en `v07` y se creó `tools/blender/build_campo_clay_locked_4k.py` para sintetizar `terrain_albedo_4k.png` + `terrain_bump_4k.png` (`4096x4096`, `~32 px/mm`) directamente desde `campo_semantic_fields.npz` (`wheat_sculpt`, crestas/entresurcos, `parcel_angles_deg`, caminos, roderas, claro agrícola y bordes verdes).
+  * Se actualizó `tools/blender/campo_pbr_bake.py` y `tools/colab/run_campo_pbr_colab.py` con sombreado continuo suave por vértice dentro de cada slot semántico `2..14` (sin mosaico triangular plano en props ni mezcla entre piezas) y separación `Catan_Campo_Plinth` / `Catan_Campo` en `prep-local` (Zero-Bmesh en Colab) para evitar OOM en horneado GPU Cycles OPTIX 8K.
+  * Se compiló el visor autónomo `Visores-HTML/catan-bioma-campo-v09-pbr.html` (`34.148 MiB`, `meshopt+webp 4K`, `83.78%` ahorro) y se archivó el snapshot completo en `Tableros-Catan/losetas/campo/versiones/v09_pbr_clay_locked/` preservando `v01`–`v08` intactos.
+- Resultados verificados:
+  * Colab `Tesla T4 SHAPE_HIGHMEM OPTIX` completado en `361.7 s` (`434.2 s` sesión GPU) con `DeleteRuntime` previo a la descarga; `tile_pbr_v09.glb` (`157.80 MB`).
+  * Inspección visual de `audit_ortho_pbr.png`, `audit_6views_pbr.png`, `pbr_props_closeup.png` y `pbr_trees_closeup.png`: alineación `0.000 mm` de textura con cada surco/entresurco/camino y cero parches triangulares planos.

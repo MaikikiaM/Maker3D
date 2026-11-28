@@ -237,20 +237,9 @@ def compute_semantic_corner_attributes(
 
         f_rough[m_ter] = 0.86 - 0.14 * _bilinear_arr(fields["wheat_mask"], V_fc[m_ter, 0], V_fc[m_ter, 1])
         f_bump[m_ter] = 0.55 + 0.35 * _bilinear_arr(fields["wheat_mask"], V_fc[m_ter, 0], V_fc[m_ter, 1])
-
-        # Peso de proyección cenital Nano Banana en terreno: 1.0 en campos/caminos/claro,
-        # cayendo a 0 justo bajo copas de árboles (para no pintar textura foliar en tierra) y faldón de pizarra
-        fx_fc, fy_fc, fz_fc = V_fc[m_ter, 0], V_fc[m_ter, 1], V_fc[m_ter, 2]
-        tree_hole = np.ones(len(fx_fc), dtype=np.float32)
-        for ox, oy in [(-0.5, 9.2), (24.0, 22.0), (-28.0, -4.5), (28.0, -10.5)]:
-            tree_hole = np.minimum(tree_hole, _smoothstep(1.15, 2.35, np.hypot(fx_fc - ox, fy_fc - oy)))
-        for cx, cy in [(7.5, 25.5), (11.5, 27.5), (-16.5, -28.0)]:
-            tree_hole = np.minimum(tree_hole, _smoothstep(0.65, 1.45, np.hypot(fx_fc - cx, fy_fc - cy)))
-        de_fc = _bilinear_arr(fields["de"], fx_fc, fy_fc)
-        dv_fc = _bilinear_arr(fields["dv"], fx_fc, fy_fc)
-        outer_fc = 1.0 - _smoothstep(3.8, 5.2, de_fc) * _smoothstep(10.3, 11.7, dv_fc)
-        rim_keep = np.where((fz_fc < Z_BASE + 0.18) & (outer_fc > 0.55), 0.0, 1.0).astype(np.float32)
-        f_nb_mix[m_ter] = np.clip(tree_hole * rim_keep, 0.0, 1.0)
+        # Con mapa 4K bloqueado al clay (`terrain_albedo_4k.png`), 100% del terreno sigue exactamente el mapa sin huecos;
+        # la proyección aérea Nano Banana (`nb_ortho_2k`) se deja solo si no existe `terrain_albedo_4k`.
+        f_nb_mix[m_ter] = 1.0
 
     # ------------------------------------------------------------------
     # 2. Roble / Encina (`SEM_OAK_LEAF`): racimos Voronoi iluminados vs grietas musgo
@@ -264,7 +253,7 @@ def compute_semantic_corner_attributes(
         f_srgb[m] = np.where((t < 0.5)[:, None], c_dark + (c_mid - c_dark) * (2.0 * t)[:, None], c_mid + (c_sun - c_mid) * (2.0 * t - 1.0)[:, None])
         f_rough[m] = 0.80
         f_bump[m] = 0.85
-        f_nb_mix[m] = 0.28
+        f_nb_mix[m] = 0.0
 
     # 3. Troncos y ramas (`SEM_BARK`)
     m = face_slot == SEM_BARK
@@ -281,7 +270,7 @@ def compute_semantic_corner_attributes(
         f_srgb[m] = np.array([0.08, 0.16, 0.06]) * (1.0 - t)[:, None] + np.array([0.25, 0.40, 0.16]) * t[:, None]
         f_rough[m] = 0.82
         f_bump[m] = 0.90
-        f_nb_mix[m] = 0.26
+        f_nb_mix[m] = 0.0
 
     # 5. Arbustos de linde (`SEM_BUSH`)
     m = face_slot == SEM_BUSH
@@ -290,7 +279,7 @@ def compute_semantic_corner_attributes(
         f_srgb[m] = np.array([0.16, 0.27, 0.08]) * (1.0 - t)[:, None] + np.array([0.42, 0.56, 0.19]) * t[:, None]
         f_rough[m] = 0.82
         f_bump[m] = 0.80
-        f_nb_mix[m] = 0.28
+        f_nb_mix[m] = 0.0
 
     # 6. Piedras calizas (`SEM_STONE`)
     m = face_slot == SEM_STONE
@@ -326,7 +315,7 @@ def compute_semantic_corner_attributes(
         f_srgb[m] = np.array([0.60, 0.43, 0.15]) * (1.0 - t)[:, None] + np.array([0.93, 0.77, 0.37]) * t[:, None]
         f_rough[m] = 0.80
         f_bump[m] = 0.90
-        f_nb_mix[m] = 0.22
+        f_nb_mix[m] = 0.0
 
     # 10. Cuerda trenzada de cáñamo (`SEM_ROPE`)
     m = face_slot == SEM_ROPE
@@ -368,12 +357,29 @@ def compute_semantic_corner_attributes(
         f_rough[m] = 0.90
         f_bump[m] = 0.35
 
-    # Convertir sRGB -> Linear RGBA y expandir por esquina de triángulo (3 loops por cara, cero sangrado)
+    # Suavizado por vértice dentro de cada slot semántico (props 2..14 sin caras triangulares planas ni sangrado entre slots)
     f_lin = _srgb_to_linear(f_srgb)
     loop_col = np.ones((n_f * 3, 4), dtype=np.float32)
     loop_col[:, :3] = np.repeat(f_lin, 3, axis=0)
     if ter_loop_lin is not None:
         loop_col.reshape(n_f, 3, 4)[m_ter, :, :3] = ter_loop_lin.reshape(-1, 3, 3)
+
+    # Para slots orgánicos 2..14 promediamos color lineal por (vértice, slot) eliminando facetas de color sin sangrar fronteras
+    v_slot_sum = np.zeros((len(V), 3), dtype=np.float32)
+    v_slot_cnt = np.zeros(len(V), dtype=np.float32)
+    for sid in range(2, 15):
+        ms = face_slot == sid
+        if not np.any(ms):
+            continue
+        fs = F[ms]
+        fc_lin = f_lin[ms]
+        v_slot_sum.fill(0.0)
+        v_slot_cnt.fill(0.0)
+        for c_i in range(3):
+            np.add.at(v_slot_sum, fs[:, c_i], fc_lin)
+            np.add.at(v_slot_cnt, fs[:, c_i], 1.0)
+        v_avg = v_slot_sum / np.maximum(v_slot_cnt[:, None], 1.0)
+        loop_col.reshape(n_f, 3, 4)[ms, :, :3] = v_avg[fs]
 
     loop_spec = np.ones((n_f * 3, 4), dtype=np.float32)
     loop_spec[:, 0] = np.repeat(f_rough, 3)
@@ -417,38 +423,38 @@ def _build_lighting_and_cameras(sc, res_px: int = 1024):
 def _setup_final_materials(obj, out_dir: Path, pack_images: bool = False):
     import bpy
 
-    plinth_p = out_dir / "plinth_albedo_1k.png"
-    if not plinth_p.exists():
-        sys.path.insert(0, str(REPO_ROOT / "tools" / "blender"))
-        import catan_hero360_bake as cb
-        plinth_p = cb.build_plinth_texture(out_dir, res=1024)
-
     alb_p = out_dir / "baked_albedo.png"
     nrm_p = out_dir / "baked_normal.png"
     orm_p = out_dir / "baked_orm.png"
 
+    has_plinth_slot = any(m and m.name == "Plinth_Gunmetal" for m in obj.data.materials)
     poly_mat = np.empty(len(obj.data.polygons), dtype=np.int32)
     obj.data.polygons.foreach_get("material_index", poly_mat)
     obj.data.materials.clear()
 
-    # Material 0: Plinth_Gunmetal (UV plana sobre plinth_albedo_1k.png)
-    m_pl = bpy.data.materials.new("Plinth_Gunmetal")
-    m_pl.use_nodes = True
-    nt_p = m_pl.node_tree
-    bsdf_p = next(n for n in nt_p.nodes if n.type == "BSDF_PRINCIPLED")
-    bsdf_p.inputs["Roughness"].default_value = 0.44
-    if "Metallic" in bsdf_p.inputs:
-        bsdf_p.inputs["Metallic"].default_value = 0.22
-    t_pl = nt_p.nodes.new("ShaderNodeTexImage")
-    im_pl = bpy.data.images.load(str(plinth_p), check_existing=False)
-    im_pl.colorspace_settings.name = "sRGB"
-    if pack_images:
-        im_pl.pack()
-    t_pl.image = im_pl
-    nt_p.links.new(t_pl.outputs["Color"], bsdf_p.inputs["Base Color"])
-    obj.data.materials.append(m_pl)
+    if has_plinth_slot:
+        plinth_p = out_dir / "plinth_albedo_1k.png"
+        if not plinth_p.exists():
+            sys.path.insert(0, str(REPO_ROOT / "tools" / "blender"))
+            import catan_hero360_bake as cb
+            plinth_p = cb.build_plinth_texture(out_dir, res=1024)
+        m_pl = bpy.data.materials.new("Plinth_Gunmetal")
+        m_pl.use_nodes = True
+        nt_p = m_pl.node_tree
+        bsdf_p = next(n for n in nt_p.nodes if n.type == "BSDF_PRINCIPLED")
+        bsdf_p.inputs["Roughness"].default_value = 0.44
+        if "Metallic" in bsdf_p.inputs:
+            bsdf_p.inputs["Metallic"].default_value = 0.22
+        t_pl = nt_p.nodes.new("ShaderNodeTexImage")
+        im_pl = bpy.data.images.load(str(plinth_p), check_existing=False)
+        im_pl.colorspace_settings.name = "sRGB"
+        if pack_images:
+            im_pl.pack()
+        t_pl.image = im_pl
+        nt_p.links.new(t_pl.outputs["Color"], bsdf_p.inputs["Base Color"])
+        obj.data.materials.append(m_pl)
 
-    # Material 1: Campo_PBR_8K (Albedo 8K + Normal 8K + ORM 4K)
+    # Campo_PBR_8K (Albedo 8K + Normal 8K + ORM 4K)
     m_org = bpy.data.materials.new("Campo_PBR_8K")
     m_org.use_nodes = True
     nt = m_org.node_tree
@@ -486,7 +492,7 @@ def _setup_final_materials(obj, out_dir: Path, pack_images: bool = False):
     nt.links.new(nrm_node.outputs["Normal"], bsdf.inputs["Normal"])
 
     obj.data.materials.append(m_org)
-    obj.data.polygons.foreach_set("material_index", poly_mat.tolist())
+    obj.data.polygons.foreach_set("material_index", poly_mat.tolist() if has_plinth_slot else [0] * len(poly_mat))
     obj.data.update()
 
 
@@ -526,35 +532,40 @@ def run_prep_local(work_dir: Path) -> None:
 
     plinth_p = cb.build_plinth_texture(work_dir, res=1024)
 
+    def _extract_submesh(mask_f: np.ndarray):
+        sub_f = F[mask_f]
+        u_v, inv = np.unique(sub_f.ravel(), return_inverse=True)
+        return V[u_v], inv.reshape(-1, 3)
+
+    pl_mask = face_slot == 0
+    org_mask = face_slot >= 1
+    V_pl, F_pl = _extract_submesh(pl_mask)
+    V_org, F_org = _extract_submesh(org_mask)
+    col_org = loop_col.reshape(len(F), 3, 4)[org_mask].reshape(-1, 4)
+    spec_org = loop_spec.reshape(len(F), 3, 4)[org_mask].reshape(-1, 4)
+
     bpy.ops.wm.read_factory_settings(use_empty=True)
     sc = bpy.context.scene
     sc.render.engine = "CYCLES"
 
-    me = bpy.data.meshes.new("Catan_Campo_PBR_Mesh")
-    me.from_pydata(V.tolist(), [], F.tolist())
+    # Objeto 0: Catan_Campo_Plinth (malla ligera ~9.6k Δ con UV XY plana)
+    me_pl = bpy.data.meshes.new("Catan_Campo_Plinth_Mesh")
+    me_pl.from_pydata(V_pl.tolist(), [], F_pl.tolist())
+    uv_pl_lay = me_pl.uv_layers.new(name="UVMap")
+    uv_pl_lay.active = True
+    uv_pl_lay.active_render = True
+    n_lpl = len(me_pl.loops)
+    lvi_pl = np.empty(n_lpl, dtype=np.int32)
+    me_pl.loops.foreach_get("vertex_index", lvi_pl)
+    vpl_pts = V_pl[lvi_pl]
+    uv_pl_arr = np.column_stack([
+        np.clip((vpl_pts[:, 0] + R) / (2.0 * R), 0.0, 1.0),
+        np.clip((vpl_pts[:, 1] + R) / (2.0 * R), 0.0, 1.0),
+    ]).astype(np.float32)
+    uv_pl_lay.data.foreach_set("uv", uv_pl_arr.ravel())
+    me_pl.update()
 
-    is_org = (face_slot >= 1).astype(np.int32)
-    me.polygons.foreach_set("material_index", is_org.tolist())
-    me.polygons.foreach_set("use_smooth", (face_slot >= 1).tolist())
-
-    # Escribir atributos CORNER `Col` y `MatSpec`
-    attr_col = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")
-    attr_col.data.foreach_set("color", loop_col.ravel())
-    attr_spec = me.color_attributes.new(name="MatSpec", type="FLOAT_COLOR", domain="CORNER")
-    attr_spec.data.foreach_set("color", loop_spec.ravel())
-
-    uv_layer = me.uv_layers.new(name="UVMap")
-    uv_layer.active = True
-    uv_layer.active_render = True
-    me.update()
-
-    obj = bpy.data.objects.new("Catan_Campo", me)
-    sc.collection.objects.link(obj)
-    bpy.ops.object.select_all(action="DESELECT")
-    obj.select_set(True)
-    bpy.context.view_layer.objects.active = obj
-
-    # Material 0: Plinth_Gunmetal (UV XY plana)
+    # Material 0: Plinth_Gunmetal (empaquetado 1K ligero)
     m_pl = bpy.data.materials.new("Plinth_Gunmetal")
     m_pl.use_nodes = True
     nt_p = m_pl.node_tree
@@ -568,7 +579,31 @@ def run_prep_local(work_dir: Path) -> None:
     im_pl.pack()
     t_pl.image = im_pl
     nt_p.links.new(t_pl.outputs["Color"], bsdf_p.inputs["Base Color"])
-    me.materials.append(m_pl)
+    me_pl.materials.append(m_pl)
+
+    pl_obj = bpy.data.objects.new("Catan_Campo_Plinth", me_pl)
+    sc.collection.objects.link(pl_obj)
+
+    # Objeto 1: Catan_Campo (100% orgánico, sin duplicados ni Edit Mode en Colab)
+    me = bpy.data.meshes.new("Catan_Campo_PBR_Mesh")
+    me.from_pydata(V_org.tolist(), [], F_org.tolist())
+    me.polygons.foreach_set("use_smooth", [True] * len(F_org))
+
+    attr_col = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")
+    attr_col.data.foreach_set("color", col_org.ravel())
+    attr_spec = me.color_attributes.new(name="MatSpec", type="FLOAT_COLOR", domain="CORNER")
+    attr_spec.data.foreach_set("color", spec_org.ravel())
+
+    uv_layer = me.uv_layers.new(name="UVMap")
+    uv_layer.active = True
+    uv_layer.active_render = True
+    me.update()
+
+    obj = bpy.data.objects.new("Catan_Campo", me)
+    sc.collection.objects.link(obj)
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
 
     # Material 1: Organic_Campo_Bake (combina Col + Cycles AO + micro-ruido 3D para hornear en GPU)
     m_org = bpy.data.materials.new("Organic_Campo_Bake")
@@ -583,26 +618,32 @@ def run_prep_local(work_dir: Path) -> None:
     sep = nt.nodes.new("ShaderNodeSeparateColor")
     nt.links.new(a_spec.outputs["Color"], sep.inputs["Color"])
 
+    locked_alb_path = work_dir / "terrain_albedo_4k.png"
+    locked_bmp_path = work_dir / "terrain_bump_4k.png"
     nb_ortho_path = work_dir / "nb_ortho_2k.png"
-    has_nb = nb_ortho_path.exists()
+    has_locked = locked_alb_path.exists()
+    has_nb = (not has_locked) and nb_ortho_path.exists()
     t_coord = nt.nodes.new("ShaderNodeTexCoord")
 
-    # Mezclar color base por vértice (Col) con súper textura cenital Nano Banana (nb_ortho_2k.png) según MatSpec.Alpha
-    if has_nb:
-        print(f"[PBR PrepLocal] Conectando súper textura Nano Banana ({nb_ortho_path.name}) por texel XY...", flush=True)
+    # Conectar textura 4K bloqueada exactamente al clay (`terrain_albedo_4k.png`, [-64..+64]) o fallback Nano Banana
+    t_bump_img = None
+    if has_locked or has_nb:
+        tex_path = locked_alb_path if has_locked else nb_ortho_path
+        extent_mm = 64.0 if has_locked else 71.0
+        print(f"[PBR PrepLocal] Conectando textura planar exacta ({tex_path.name}, +/-{extent_mm} mm) por texel XY...", flush=True)
         sep_xyz = nt.nodes.new("ShaderNodeSeparateXYZ")
         nt.links.new(t_coord.outputs["Object"], sep_xyz.inputs["Vector"])
 
         map_x = nt.nodes.new("ShaderNodeMapRange")
-        map_x.inputs["From Min"].default_value = -71.0
-        map_x.inputs["From Max"].default_value = 71.0
+        map_x.inputs["From Min"].default_value = -extent_mm
+        map_x.inputs["From Max"].default_value = extent_mm
         map_x.inputs["To Min"].default_value = 0.0
         map_x.inputs["To Max"].default_value = 1.0
         nt.links.new(sep_xyz.outputs["X"], map_x.inputs["Value"])
 
         map_y = nt.nodes.new("ShaderNodeMapRange")
-        map_y.inputs["From Min"].default_value = -71.0
-        map_y.inputs["From Max"].default_value = 71.0
+        map_y.inputs["From Min"].default_value = -extent_mm
+        map_y.inputs["From Max"].default_value = extent_mm
         map_y.inputs["To Min"].default_value = 0.0
         map_y.inputs["To Max"].default_value = 1.0
         nt.links.new(sep_xyz.outputs["Y"], map_y.inputs["Value"])
@@ -613,11 +654,18 @@ def run_prep_local(work_dir: Path) -> None:
 
         t_nb = nt.nodes.new("ShaderNodeTexImage")
         t_nb.extension = "EXTEND"
-        im_nb = bpy.data.images.load(str(nb_ortho_path), check_existing=False)
+        im_nb = bpy.data.images.load(str(tex_path), check_existing=False)
         im_nb.colorspace_settings.name = "sRGB"
-        im_nb.pack()
         t_nb.image = im_nb
         nt.links.new(comb_uv.outputs["Vector"], t_nb.inputs["Vector"])
+
+        if has_locked and locked_bmp_path.exists():
+            t_bump_img = nt.nodes.new("ShaderNodeTexImage")
+            t_bump_img.extension = "EXTEND"
+            im_bmp = bpy.data.images.load(str(locked_bmp_path), check_existing=False)
+            im_bmp.colorspace_settings.name = "Non-Color"
+            t_bump_img.image = im_bmp
+            nt.links.new(comb_uv.outputs["Vector"], t_bump_img.inputs["Vector"])
 
         mix_nb = nt.nodes.new("ShaderNodeMix")
         mix_nb.data_type = "RGBA"
@@ -638,7 +686,7 @@ def run_prep_local(work_dir: Path) -> None:
     ao_ramp = nt.nodes.new("ShaderNodeMapRange")
     ao_ramp.inputs["From Min"].default_value = 0.15
     ao_ramp.inputs["From Max"].default_value = 1.0
-    ao_ramp.inputs["To Min"].default_value = 0.58 if has_nb else 0.44
+    ao_ramp.inputs["To Min"].default_value = 0.68 if has_locked else (0.58 if has_nb else 0.44)
     ao_ramp.inputs["To Max"].default_value = 1.05
     nt.links.new(ao.outputs["AO"], ao_ramp.inputs["Value"])
 
@@ -651,8 +699,8 @@ def run_prep_local(work_dir: Path) -> None:
     n_map = nt.nodes.new("ShaderNodeMapRange")
     n_map.inputs["From Min"].default_value = 0.2
     n_map.inputs["From Max"].default_value = 0.8
-    n_map.inputs["To Min"].default_value = 0.93 if has_nb else 0.88
-    n_map.inputs["To Max"].default_value = 1.07 if has_nb else 1.12
+    n_map.inputs["To Min"].default_value = 0.94 if (has_locked or has_nb) else 0.88
+    n_map.inputs["To Max"].default_value = 1.06 if (has_locked or has_nb) else 1.12
     nt.links.new(noise.outputs["Fac"], n_map.inputs["Value"])
 
     mul_ao = nt.nodes.new("ShaderNodeMix")
@@ -680,9 +728,9 @@ def run_prep_local(work_dir: Path) -> None:
     if "Metallic" in bsdf.inputs:
         nt.links.new(sep.outputs["Green"], bsdf.inputs["Metallic"])
 
-    # Micro-bump fino procedural + relieve de tallos desde nb_ortho multiplicado por BumpWeight (MatSpec.Blue)
+    # Micro-bump fino procedural + micro-relieve 4K bloqueado al clay multiplicado por BumpWeight (MatSpec.Blue)
     noise_b = nt.nodes.new("ShaderNodeTexNoise")
-    noise_b.inputs["Scale"].default_value = 14.0 if has_nb else 11.5
+    noise_b.inputs["Scale"].default_value = 14.0 if (has_locked or has_nb) else 11.5
     noise_b.inputs["Detail"].default_value = 10.0
     noise_b.inputs["Roughness"].default_value = 0.65
     nt.links.new(t_coord.outputs["Object"], noise_b.inputs["Vector"])
@@ -690,12 +738,19 @@ def run_prep_local(work_dir: Path) -> None:
     bump_w = nt.nodes.new("ShaderNodeMath")
     bump_w.operation = "MULTIPLY"
     nt.links.new(sep.outputs["Blue"], bump_w.inputs[0])
-    bump_w.inputs[1].default_value = 0.28 if has_nb else 0.24
+    bump_w.inputs[1].default_value = 0.30 if has_locked else (0.28 if has_nb else 0.24)
 
     bump = nt.nodes.new("ShaderNodeBump")
-    bump.inputs["Distance"].default_value = 0.16 if has_nb else 0.14
+    bump.inputs["Distance"].default_value = 0.16 if (has_locked or has_nb) else 0.14
     nt.links.new(bump_w.outputs["Value"], bump.inputs["Strength"])
-    if has_nb:
+    if t_bump_img is not None:
+        bump_mix = nt.nodes.new("ShaderNodeMix")
+        bump_mix.data_type = "FLOAT"
+        nt.links.new(a_spec.outputs["Alpha"], bump_mix.inputs["Factor"])
+        nt.links.new(noise_b.outputs["Fac"], bump_mix.inputs[2])
+        nt.links.new(t_bump_img.outputs["Color"], bump_mix.inputs[3])
+        nt.links.new(bump_mix.outputs[0], bump.inputs["Height"])
+    elif has_nb:
         rgb2bw = nt.nodes.new("ShaderNodeRGBToBW")
         nt.links.new(t_nb.outputs["Color"], rgb2bw.inputs["Color"])
         bump_mix = nt.nodes.new("ShaderNodeMix")
@@ -717,31 +772,14 @@ def run_prep_local(work_dir: Path) -> None:
 
     me.materials.append(m_org)
 
-    # Desplegar UV SOLO sobre caras orgánicas (`slot >= 1`) en PC local (0 créditos GPU)
+    # Desplegar UV sobre Catan_Campo (100% orgánico, zócalo en objeto separado)
     t_uv = time.time()
-    print("[PBR PrepLocal] Desplegando Smart UV Project sobre 100% de caras orgánicas (zócalo aislado)...", flush=True)
+    print("[PBR PrepLocal] Desplegando Smart UV Project sobre Catan_Campo (zócalo aislado)...", flush=True)
     bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="DESELECT")
-    bpy.ops.object.mode_set(mode="OBJECT")
-    me.polygons.foreach_set("select", (face_slot >= 1).tolist())
-    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.mesh.select_mode(type="FACE")
     bpy.ops.uv.smart_project(angle_limit=math.radians(66.0), island_margin=0.0012, area_weight=1.0, correct_aspect=True)
     bpy.ops.object.mode_set(mode="OBJECT")
-
-    # UV planar XY para zócalo (`slot == 0`)
-    n_l = len(me.loops)
-    loop_vi = np.empty(n_l, dtype=np.int32)
-    me.loops.foreach_get("vertex_index", loop_vi)
-    uv_arr = np.empty(n_l * 2, dtype=np.float32)
-    me.uv_layers["UVMap"].data.foreach_get("uv", uv_arr)
-    uv2 = uv_arr.reshape(n_l, 2)
-    l_plinth = np.repeat(face_slot == 0, 3)
-    v_pl = V[loop_vi[l_plinth]]
-    uv2[l_plinth, 0] = np.clip((v_pl[:, 0] + R) / (2.0 * R), 0.0, 1.0)
-    uv2[l_plinth, 1] = np.clip((v_pl[:, 1] + R) / (2.0 * R), 0.0, 1.0)
-    me.uv_layers["UVMap"].data.foreach_set("uv", uv2.ravel())
-    me.update()
     print(f"[PBR PrepLocal] UVs aisladas listas en {time.time() - t_uv:.1f}s.", flush=True)
 
     blend_out = work_dir / "campo_gpu_bake.blend"
@@ -750,6 +788,7 @@ def run_prep_local(work_dir: Path) -> None:
 
 
 def run_gpu_bake_only(work_dir: Path, device_pref: str = "gpu", alb_res: int = 8192, orm_res: int = 4096) -> None:
+    import gc
     import bpy
     import mathutils
 
@@ -766,28 +805,15 @@ def run_gpu_bake_only(work_dir: Path, device_pref: str = "gpu", alb_res: int = 8
     if device_pref == "gpu" and not dev_used.startswith("GPU"):
         raise RuntimeError(f"Se exigió GPU OPTIX/CUDA pero se detectó {dev_used}")
 
-    orig_obj = bpy.data.objects["Catan_Campo"]
-    # Clonar objeto temporal SOLO con caras orgánicas (material_index == 1) para evitar hornear sobre el zócalo empaquetado
-    bake_mesh = orig_obj.data.copy()
-    bake_obj = bpy.data.objects.new("Catan_Campo_BakeOnly", bake_mesh)
-    sc.collection.objects.link(bake_obj)
+    plinth_obj = bpy.data.objects.get("Catan_Campo_Plinth")
+    if plinth_obj is not None:
+        plinth_obj.hide_render = True
+    obj = bpy.data.objects["Catan_Campo"]
     bpy.ops.object.select_all(action="DESELECT")
-    bake_obj.select_set(True)
-    bpy.context.view_layer.objects.active = bake_obj
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
 
-    poly_mat = np.empty(len(bake_mesh.polygons), dtype=np.int32)
-    bake_mesh.polygons.foreach_get("material_index", poly_mat)
-    if np.any(poly_mat == 0):
-        bpy.ops.object.mode_set(mode="EDIT")
-        bpy.ops.mesh.select_all(action="DESELECT")
-        bpy.ops.object.mode_set(mode="OBJECT")
-        bake_mesh.polygons.foreach_set("select", (poly_mat == 0).tolist())
-        bpy.ops.object.mode_set(mode="EDIT")
-        bpy.ops.mesh.delete(type="FACE")
-        bpy.ops.object.mode_set(mode="OBJECT")
-        bake_mesh.materials.pop(index=0)
-
-    m_org = bake_obj.data.materials[0]
+    m_org = obj.data.materials[0]
     nt = m_org.node_tree
     out_node = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
     bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
@@ -795,7 +821,6 @@ def run_gpu_bake_only(work_dir: Path, device_pref: str = "gpu", alb_res: int = 8
     comb_orm = nt.nodes["CombineORM"]
     mul_n = emit.inputs["Color"].links[0].from_socket
 
-    # Desactivar render sobre caras de zócalo para que smart UV solo hornee orgánicas
     tb = nt.nodes.new("ShaderNodeTexImage")
     nt.nodes.active = tb
     sc.render.bake.margin = 6
@@ -816,9 +841,10 @@ def run_gpu_bake_only(work_dir: Path, device_pref: str = "gpu", alb_res: int = 8
         im.file_format = "PNG"
         im.save()
         bpy.data.images.remove(im)
+        gc.collect()
         print(f"  [GpuBake] {out_path.name} ({res}x{res}, {bake_type}) en {time.time() - t_b:.1f}s", flush=True)
 
-    # 1. Albedo 8K (EMIT de Col * CyclesAO * MicroNoise -> nítido sin ruido ni sombras cocidas)
+    # 1. Albedo 8K (EMIT de Col/4K + CyclesAO * MicroNoise)
     nt.links.new(mul_n, emit.inputs["Color"])
     nt.links.new(emit.outputs["Emission"], out_node.inputs["Surface"])
     _bake_img("BakedAlbedo", alb_res, "sRGB", "EMIT", 6, work_dir / "baked_albedo.png")
@@ -827,17 +853,19 @@ def run_gpu_bake_only(work_dir: Path, device_pref: str = "gpu", alb_res: int = 8
     nt.links.new(comb_orm.outputs["Color"], emit.inputs["Color"])
     _bake_img("BakedORM", orm_res, "Non-Color", "EMIT", 6, work_dir / "baked_orm.png")
 
-    # 3. Normal tangente 8K (micro-relieve procedural sin doble inclinación macro)
+    # 3. Normal tangente 8K
     nt.links.new(bsdf.outputs["BSDF"], out_node.inputs["Surface"])
     _bake_img("BakedNormal", alb_res, "Non-Color", "NORMAL", 2, work_dir / "baked_normal.png")
 
-    # Limpiar objeto temporal de horneado y renderizar con objeto completo (zócalo + orgánico 8K)
-    bpy.data.objects.remove(bake_obj, do_unlink=True)
-    bpy.data.meshes.remove(bake_mesh)
-    obj = orig_obj
-    bpy.ops.object.select_all(action="DESELECT")
-    obj.select_set(True)
-    bpy.context.view_layer.objects.active = obj
+    # Liberar texturas fuente 4K antes de cargar mapas 8K para renders de auditoría (ahorra RAM en T4)
+    for attr in list(obj.data.color_attributes):
+        obj.data.color_attributes.remove(attr)
+    for im_old in list(bpy.data.images):
+        if "terrain_" in im_old.name or "nb_ortho" in im_old.name:
+            bpy.data.images.remove(im_old)
+    gc.collect()
+    if plinth_obj is not None:
+        plinth_obj.hide_render = False
 
     # Asignar texturas horneadas finales y renderizar 6 vistas PBR + ortho + macro árboles/props en GPU OPTIX
     _setup_final_materials(obj, work_dir, pack_images=False)
@@ -914,6 +942,11 @@ def run_finalize_local(work_dir: Path, glb_name: str = "tile_pbr_v05.glb") -> No
         obj.data.color_attributes.remove(attr)
 
     _setup_final_materials(obj, work_dir, pack_images=True)
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    pl_obj = bpy.data.objects.get("Catan_Campo_Plinth")
+    if pl_obj is not None:
+        pl_obj.select_set(True)
 
     glb_out = work_dir / glb_name
     bpy.ops.export_scene.gltf(

@@ -166,7 +166,7 @@ def main() -> None:
 
         in_tar = scratch / f"campo_{wd.name}_in.tar"
         with tarfile.open(in_tar, "w") as tf:
-            for rel in ("campo_gpu_bake.blend", "plinth_albedo_1k.png", "nb_ortho_2k.png"):
+            for rel in ("campo_gpu_bake.blend", "plinth_albedo_1k.png", "terrain_albedo_4k.png", "terrain_bump_4k.png", "nb_ortho_2k.png"):
                 if (wd / rel).exists():
                     tf.add(wd / rel, arcname=f"work/{rel}")
             for rel in ("tools/blender/campo_pbr_bake.py", "tools/blender/macro_bake_helpers.py"):
